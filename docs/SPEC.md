@@ -143,7 +143,7 @@ The separator row (`|---|---|`) is ignored. First row is treated as headers. Thi
 
 - Every row is a line containing `|` delimiters.
 - Rows are **auto-numbered** starting at 1, top to bottom, per sheet.
-- A **blank line** (no `|`) is an empty row and consumes a row number.
+- A **blank line** (no `|`) does not consume a row number and is not rendered.
 - Leading and trailing `|` are optional but recommended for readability.
 - Multiple consecutive spaces inside a cell **collapse to one** on render — use spaces freely to align columns in plain text.
 
@@ -151,7 +151,7 @@ The separator row (`|---|---|`) is ignored. First row is treated as headers. Thi
 | Manzanas  | 1.20  | 50  |   ← renders as "Manzanas", "1.20", "50"
 | Peras     | 0.90  | 30  |
 
-| TOTAL     | ...   | ... |   ← row 4 (blank line was row 3)
+| TOTAL     | ...   | ... |   ← row 3 (blank line is ignored)
 ```
 
 ---
@@ -255,7 +255,7 @@ Both **named references** and **coordinate references** are valid and can be mix
 Use `!` as the separator:
 
 ```
-=Ventas!SUM(Total)
+=SUM(Ventas!Total)
 =Ventas!B4
 =Ventas!fila_manzanas.Precio
 =Datos!COUNTIF(edad,25)
@@ -500,7 +500,7 @@ For each line, the parser checks in order:
 2. Is it a `@sheet` declaration? → open new sheet, reset state
 3. Is it a header row (`-...-`)? → update `currentHeaders`
 4. Is it a data row (`|`)? → parse as Cello row
-5. Is it a blank line? → increment `rowIndex`, add empty row
+5. Is it a blank line? → ignore (does not consume row number)
 6. Otherwise → pass to the active format parser (CSV, JSON, etc.)
 
 Merge tokens are resolved immediately during row parsing:
