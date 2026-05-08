@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type {
   CellNode,
   ColumnNode,
@@ -7,14 +9,14 @@ import type {
   RowNode,
   SheetNode,
   WorkbookAst
-} from "./types.js";
+} from "../shared/types.js";
 import {
   columnLetter,
   inferType,
   parseSheetFormat,
   parseTrailingModifiers,
   splitDelimitedLine
-} from "./utils.js";
+} from "../shared/utils.js";
 
 const DEFAULT_ANON_SHEET_NAME = "Sheet1";
 
@@ -80,6 +82,36 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     }
 
     const sheet = ensureSheet();
+
+    const externalSourceMatch = trimmed.match(/^->\s+(.+)$/);
+    if (externalSourceMatch) {
+      if (sheet.rows.length > 0) {
+        pushDiagnostic({
+          level: "warning",
+          line: lineNumber,
+          sheet: sheet.name,
+          message: "External sheet source (-> path) must appear before any rows in a sheet."
+        });
+        continue;
+      }
+
+      const rawPath = externalSourceMatch[1].trim();
+      const filePath = resolve(options.baseDir ?? process.cwd(), rawPath);
+      try {
+        const externalText = readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+        const injectedLines = externalText.split("\n");
+        lines.splice(i + 1, 0, ...injectedLines);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        pushDiagnostic({
+          level: "warning",
+          line: lineNumber,
+          sheet: sheet.name,
+          message: `Failed to load external sheet source "${rawPath}": ${message}`
+        });
+      }
+      continue;
+    }
 
     if (sheet.format.kind === "json") {
       if (trimmed.length > 0) {
@@ -515,3 +547,4 @@ function stringifyJsonValue(value: unknown): string {
   }
   return JSON.stringify(value);
 }
+

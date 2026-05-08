@@ -72,6 +72,7 @@ export interface WorkbookAst {
 export interface ParseOptions {
   strict?: boolean;
   anonymousSheetName?: string;
+  baseDir?: string;
 }
 
 export interface EvaluateOptions {

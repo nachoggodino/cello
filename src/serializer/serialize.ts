@@ -1,4 +1,4 @@
-import type { CellNode, SheetFormat, WorkbookAst } from "./types.js";
+import type { CellNode, SheetFormat, WorkbookAst } from "../shared/types.js";
 
 export function serialize(ast: WorkbookAst): string {
   const chunks: string[] = [];
@@ -85,3 +85,4 @@ function stringifyModifiers(modifiers: Array<{ raw: string }>): string {
   }
   return modifiers.map((m) => `[${m.raw}]`).join("");
 }
+

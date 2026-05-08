@@ -1,5 +1,6 @@
-import type { CellNode, EvaluateOptions, WorkbookAst } from "./types.js";
-import { deepClone } from "./utils.js";
+import type { CellNode, EvaluateOptions, WorkbookAst } from "../shared/types.js";
+import { buildWorkbookRefIndex, translateFormulaForEngine } from "./formula.js";
+import { deepClone } from "../shared/utils.js";
 
 export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}): Promise<WorkbookAst> {
   const output = deepClone(ast);
@@ -18,6 +19,7 @@ export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}):
 
   try {
     const sheetsData: Record<string, Array<Array<string | number | boolean | null>>> = {};
+    const refIndex = buildWorkbookRefIndex(output);
 
     for (const sheet of output.sheets) {
       const rowCount = sheet.rows.length;
@@ -31,7 +33,7 @@ export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}):
           if (cell.kind === "merge-left" || cell.kind === "merge-up") {
             continue;
           }
-          matrix[row.index - 1][cell.col - 1] = toHyperFormulaValue(cell);
+          matrix[row.index - 1][cell.col - 1] = toHyperFormulaValue(cell, sheet.name, refIndex, output);
         }
       }
 
@@ -70,9 +72,14 @@ export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}):
   return output;
 }
 
-function toHyperFormulaValue(cell: CellNode): string | number | boolean | null {
+function toHyperFormulaValue(
+  cell: CellNode,
+  sheetName: string,
+  refIndex: ReturnType<typeof buildWorkbookRefIndex>,
+  output: WorkbookAst
+): string | number | boolean | null {
   if (cell.kind === "formula" && cell.formula) {
-    return cell.formula;
+    return translateFormulaForEngine(cell.formula, sheetName, refIndex, output.diagnostics);
   }
   return cell.value;
 }
@@ -86,3 +93,4 @@ function normalizeValue(value: unknown): string | number | boolean | null {
   }
   return String(value);
 }
+

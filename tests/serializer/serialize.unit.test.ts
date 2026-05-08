@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../src/parse.js";
-import { serialize } from "../src/serialize.js";
+import { parse } from "../../src/parser/parse.js";
+import { serialize } from "../../src/serializer/serialize.js";
 
 describe("serialize (unit-focused behavior)", () => {
   it("serializes json and delimited format tokens accurately", () => {
@@ -25,3 +25,4 @@ describe("serialize (unit-focused behavior)", () => {
     expect(out).toContain("| TRUE | 42 |");
   });
 });
+

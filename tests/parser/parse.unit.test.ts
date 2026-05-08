@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../src/parse.js";
+import { parse } from "../../src/parser/parse.js";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 describe("parse (unit-focused edge cases)", () => {
   it("ignores blank lines and preserves compact row numbering", () => {
@@ -65,4 +68,16 @@ describe("parse (unit-focused edge cases)", () => {
     expect(row?.cells[0].value).toBe(1);
     expect(row?.cells[1].value).toBe('{"x":2}');
   });
+
+  it("loads external source files via -> path for sheet content", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cello-parse-"));
+    const source = join(dir, "data.csv");
+    writeFileSync(source, "name,amount\nAna,12\nLuis,7\n", "utf8");
+
+    const ast = parse("@sheet Data [csv]\n-> ./data.csv", { baseDir: dir });
+    expect(ast.sheets[0].rows[0].kind).toBe("header");
+    expect(ast.sheets[0].rows[1].cells[0].value).toBe("Ana");
+    expect(ast.sheets[0].rows[2].cells[1].value).toBe(7);
+  });
 });
+

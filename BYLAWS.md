@@ -20,6 +20,8 @@ Example:
 1. Syntax: `@sheet Name [format]`
 2. `Name` is case-sensitive.
 3. `[format]` is optional; default is native Cello.
+4. Optional external source line syntax (must be right after `@sheet`): `-> /ruta/al/archivo`
+5. External source content is parsed using the declared sheet format.
 
 Examples:
 
@@ -27,6 +29,8 @@ Examples:
 @sheet Data [csv]
 @sheet Export [\t]
 @sheet Report
+@sheet Data [csv]
+-> ./exports/data.csv
 ```
 
 ## 3) What counts as a row
@@ -74,6 +78,7 @@ row_total[bold] | TOTAL | =SUM(Amount) |
 1. Any cell starting with `=` is a formula.
 2. Named and coordinate references are both valid.
 3. Cross-sheet references use `!`.
+4. `!!` can be used as alias for the first sheet in the workbook.
 
 Examples:
 
@@ -82,6 +87,7 @@ Examples:
 | =SUM(Total) |
 | =Sales!B4 |
 | =SUM(Sales!Total) |
+| =SUM(!!Amount) |
 ```
 
 ## 7) Named column ranges
@@ -179,6 +185,7 @@ Example:
 - `//`
 - `"..."`
 - `!`
+- `->`
 - `[n:m]`
 - `[...]`
 

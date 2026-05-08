@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { parse } from "../src/parse.js";
-import { evaluate } from "../src/evaluate.js";
+import { parse } from "../../src/parser/parse.js";
+import { evaluate } from "../../src/evaluator/evaluate.js";
 
 const buildFromSheetsMock = vi.fn();
 
@@ -82,3 +82,4 @@ describe("evaluate (unit with mocked HyperFormula)", () => {
     expect(out.sheets[0].rows[0].cells[1].computed).toBeNull();
   });
 });
+

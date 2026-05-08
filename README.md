@@ -9,6 +9,12 @@ TypeScript scaffold for the Cello reference library.
 - `render(input)` -> self-contained HTML with sheet tabs
 - `serialize(ast)` -> `.cel` text
 - `cello` CLI (`parse`, `evaluate`, `render`, `serialize`)
+- Named column references translated for evaluation:
+  - `=SUM(Price)`
+  - `=SUM(Price[2:10])`
+  - `=SUM(Data!Amount)`
+- `!!` alias for first-sheet references in formulas:
+  - `=SUM(!!Amount)`
 
 ## Quick start
 
@@ -31,15 +37,15 @@ Current suite mix:
 
 ## Project layout
 
-- `src/types.ts`: AST + public types
-- `src/parse.ts`: single-pass parser baseline
-- `src/evaluate.ts`: HyperFormula adapter
-- `src/render.ts`: HTML renderer
-- `src/serialize.ts`: AST serializer
-- `src/cli.ts`: CLI entrypoint
+- `src/shared/`: shared types and utilities
+- `src/parser/`: parsing pipeline
+- `src/evaluator/`: formula translation + HyperFormula evaluation
+- `src/renderer/`: HTML rendering
+- `src/serializer/`: `.cel` serialization
+- `src/cli/`: CLI entrypoint
 
 ## Current limitations
 
-- Named-reference to A1 translation is not implemented yet (`=SUM(Total)` may not resolve in HyperFormula).
 - Formula cell modifiers (e.g. `=A1+B1[bold]`) are not parsed yet.
 - JSON sheets are parsed at sheet-finalization time (not true line-by-line streaming yet).
+- Row-name dot references (e.g. `Sheet!row_name.Column`) are not translated yet.

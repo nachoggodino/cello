@@ -21,6 +21,12 @@ Status legend:
 - Code: implemented (`parseSheetFormat`, `@sheet Name [format]`)
 - Tests: covered (`tests/parse.test.ts`)
 
+2b. External sheet source (`-> /path`) with declared format
+- BYLAWS: implemented
+- SPEC: aligned
+- Code: implemented (parser injects external file lines when `->` appears before rows)
+- Tests: covered (`tests/parser/parse.unit.test.ts`)
+
 3. Row behavior (data rows start with `|`, blank lines ignored)
 - BYLAWS: implemented
 - SPEC: aligned (patched)

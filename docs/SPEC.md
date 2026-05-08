@@ -56,6 +56,9 @@ A `.cel` file contains one or more **sheets**. Each sheet is declared with `@she
 
 - `SheetName` is case-sensitive.
 - `[format]` is optional — if omitted, the sheet uses native Cello syntax.
+- An optional external source line can be provided immediately after the sheet declaration:
+  - `-> /ruta/al/archivo.ext`
+  - The declared sheet format still controls parsing.
 - Everything between two `@sheet` declarations belongs to the first.
 - A file with no `@sheet` is treated as a single anonymous sheet in native Cello format.
 
@@ -108,6 +111,20 @@ The `noheader` flag is available for all delimited formats:
 ```
 
 All delimited formats use a single generic parser with a delimiter parameter. There is no performance difference between them.
+
+### 3.5 External sheet source
+
+You can load a sheet from an external file while keeping the same format declaration:
+
+```
+@sheet Ventas [csv]
+-> ./exports/ventas.csv
+```
+
+Rules:
+- `-> path` must appear before any row content in that sheet.
+- Relative paths are resolved from the parser `baseDir` (or process cwd when omitted).
+- If loading fails, parsing continues with a warning diagnostic.
 
 ### 3.3 Markdown tables
 
@@ -259,6 +276,12 @@ Use `!` as the separator:
 =Ventas!B4
 =Ventas!fila_manzanas.Precio
 =Datos!COUNTIF(edad,25)
+```
+
+`!!` is an alias for the first sheet name in the workbook:
+
+```
+=SUM(!!amount)
 ```
 
 ### 9.3 Formula evaluation order
@@ -421,6 +444,7 @@ render(celContent)                    // always returns HTML
 | `//`       | Comment (outside rows only) |
 | `"..."`    | Force text type |
 | `!`        | Cross-sheet reference separator |
+| `->`       | External sheet source line |
 | `[n:m]`    | Row range in column references |
 | `[...]`    | Modifier block |
 

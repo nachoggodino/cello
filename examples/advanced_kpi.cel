@@ -1,0 +1,27 @@
+// Advanced KPI workbook using named refs, slices, cross-sheet refs and !! alias
+
+@sheet RawData [csv]
+date,region,agent,amount,units
+2026-01-01,Madrid,Ana,1200,4
+2026-01-01,Barcelona,Luis,980,3
+2026-01-02,Madrid,Sara,1420,5
+2026-01-02,Valencia,Pedro,760,2
+2026-01-03,Madrid,Ana,1660,6
+2026-01-03,Barcelona,Luis,1100,4
+
+@sheet KPIs
+
+-Metric-Value-
+| ## Revenue KPIs | < |
+| Total revenue | =SUM(!!amount) |
+| First 3 rows revenue | =SUM(!!amount[2:4]) |
+| Total units | =SUM(!!units) |
+| Avg ticket | =SUM(!!amount)/SUM(!!units) |
+
+@sheet Regions
+
+-Region-Revenue[€][2d]-Units[0d]-Avg_ticket[€][2d]-
+row_madrid | Madrid | =SUMIF(RawData!region,"Madrid",RawData!amount) | =SUMIF(RawData!region,"Madrid",RawData!units) | =Revenue/Units |
+row_barcelona | Barcelona | =SUMIF(RawData!region,"Barcelona",RawData!amount) | =SUMIF(RawData!region,"Barcelona",RawData!units) | =Revenue/Units |
+row_valencia | Valencia | =SUMIF(RawData!region,"Valencia",RawData!amount) | =SUMIF(RawData!region,"Valencia",RawData!units) | =Revenue/Units |
+row_total[bold][bg:#f3f4f6] | ## TOTAL | =SUM(Revenue) | =SUM(Units) | =SUM(Revenue)/SUM(Units) |

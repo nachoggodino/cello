@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createCliDeps, runCli, runMain } from "../src/cli.js";
+import { createCliDeps, runCli, runMain } from "../../src/cli/cli.js";
 
 const tempDirs: string[] = [];
 
@@ -178,3 +178,4 @@ describe("cli", () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });
+

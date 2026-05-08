@@ -1,7 +1,7 @@
-import { evaluate } from "./evaluate.js";
-import { parse } from "./parse.js";
-import type { CellNode, RenderOptions, WorkbookAst } from "./types.js";
-import { escapeHtml } from "./utils.js";
+import { evaluate } from "../evaluator/evaluate.js";
+import { parse } from "../parser/parse.js";
+import type { CellNode, RenderOptions, WorkbookAst } from "../shared/types.js";
+import { escapeHtml } from "../shared/utils.js";
 
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
   const parsed = typeof input === "string" ? parse(input, { strict: options.strict }) : input;
@@ -121,3 +121,4 @@ function buildStyle(cell: CellNode): string {
   }
   return styles.join(";");
 }
+

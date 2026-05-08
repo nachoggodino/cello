@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parse } from "../src/parse.js";
+import { parse } from "../../src/parser/parse.js";
 
 vi.mock("hyperformula", () => {
   throw new Error("module not available");
@@ -7,7 +7,7 @@ vi.mock("hyperformula", () => {
 
 describe("evaluate (without HyperFormula module)", () => {
   it("returns warning diagnostic and keeps formulas unevaluated", async () => {
-    const { evaluate } = await import("../src/evaluate.js");
+    const { evaluate } = await import("../../src/evaluator/evaluate.js");
     const ast = parse("@sheet S\n| =1+1 |");
     const out = await evaluate(ast);
 
@@ -15,3 +15,4 @@ describe("evaluate (without HyperFormula module)", () => {
     expect(out.sheets[0].rows[0].cells[0].computed).toBeUndefined();
   });
 });
+

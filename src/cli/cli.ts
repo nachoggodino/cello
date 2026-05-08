@@ -2,10 +2,10 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { evaluate } from "./evaluate.js";
-import { parse } from "./parse.js";
-import { render } from "./render.js";
-import { serialize } from "./serialize.js";
+import { evaluate } from "../evaluator/evaluate.js";
+import { parse } from "../parser/parse.js";
+import { render } from "../renderer/render.js";
+import { serialize } from "../serializer/serialize.js";
 
 export interface CliDeps {
   cwd: string;
@@ -114,3 +114,4 @@ const isDirectExecution =
 if (isDirectExecution) {
   void runMain(process.argv);
 }
+

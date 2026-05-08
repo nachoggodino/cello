@@ -7,7 +7,7 @@ import {
   parseSheetFormat,
   parseTrailingModifiers,
   splitDelimitedLine
-} from "../src/utils.js";
+} from "../../src/shared/utils.js";
 
 describe("utils", () => {
   it("computes spreadsheet column letters", () => {
@@ -61,3 +61,4 @@ describe("utils", () => {
     expect(splitDelimitedLine('"A""B";C', ";")).toEqual(['A"B', "C"]);
   });
 });
+
