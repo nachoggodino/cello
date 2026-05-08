@@ -52,7 +52,7 @@ export function parseTrailingModifiers(value: string): { base: string; modifiers
 export function parseModifier(raw: string): Modifier {
   if (raw.includes(":")) {
     const [key, ...rest] = raw.split(":");
-    return { raw, key: key.trim().toLowerCase(), value: rest.join(":").trim() };
+    return { raw, key: (key ?? "").trim().toLowerCase(), value: rest.join(":").trim() };
   }
 
   if (raw.startsWith("#bg:")) {
@@ -123,7 +123,7 @@ export function parseSheetFormat(rawFormat?: string): SheetFormat {
 
   const [formatHead, ...flags] = token.split(":");
   const noHeader = flags.some((f) => f.trim().toLowerCase() === "noheader");
-  if (formatHead.length === 1) {
+  if (formatHead && formatHead.length === 1) {
     return { kind: "delimited", delimiter: formatHead, noHeader };
   }
   if (formatHead === "\\t") {

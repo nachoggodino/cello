@@ -8,7 +8,7 @@ interface SheetRefIndex {
 }
 
 interface WorkbookRefIndex {
-  firstSheetName?: string;
+  firstSheetName: string | undefined;
   bySheetName: Map<string, SheetRefIndex>;
 }
 
@@ -72,7 +72,7 @@ export function translateFormulaForEngine(
   translated = translated.replace(
     /([A-Za-z_][A-Za-z0-9_]*)(\[(\d+):(\d+)\])?/g,
     (m, token: string, _slice: string, start: string, end: string, offset: number, source: string) => {
-      const prev = offset > 0 ? source[offset - 1] : "";
+      const prev = offset > 0 ? (source[offset - 1] ?? "") : "";
       const next = source[offset + m.length] ?? "";
       const prevOk = prev === "" || /[^\w.]/.test(prev);
       const nextOk = next === "" || /[^\w]/.test(next);

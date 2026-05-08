@@ -64,8 +64,10 @@ Ana,25
     const ast = parse(text);
     const sheet = ast.sheets[0];
     expect(sheet.rows[0].kind).toBe("data");
-    expect(sheet.columns[0]).toMatchObject({ letter: "A", name: undefined });
-    expect(sheet.columns[1]).toMatchObject({ letter: "B", name: undefined });
+    expect(sheet.columns[0]).toMatchObject({ letter: "A" });
+    expect(sheet.columns[1]).toMatchObject({ letter: "B" });
+    expect("name" in sheet.columns[0]).toBe(false);
+    expect("name" in sheet.columns[1]).toBe(false);
   });
 
   it("parses markdown format and skips separator row", () => {

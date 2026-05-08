@@ -27,6 +27,10 @@ interface MutableParseState {
   jsonBufferBySheet: Map<string, string[]>;
   consumedDelimitedHeaderBySheet: Set<string>;
 }
+interface HeaderDef {
+  name: string;
+  modifiers: Modifier[];
+}
 
 export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
   const workbook: WorkbookAst = {
@@ -72,7 +76,12 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
 
     const sheetMatch = trimmed.match(/^@sheet\s+(.+?)(?:\s+\[(.+)\])?$/);
     if (sheetMatch) {
-      const [, rawName, rawFormat] = sheetMatch;
+      const rawName = sheetMatch[1];
+      const rawFormat = sheetMatch[2];
+      if (!rawName) {
+        pushDiagnostic({ level: "warning", line: lineNumber, message: "Invalid @sheet declaration." });
+        continue;
+      }
       const nextSheet = createSheet(rawName.trim(), rawFormat?.trim());
       workbook.sheets.push(nextSheet);
       state.currentSheet = nextSheet;
@@ -95,7 +104,7 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
         continue;
       }
 
-      const rawPath = externalSourceMatch[1].trim();
+      const rawPath = (externalSourceMatch[1] ?? "").trim();
       const filePath = resolve(options.baseDir ?? process.cwd(), rawPath);
       try {
         const externalText = readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
@@ -128,10 +137,10 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     }
 
     if (isHeaderRow(trimmed) && sheet.format.kind === "cello") {
-      const headerRow = parseHeaderRow(trimmed, sheet.rows.length + 1, lineNumber);
-      sheet.rows.push(headerRow.row);
-      state.currentHeaders = headerRow.headers;
-      applyHeadersToColumns(sheet, state.currentHeaders);
+      const headers = parseHeadersFromLine(trimmed);
+      pushHeaderRow(sheet, headers, lineNumber);
+      state.currentHeaders = headers;
+      applyHeadersToColumns(sheet, headers);
       continue;
     }
 
@@ -141,24 +150,14 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       const headerConsumedKey = sheet.name;
       if (!sheet.format.noHeader && !state.consumedDelimitedHeaderBySheet.has(headerConsumedKey)) {
         const headers = parts.map((name) => ({ name, modifiers: [] as Modifier[] }));
-        const headerRow = toHeaderRow(headers, sheet.rows.length + 1, lineNumber);
-        sheet.rows.push(headerRow.row);
+        pushHeaderRow(sheet, headers, lineNumber);
         state.currentHeaders = headers;
         applyHeadersToColumns(sheet, headers);
         state.consumedDelimitedHeaderBySheet.add(headerConsumedKey);
         continue;
       }
 
-      const dataRow = parseDataCells(parts, {
-        rowIndex: sheet.rows.length + 1,
-        lineNumber,
-        rowName: undefined,
-        rowModifiers: [],
-        previousRowByColumn: state.previousRowByColumn
-      });
-      sheet.rows.push(dataRow);
-      registerColumns(sheet, dataRow.cells, state.currentHeaders);
-      state.previousRowByColumn = mapLatestVisibleCells(dataRow);
+      state.previousRowByColumn = appendDataRow(sheet, parts, lineNumber, state.previousRowByColumn, state.currentHeaders);
       continue;
     }
 
@@ -173,23 +172,13 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       const parts = parseMarkdownLine(trimmed);
       if (state.currentHeaders.length === 0) {
         const headers = parts.map((name) => ({ name, modifiers: [] as Modifier[] }));
-        const headerRow = toHeaderRow(headers, sheet.rows.length + 1, lineNumber);
-        sheet.rows.push(headerRow.row);
+        pushHeaderRow(sheet, headers, lineNumber);
         state.currentHeaders = headers;
         applyHeadersToColumns(sheet, headers);
         continue;
       }
 
-      const dataRow = parseDataCells(parts, {
-        rowIndex: sheet.rows.length + 1,
-        lineNumber,
-        rowName: undefined,
-        rowModifiers: [],
-        previousRowByColumn: state.previousRowByColumn
-      });
-      sheet.rows.push(dataRow);
-      registerColumns(sheet, dataRow.cells, state.currentHeaders);
-      state.previousRowByColumn = mapLatestVisibleCells(dataRow);
+      state.previousRowByColumn = appendDataRow(sheet, parts, lineNumber, state.previousRowByColumn, state.currentHeaders);
       continue;
     }
 
@@ -204,16 +193,15 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     }
 
     const { rowName, rowNameModifiers, cells } = splitNativeRow(rawLine);
-    const row = parseDataCells(cells, {
-      rowIndex: sheet.rows.length + 1,
+    state.previousRowByColumn = appendDataRow(
+      sheet,
+      cells,
       lineNumber,
+      state.previousRowByColumn,
+      state.currentHeaders,
       rowName,
-      rowModifiers: rowNameModifiers,
-      previousRowByColumn: state.previousRowByColumn
-    });
-    sheet.rows.push(row);
-    registerColumns(sheet, row.cells, state.currentHeaders);
-    state.previousRowByColumn = mapLatestVisibleCells(row);
+      rowNameModifiers
+    );
   }
 
   // JSON sheets: parse at the end of file.
@@ -235,30 +223,22 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       const first = parsed[0] as Record<string, unknown> | undefined;
       const headers = Object.keys(first ?? {}).map((name) => ({ name, modifiers: [] as Modifier[] }));
       if (headers.length > 0) {
-        const headerRow = toHeaderRow(headers, sheet.rows.length + 1, 0);
-        sheet.rows.push(headerRow.row);
+        pushHeaderRow(sheet, headers, 0);
         applyHeadersToColumns(sheet, headers);
       }
+      let previousRowByColumn = mapLatestVisibleCells(
+        sheet.rows[sheet.rows.length - 1] ?? {
+          index: 0,
+          kind: "data",
+          sourceLine: 0,
+          modifiers: [],
+          cells: []
+        }
+      );
 
       for (const obj of parsed as Array<Record<string, unknown>>) {
         const cells = headers.map((h) => stringifyJsonValue(obj[h.name]));
-        const row = parseDataCells(cells, {
-          rowIndex: sheet.rows.length + 1,
-          lineNumber: 0,
-          rowName: undefined,
-          rowModifiers: [],
-          previousRowByColumn: mapLatestVisibleCells(
-            sheet.rows[sheet.rows.length - 1] ?? {
-              index: 0,
-              kind: "data",
-              sourceLine: 0,
-              modifiers: [],
-              cells: []
-            }
-          )
-        });
-        sheet.rows.push(row);
-        registerColumns(sheet, row.cells, headers);
+        previousRowByColumn = appendDataRow(sheet, cells, 0, previousRowByColumn, headers);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -270,7 +250,6 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       const row = parseDataCells([raw], {
         rowIndex: sheet.rows.length + 1,
         lineNumber: 0,
-        rowName: undefined,
         rowModifiers: [],
         previousRowByColumn: new Map<number, CellNode>()
       });
@@ -295,18 +274,18 @@ function isHeaderRow(trimmed: string): boolean {
   return trimmed.startsWith("-") && trimmed.endsWith("-") && trimmed.includes("-");
 }
 
-function parseHeaderRow(trimmed: string, index: number, lineNumber: number): {
-  row: RowNode;
-  headers: Array<{ name: string; modifiers: Modifier[] }>;
-} {
+function parseHeadersFromLine(trimmed: string): HeaderDef[] {
   const inner = trimmed.slice(1, -1);
   const tokens = inner.split("-");
-  const headers = tokens.map((token) => {
+  return tokens.map((token) => {
     const parsed = parseTrailingModifiers(token.trim());
     return { name: parsed.base, modifiers: parsed.modifiers };
   });
+}
 
-  const row: RowNode = {
+function pushHeaderRow(sheet: SheetNode, headers: HeaderDef[], lineNumber: number): void {
+  const index = sheet.rows.length + 1;
+  sheet.rows.push({
     index,
     kind: "header",
     sourceLine: lineNumber,
@@ -322,34 +301,7 @@ function parseHeaderRow(trimmed: string, index: number, lineNumber: number): {
       colspan: 1,
       rowspan: 1
     }))
-  };
-  return { row, headers };
-}
-
-function toHeaderRow(
-  headers: Array<{ name: string; modifiers: Modifier[] }>,
-  index: number,
-  lineNumber: number
-): { row: RowNode } {
-  return {
-    row: {
-      index,
-      kind: "header",
-      sourceLine: lineNumber,
-      modifiers: [],
-      cells: headers.map((header, col) => ({
-        row: index,
-        col: col + 1,
-        raw: header.name,
-        kind: "value",
-        inferredType: "text",
-        value: header.name,
-        modifiers: header.modifiers,
-        colspan: 1,
-        rowspan: 1
-      }))
-    }
-  };
+  });
 }
 
 function splitNativeRow(line: string): { rowName?: string; rowNameModifiers: Modifier[]; cells: string[] } {
@@ -472,10 +424,31 @@ function parseDataCells(
     index: context.rowIndex,
     kind: "data",
     sourceLine: context.lineNumber,
-    name: context.rowName,
+    ...(context.rowName ? { name: context.rowName } : {}),
     modifiers: context.rowModifiers,
     cells: parsedCells
   };
+}
+
+function appendDataRow(
+  sheet: SheetNode,
+  cells: string[],
+  lineNumber: number,
+  previousRowByColumn: Map<number, CellNode>,
+  currentHeaders: HeaderDef[],
+  rowName?: string,
+  rowModifiers: Modifier[] = []
+): Map<number, CellNode> {
+  const row = parseDataCells(cells, {
+    rowIndex: sheet.rows.length + 1,
+    lineNumber,
+    ...(rowName ? { rowName } : {}),
+    rowModifiers,
+    previousRowByColumn
+  });
+  sheet.rows.push(row);
+  registerColumns(sheet, row.cells, currentHeaders);
+  return mapLatestVisibleCells(row);
 }
 
 function registerColumns(
@@ -492,7 +465,7 @@ function registerColumns(
     sheet.columns[col - 1] = {
       index: col,
       letter: columnLetter(col),
-      name: header?.name,
+      ...(header?.name ? { name: header.name } : {}),
       modifiers: header?.modifiers ?? [],
       hidden: Boolean(header?.modifiers.some((m) => m.key === "hidden"))
     };
@@ -501,12 +474,16 @@ function registerColumns(
 
 function applyHeadersToColumns(sheet: SheetNode, headers: Array<{ name: string; modifiers: Modifier[] }>): void {
   for (let i = 0; i < headers.length; i += 1) {
+    const header = headers[i];
+    if (!header) {
+      continue;
+    }
     const col: ColumnNode = {
       index: i + 1,
       letter: columnLetter(i + 1),
-      name: headers[i]?.name,
-      modifiers: headers[i]?.modifiers ?? [],
-      hidden: Boolean(headers[i]?.modifiers.some((m) => m.key === "hidden"))
+      ...(header.name ? { name: header.name } : {}),
+      modifiers: header.modifiers,
+      hidden: Boolean(header.modifiers.some((m) => m.key === "hidden"))
     };
     sheet.columns[i] = col;
   }

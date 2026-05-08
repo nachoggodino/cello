@@ -4,8 +4,9 @@ import type { CellNode, RenderOptions, WorkbookAst } from "../shared/types.js";
 import { escapeHtml } from "../shared/utils.js";
 
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
-  const parsed = typeof input === "string" ? parse(input, { strict: options.strict }) : input;
-  const evaluated = await evaluate(parsed, { strict: options.strict });
+  const strictOptions = options.strict === undefined ? {} : { strict: options.strict };
+  const parsed = typeof input === "string" ? parse(input, strictOptions) : input;
+  const evaluated = await evaluate(parsed, strictOptions);
 
   const title = options.title ?? "Cello Workbook";
   const tabs = evaluated.sheets
@@ -16,9 +17,6 @@ export async function render(input: string | WorkbookAst, options: RenderOptions
     .map((sheet, idx) => {
       const rows = sheet.rows
         .map((row) => {
-          if (row.kind === "blank") {
-            return "<tr class=\"cello-row-blank\"></tr>";
-          }
           const cells = row.cells
             .filter((cell) => cell.kind !== "merge-left" && cell.kind !== "merge-up")
             .map((cell) => renderCell(cell, row.kind === "header"))

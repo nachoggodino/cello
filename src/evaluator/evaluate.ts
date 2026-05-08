@@ -2,13 +2,16 @@ import type { CellNode, EvaluateOptions, WorkbookAst } from "../shared/types.js"
 import { buildWorkbookRefIndex, translateFormulaForEngine } from "./formula.js";
 import { deepClone } from "../shared/utils.js";
 
+let hyperFormulaCtor: any | null = null;
+
 export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}): Promise<WorkbookAst> {
   const output = deepClone(ast);
 
-  let HyperFormula: any;
   try {
-    const module = await import("hyperformula");
-    HyperFormula = module.HyperFormula;
+    if (!hyperFormulaCtor) {
+      const module = await import("hyperformula");
+      hyperFormulaCtor = module.HyperFormula;
+    }
   } catch {
     output.diagnostics.push({
       level: "warning",
@@ -33,14 +36,18 @@ export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}):
           if (cell.kind === "merge-left" || cell.kind === "merge-up") {
             continue;
           }
-          matrix[row.index - 1][cell.col - 1] = toHyperFormulaValue(cell, sheet.name, refIndex, output);
+          const matrixRow = matrix[row.index - 1];
+          if (!matrixRow) {
+            continue;
+          }
+          matrixRow[cell.col - 1] = toHyperFormulaValue(cell, sheet.name, refIndex, output);
         }
       }
 
       sheetsData[sheet.name] = matrix;
     }
 
-    const hf = HyperFormula.buildFromSheets(sheetsData, { licenseKey: "gpl-v3" });
+    const hf = hyperFormulaCtor.buildFromSheets(sheetsData, { licenseKey: "gpl-v3" });
 
     for (const sheet of output.sheets) {
       const sheetId = hf.getSheetId(sheet.name);
