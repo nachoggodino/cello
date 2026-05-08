@@ -1,0 +1,43 @@
+{
+  "name": "cello",
+  "version": "0.1.0",
+  "description": "Markdown, but for spreadsheets. Plain-text tabular data with formulas.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "cello": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue",
+    "dev": "tsc -w -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "spreadsheet",
+    "parser",
+    "formula",
+    "cello",
+    "tabular"
+  ],
+  "license": "MIT",
+  "overrides": {
+    "glob": "^13.0.0"
+  },
+  "dependencies": {
+    "hyperformula": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "@vitest/coverage-v8": "^3.2.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
