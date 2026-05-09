@@ -1,0 +1,16 @@
+@sheet Data [excel]
+item;plan;actual
+Hosting;300;320
+Tools;120;100
+Ops;210;220
+
+@sheet Summary
+-Metric-Value-
+| Plan | =SUM(Data!plan) |
+| Actual | =SUM(Data!actual) |
+| Diff | =B3-B2 |
+
+@sheet Review
+-Metric-Value-
+| Status | =IF(Summary!B3>Summary!B2,"OVER","OK") |
+| Diff copy | =Summary!B4 |

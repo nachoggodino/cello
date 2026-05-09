@@ -1,0 +1,19 @@
+// raw import
+@sheet Data
+-Metric-Value-
+| A | 10 |
+
+// gap comment
+| B | 20 |
+| C | 5 |
+
+@sheet Summary
+-Metric-Value-
+| Total | =SUM(Data!Value) |
+| Max | =MAX(Data!Value) |
+| Min | =MIN(Data!Value) |
+
+@sheet Audit
+-Metric-Value-
+| Spread | =Summary!B3-Summary!B4 |
+| Recheck | =Summary!B2 |

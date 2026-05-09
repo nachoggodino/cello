@@ -1,0 +1,19 @@
+@sheet Data
+-Date-Region-Amount-Units-
+| 2026-01-01 | Madrid | 120 | 2 |
+| 2026-01-02 | Barcelona | 80 | 1 |
+| 2026-01-03 | Madrid | 200 | 4 |
+| 2026-01-04 | Barcelona | 150 | 3 |
+| 2026-01-05 | Madrid | 100 | 2 |
+
+@sheet Summary
+-Metric-Value-
+| ## Revenue | < |
+| Total amount | =SUM(!!Amount) |
+| First window | =SUM(!!Amount[2:4]) |
+| Total units | =SUM(!!Units) |
+
+@sheet Regions
+-Region-Revenue[€][2d]-Units[0d]-
+row_madrid[bold] | Madrid | =SUMIF(Data!Region,"Madrid",Data!Amount) | =SUMIF(Data!Region,"Madrid",Data!Units) |
+row_barcelona[italic] | Barcelona | =SUMIF(Data!Region,"Barcelona",Data!Amount) | =SUMIF(Data!Region,"Barcelona",Data!Units) |

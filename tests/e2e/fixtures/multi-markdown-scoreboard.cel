@@ -1,0 +1,18 @@
+@sheet Data [markdown]
+| name | score | bonus |
+| ---- | ----: | ----: |
+| Ana | 7 | 1 |
+| Luis | 6 | 2 |
+| Sara | 5 | 3 |
+| Pedro | 6 | 1 |
+
+@sheet Summary
+-Metric-Value-
+| Score total | =SUM(Data!score) |
+| Top score | =MAX(Data!score) |
+| With bonus | =SUM(Data!score)+SUM(Data!bonus) |
+
+@sheet Awards
+-Metric-Value-
+| Winner line | =Summary!B3 |
+| Bonus line | =Summary!B4-Summary!B2 |

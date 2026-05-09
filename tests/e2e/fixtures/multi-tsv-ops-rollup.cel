@@ -1,0 +1,16 @@
+@sheet Data [tsv]
+team	tickets	hours
+Blue	4	6
+Red	7	8
+Green	5	5
+
+@sheet Summary
+-Metric-Value-
+| Tickets | =SUM(Data!tickets) |
+| Hours | =SUM(Data!hours) |
+| Max hours | =MAX(Data!hours) |
+
+@sheet Review
+-Metric-Value-
+| Load | =Summary!B2+Summary!B3 |
+| Ceiling | =Summary!B4 |

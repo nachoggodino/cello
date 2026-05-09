@@ -1,0 +1,15 @@
+@sheet Data [csv:noheader]
+2026-01-01,100,2
+2026-01-02,150,1
+2026-01-03,90,3
+
+@sheet Summary
+-Label-Value-
+| First amount | =Data!B1 |
+| First two amount | =Data!B1+Data!B2 |
+| Total qty | =Data!C1+Data!C2+Data!C3 |
+
+@sheet Board
+-Label-Value-
+| Carry | =Summary!B2+Summary!B3 |
+| Qty copy | =Summary!B4 |

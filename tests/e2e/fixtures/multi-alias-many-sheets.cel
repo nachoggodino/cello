@@ -1,0 +1,19 @@
+@sheet Data
+-Amount-Qty-
+| 3 | 1 |
+| 4 | 2 |
+| 5 | 3 |
+
+@sheet CalcA
+-Metric-Value-
+| Sum amount | =SUM(!!Amount) |
+
+@sheet CalcB
+-Metric-Value-
+| Sum qty | =SUM(!!Qty) |
+| Ratio | =SUM(!!Amount)/SUM(!!Qty) |
+
+@sheet Final
+-Metric-Value-
+| Combined | =CalcA!B2+CalcB!B2 |
+| Ratio x10 | =CalcB!B3*10 |

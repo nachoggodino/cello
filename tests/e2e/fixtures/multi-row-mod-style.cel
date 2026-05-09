@@ -1,0 +1,16 @@
+@sheet Data
+-Amount-Qty-
+| 5 | 2 |
+| 9 | 1 |
+| 6 | 3 |
+
+@sheet Summary
+-Metric-Value-
+row_sales[bold] | Total sales | =SUM(!!Amount) |
+row_units[italic] | Total units | =SUM(!!Qty) |
+row_total[bg:#fef3c7] | Carry | =B2+B3 |
+
+@sheet Review
+-Check-Value-
+| Final | =Summary!B4 |
+| Delta | =Summary!B2-Summary!B3 |

@@ -1,0 +1,17 @@
+@sheet Data
+-Amount-Units-
+| 10 | 1 |
+| 20 | 2 |
+| 30 | 3 |
+| 40 | 4 |
+| 50 | 5 |
+
+@sheet Window
+-Metric-Value-
+| Amount slice | =SUM(!!Amount[2:4]) |
+| Unit slice | =SUM(!!Units[3:5]) |
+
+@sheet Final
+-Metric-Value-
+| Carry | =Window!B2+Window!B3 |
+| Amount copy | =Window!B2 |

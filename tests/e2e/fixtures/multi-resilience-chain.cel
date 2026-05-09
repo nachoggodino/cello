@@ -1,0 +1,15 @@
+@sheet Data
+-Base-Zero-
+| 10 | 0 |
+
+@sheet Calc
+-Label-Value-
+| Safe | =SUM(!!Base) |
+| Div0 | =Data!A2/Data!B2 |
+| RawBad | =1+ |
+| Unknown | =Ghost!A1 |
+
+@sheet Bridge
+-Label-Value-
+| Copy safe | =Calc!B2 |
+| Copy err | =Calc!B3 |

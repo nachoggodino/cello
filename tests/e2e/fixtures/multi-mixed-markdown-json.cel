@@ -1,0 +1,22 @@
+@sheet Metrics [markdown]
+| label | value |
+| ----- | ----: |
+| latency | 120 |
+| uptime | 99 |
+| incidents | 2 |
+
+@sheet Bench [json]
+[
+  { "target": 100, "floor": 95 }
+]
+
+@sheet Summary
+-Metric-Value-
+| Latency gap | =Metrics!B2-Bench!A2 |
+| Uptime gap | =Metrics!B3-Bench!B2 |
+| Status | =IF(B2>0,"Watch","OK") |
+
+@sheet Notes
+-Metric-Value-
+| Copy | =Summary!B4 |
+| Gap | =Summary!B2 |

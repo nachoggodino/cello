@@ -1,0 +1,16 @@
+@sheet Data
+-Label-Amount-Live-Start-Note-
+| Alpha | 10 | TRUE | 2026-01-01 | "TRUE" |
+| Beta | 20 | FALSE | 2026-01-02 | "123" |
+| Gamma | 30 | TRUE | 2026-01-03 | plain |
+
+@sheet Summary
+-Metric-Value-
+| Total amount | =SUM(!!Amount) |
+| Gate | =IF(B2>50,"HIGH","OK") |
+| First start | =Data!D2 |
+
+@sheet Review
+-Metric-Value-
+| Carry | =Summary!B2 |
+| Date copy | =Summary!B4 |

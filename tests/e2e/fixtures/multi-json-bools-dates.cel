@@ -1,0 +1,17 @@
+@sheet Data [json]
+[
+  { "day": "2026-02-01", "hours": 6, "active": true },
+  { "day": "2026-02-02", "hours": 7, "active": false },
+  { "day": "2026-02-03", "hours": 2, "active": true }
+]
+
+@sheet Summary
+-Metric-Value-
+| Hours | =SUM(Data!hours) |
+| Peak | =MAX(Data!hours) |
+| First day | =Data!A2 |
+
+@sheet Review
+-Metric-Value-
+| Carry | =Summary!B2 |
+| Peak copy | =Summary!B3 |

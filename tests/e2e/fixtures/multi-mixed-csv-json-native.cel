@@ -1,0 +1,23 @@
+@sheet Raw [csv]
+region,sales
+North,200
+South,180
+East,240
+
+@sheet Targets [json]
+[
+  { "region": "North", "target": 150 },
+  { "region": "South", "target": 170 },
+  { "region": "East", "target": 180 }
+]
+
+@sheet Summary
+-Metric-Value-
+| Sales | =SUM(Raw!sales) |
+| Target | =SUM(Targets!target) |
+| Gap | =B2-B3 |
+
+@sheet Board
+-Metric-Value-
+| Gap copy | =Summary!B4 |
+| Sales copy | =Summary!B2 |
