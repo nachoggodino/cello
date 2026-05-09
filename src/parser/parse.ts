@@ -90,6 +90,11 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       continue;
     }
 
+    if (trimmed.length === 0) {
+      state.previousRowByColumn = new Map<number, CellNode>();
+      continue;
+    }
+
     const sheet = ensureSheet();
 
     const externalSourceMatch = trimmed.match(/^->\s+(.+)$/);

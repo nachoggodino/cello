@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "cello": "dist/cli.js"
+    "cello": "dist/cli/cli.js"
   },
   "files": [
     "dist"

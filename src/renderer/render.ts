@@ -42,8 +42,8 @@ export async function render(input: string | WorkbookAst, options: RenderOptions
     .cello-tab.active { background: #111827; color: #ffffff; border-color: #111827; }
     .cello-sheet { display: none; }
     .cello-sheet.active { display: block; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; }
+    table { border-collapse: collapse; width: fit-content; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; white-space: nowrap; }
     th { background: #f3f4f6; font-weight: 600; }
     .cello-bold { font-weight: 700; }
     .cello-italic { font-style: italic; }
