@@ -1,6 +1,6 @@
 import { evaluate } from "../evaluator/evaluate.js";
 import { parse } from "../parser/parse.js";
-import type { CellNode, RenderOptions, WorkbookAst } from "../shared/types.js";
+import type { CellNode, Modifier, RenderOptions, RowNode, SheetNode, WorkbookAst } from "../shared/types.js";
 import { escapeHtml } from "../shared/utils.js";
 
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
@@ -8,27 +8,10 @@ export async function render(input: string | WorkbookAst, options: RenderOptions
   const parsed = typeof input === "string" ? parse(input, strictOptions) : input;
   const evaluated = await evaluate(parsed, strictOptions);
 
-  const title = options.title ?? "Cello Workbook";
-  const tabs = evaluated.sheets
-    .map((sheet, idx) => `<button class="cello-tab ${idx === 0 ? "active" : ""}" data-sheet="${idx}">${escapeHtml(sheet.name)}</button>`)
-    .join("");
+  return renderDocument(options.title ?? "Cello Workbook", renderTabs(evaluated), renderSheets(evaluated));
+}
 
-  const sheetsHtml = evaluated.sheets
-    .map((sheet, idx) => {
-      const rows = sheet.rows
-        .map((row) => {
-          const cells = row.cells
-            .filter((cell) => cell.kind !== "merge-left" && cell.kind !== "merge-up")
-            .map((cell) => renderCell(cell, row.kind === "header"))
-            .join("");
-          return `<tr>${cells}</tr>`;
-        })
-        .join("");
-
-      return `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${idx}"><table><tbody>${rows}</tbody></table></section>`;
-    })
-    .join("");
-
+function renderDocument(title: string, tabs: string, sheetsHtml: string): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -42,7 +25,7 @@ export async function render(input: string | WorkbookAst, options: RenderOptions
     .cello-tab.active { background: #111827; color: #ffffff; border-color: #111827; }
     .cello-sheet { display: none; }
     .cello-sheet.active { display: block; }
-    table { border-collapse: collapse; width: fit-content; }
+    table { border-collapse: collapse; width: max-content; max-width: none; }
     th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; white-space: nowrap; }
     th { background: #f3f4f6; font-weight: 600; }
     .cello-bold { font-weight: 700; }
@@ -71,20 +54,53 @@ export async function render(input: string | WorkbookAst, options: RenderOptions
 </html>`;
 }
 
-function renderCell(cell: CellNode, header: boolean): string {
+function renderTabs(workbook: WorkbookAst): string {
+  return workbook.sheets
+    .map((sheet, idx) => `<button class="cello-tab ${idx === 0 ? "active" : ""}" data-sheet="${idx}">${escapeHtml(sheet.name)}</button>`)
+    .join("");
+}
+
+function renderSheets(workbook: WorkbookAst): string {
+  return workbook.sheets.map((sheet, idx) => renderSheet(sheet, idx)).join("");
+}
+
+function renderSheet(sheet: SheetNode, idx: number): string {
+  return `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${idx}"><table><tbody>${renderRows(sheet)}</tbody></table></section>`;
+}
+
+function renderRows(sheet: SheetNode): string {
+  return sheet.rows.map((row) => renderRow(row, sheet)).join("");
+}
+
+function renderRow(row: RowNode, sheet: SheetNode): string {
+  const cells = row.cells
+    .filter((cell) => cell.kind !== "merge-left" && cell.kind !== "merge-up")
+    .map((cell) => renderCell(cell, row.kind === "header", collectModifiers(cell, row, sheet)))
+    .join("");
+  return `<tr>${cells}</tr>`;
+}
+
+function renderCell(cell: CellNode, header: boolean, modifiers: Modifier[]): string {
   const tag = header ? "th" : "td";
-  const rawText = cell.computed ?? cell.value ?? "";
-  const formatted = formatInline(String(rawText));
-  const style = buildStyle(cell);
-  const attrs = [
+  const formatted = formatInline(String(cell.computed ?? cell.value ?? ""));
+  const attrs = buildCellAttributes(cell, modifiers);
+
+  return `<${tag} ${attrs}>${formatted}</${tag}>`;
+}
+
+function collectModifiers(cell: CellNode, row: RowNode, sheet: SheetNode): Modifier[] {
+  const columnModifiers = row.kind === "header" ? [] : (sheet.columns[cell.col - 1]?.modifiers ?? []);
+  return [...columnModifiers, ...row.modifiers, ...cell.modifiers];
+}
+
+function buildCellAttributes(cell: CellNode, modifiers: Modifier[]): string {
+  return [
     cell.colspan > 1 ? `colspan="${cell.colspan}"` : "",
     cell.rowspan > 1 ? `rowspan="${cell.rowspan}"` : "",
-    style ? `style="${style}"` : ""
+    buildStyleAttribute(modifiers)
   ]
     .filter(Boolean)
     .join(" ");
-
-  return `<${tag} ${attrs}>${formatted}</${tag}>`;
 }
 
 function formatInline(raw: string): string {
@@ -102,21 +118,28 @@ function formatInline(raw: string): string {
   return out;
 }
 
-function buildStyle(cell: CellNode): string {
-  const styles: string[] = [];
-  for (const mod of cell.modifiers) {
-    if (mod.key === "bold") {
-      styles.push("font-weight:700");
-    } else if (mod.key === "italic") {
-      styles.push("font-style:italic");
-    } else if (mod.key === "bg" && mod.value) {
-      styles.push(`background:${mod.value}`);
-    } else if (mod.key.startsWith("#")) {
-      styles.push(`color:${mod.key}`);
-    } else if (mod.key === "color" && mod.value) {
-      styles.push(`color:${mod.value}`);
-    }
-  }
-  return styles.join(";");
-}
+function buildStyleAttribute(modifiers: Modifier[]): string {
+  const style = modifiers
+    .map((mod) => {
+      if (mod.key === "bold") {
+        return "font-weight:700";
+      }
+      if (mod.key === "italic") {
+        return "font-style:italic";
+      }
+      if (mod.key === "bg" && mod.value) {
+        return `background:${mod.value}`;
+      }
+      if (mod.key.startsWith("#")) {
+        return `color:${mod.key}`;
+      }
+      if (mod.key === "color" && mod.value) {
+        return `color:${mod.value}`;
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join(";");
 
+  return style ? `style="${style}"` : "";
+}

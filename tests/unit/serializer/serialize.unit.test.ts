@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../../src/parser/parse.js";
-import { serialize } from "../../src/serializer/serialize.js";
+import { parse } from "../../../src/parser/parse.js";
+import { serialize } from "../../../src/serializer/serialize.js";
 
 describe("serialize (unit-focused behavior)", () => {
   it("serializes json and delimited format tokens accurately", () => {

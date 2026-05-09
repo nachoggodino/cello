@@ -1,0 +1,15 @@
+@sheet CsvData [csv]
+name,age
+Ana,25
+Luis,32
+
+@sheet Notes [markdown]
+| title | city |
+| ---- | ---- |
+| *Lead* | Madrid |
+
+@sheet JsonData [json]
+[
+  { "code": "A1", "active": true },
+  { "code": "B2", "active": false }
+]

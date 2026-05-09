@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Merge Layout</title>
+  <style>
+    .cello-workbook { font-family: Inter, Segoe UI, Arial, sans-serif; color: #111827; }
+    .cello-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 12px; }
+    .cello-tab { border: 1px solid #d1d5db; background: #ffffff; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+    .cello-tab.active { background: #111827; color: #ffffff; border-color: #111827; }
+    .cello-sheet { display: none; }
+    .cello-sheet.active { display: block; }
+    table { border-collapse: collapse; width: max-content; max-width: none; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; white-space: nowrap; }
+    th { background: #f3f4f6; font-weight: 600; }
+    .cello-bold { font-weight: 700; }
+    .cello-italic { font-style: italic; }
+    .cello-h1 { font-size: 1.25rem; font-weight: 700; }
+    .cello-h2 { font-size: 1.1rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="cello-workbook">
+    <div class="cello-tabs"><button class="cello-tab active" data-sheet="0">Layout</button></div>
+    <section class="cello-sheet active" data-sheet="0"><table><tbody><tr><td colspan="3"><span class="cello-h1">Dashboard</span></td><td >2026</td></tr><tr><td rowspan="2">Region A</td><td >Madrid</td><td >John</td><td >10</td></tr><tr><td >Alcala</td><td >Julie</td><td >12</td></tr></tbody></table></section>
+  </div>
+  <script>
+    const tabs = Array.from(document.querySelectorAll(".cello-tab"));
+    const sheets = Array.from(document.querySelectorAll(".cello-sheet"));
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const id = tab.getAttribute("data-sheet");
+        tabs.forEach((t) => t.classList.toggle("active", t === tab));
+        sheets.forEach((s) => s.classList.toggle("active", s.getAttribute("data-sheet") === id));
+      });
+    });
+  </script>
+</body>
+</html>

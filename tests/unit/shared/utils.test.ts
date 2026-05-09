@@ -7,7 +7,7 @@ import {
   parseSheetFormat,
   parseTrailingModifiers,
   splitDelimitedLine
-} from "../../src/shared/utils.js";
+} from "../../../src/shared/utils.js";
 
 describe("utils", () => {
   it("computes spreadsheet column letters", () => {

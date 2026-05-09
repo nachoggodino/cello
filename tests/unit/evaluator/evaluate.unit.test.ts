@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { parse } from "../../src/parser/parse.js";
-import { evaluate } from "../../src/evaluator/evaluate.js";
+import { parse } from "../../../src/parser/parse.js";
+import { evaluate } from "../../../src/evaluator/evaluate.js";
 
 const buildFromSheetsMock = vi.fn();
 

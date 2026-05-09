@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildWorkbookRefIndex, translateFormulaForEngine } from "../../src/evaluator/formula.js";
-import { parse } from "../../src/parser/parse.js";
+import { buildWorkbookRefIndex, translateFormulaForEngine } from "../../../src/evaluator/formula.js";
+import { parse } from "../../../src/parser/parse.js";
 
 describe("formula translation", () => {
   it("translates current-sheet named ranges", () => {

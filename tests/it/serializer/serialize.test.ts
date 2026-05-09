@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../../src/parser/parse.js";
-import { serialize } from "../../src/serializer/serialize.js";
+import { parse } from "../../../src/parser/parse.js";
+import { serialize } from "../../../src/serializer/serialize.js";
 
 describe("serialize", () => {
   it("serializes native rows, row names and merge tokens", () => {
