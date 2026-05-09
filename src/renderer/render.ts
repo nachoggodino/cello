@@ -61,15 +61,14 @@ function renderTabs(workbook: WorkbookAst): string {
 }
 
 function renderSheets(workbook: WorkbookAst): string {
-  return workbook.sheets.map((sheet, idx) => renderSheet(sheet, idx)).join("");
-}
-
-function renderSheet(sheet: SheetNode, idx: number): string {
-  return `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${idx}"><table><tbody>${renderRows(sheet)}</tbody></table></section>`;
-}
-
-function renderRows(sheet: SheetNode): string {
-  return sheet.rows.map((row) => renderRow(row, sheet)).join("");
+  return workbook.sheets
+    .map(
+      (sheet, idx) =>
+        `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${idx}"><table><tbody>${sheet.rows
+          .map((row) => renderRow(row, sheet))
+          .join("")}</tbody></table></section>`
+    )
+    .join("");
 }
 
 function renderRow(row: RowNode, sheet: SheetNode): string {
@@ -129,6 +128,12 @@ function buildStyleAttribute(modifiers: Modifier[]): string {
       }
       if (mod.key === "bg" && mod.value) {
         return `background:${mod.value}`;
+      }
+      if (mod.key === "bgfg" && mod.value) {
+        const [background = "", foreground = ""] = mod.value.split(":");
+        return [background ? `background:${background}` : "", foreground ? `color:${foreground}` : ""]
+          .filter(Boolean)
+          .join(";");
       }
       if (mod.key.startsWith("#")) {
         return `color:${mod.key}`;

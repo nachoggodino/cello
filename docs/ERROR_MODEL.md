@@ -4,7 +4,7 @@
 
 - Non-row lines in native Cello sheets are skipped with `warning` diagnostics.
 - Invalid JSON sheets degrade to a single text data row plus warning.
-- Parser strict mode (`parse(..., { strict: true })`) throws only on parser `error` diagnostics.
+- Parser strict mode (`parse(..., { strict: true })`) throws only on parser `error` diagnostics (warnings do not throw).
 
 ## Evaluate stage
 
@@ -15,7 +15,8 @@
 ## Render stage
 
 - `render(text, { strict })` delegates to parser/evaluator strictness.
-- Non-strict render should still produce HTML even with diagnostics.
+- Non-strict render still returns HTML even when diagnostics exist.
+- Strict render throws only when parse/evaluate throw; non-fatal diagnostics alone do not throw.
 
 ## Practical contract
 

@@ -1,3 +1,4 @@
+import { deserialize, serialize } from "node:v8";
 import type { Modifier, SheetFormat } from "./types.js";
 
 export function columnLetter(index: number): string {
@@ -15,7 +16,7 @@ export function deepClone<T>(value: T): T {
   if (typeof structuredClone === "function") {
     return structuredClone(value);
   }
-  return JSON.parse(JSON.stringify(value)) as T;
+  return deserialize(serialize(value));
 }
 
 export function escapeHtml(value: string): string {
@@ -50,13 +51,17 @@ export function parseTrailingModifiers(value: string): { base: string; modifiers
 }
 
 export function parseModifier(raw: string): Modifier {
+  if (raw.startsWith("#bg:")) {
+    const [background = "", foreground = ""] = raw
+      .slice(4)
+      .split(":")
+      .map((part) => part.trim());
+    return { raw, key: "bgfg", value: `${background}:${foreground}` };
+  }
+
   if (raw.includes(":")) {
     const [key, ...rest] = raw.split(":");
     return { raw, key: (key ?? "").trim().toLowerCase(), value: rest.join(":").trim() };
-  }
-
-  if (raw.startsWith("#bg:")) {
-    return { raw, key: "bgfg", value: raw.slice(4).trim() };
   }
 
   return { raw, key: raw.trim().toLowerCase() };

@@ -1,0 +1,11 @@
+@sheet Data
+-Amount-Qty-
+| 2 | 3 |
+| 4 | 5 |
+
+@sheet Calc
+-Name-Value-
+| CrossA1 | =Data!A2 |
+| CrossNamed | =SUM(Data!Amount) |
+| LocalAlias | =SUM(!!Amount) |
+| Coord | =Data!B3 |

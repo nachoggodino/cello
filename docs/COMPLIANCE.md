@@ -1,100 +1,77 @@
-# Compliance Matrix (BYLAWS as Source of Truth)
+# Compliance Matrix (BYLAWS vs Current Code)
 
-This document maps `BYLAWS.md` rules to the current `SPEC.md`, implementation status, and tests.
+This file maps `BYLAWS.md` expectations to current implementation in `src/` and tests in `tests/`.
 
 Status legend:
-- `implemented`: behavior matches BYLAWS in code
-- `partial`: some behavior exists, but not complete/robust
-- `missing`: required behavior not implemented
+- `implemented`: behavior present and tested
+- `partial`: behavior exists but scope/guarantees limited
+- `missing`: documented behavior not in code yet
 
 ## Matrix
 
-1. Core file structure (`@sheet`, anonymous sheet fallback)
-- BYLAWS: implemented
-- SPEC: aligned
-- Code: implemented in parser sheet detection and `ensureSheet`
-- Tests: covered (`tests/parse.test.ts`)
+1. Core file structure (`@sheet`, anonymous fallback)
+- Status: `implemented`
+- Code: `src/parser/parse.ts` (`ensureSheet`, sheet declaration parsing)
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/anonymous-sheet.*`
 
-2. Sheet declaration and format
-- BYLAWS: implemented
-- SPEC: aligned
-- Code: implemented (`parseSheetFormat`, `@sheet Name [format]`)
-- Tests: covered (`tests/parse.test.ts`)
+2. Sheet formats (`csv/tsv/excel`, custom delimiter, markdown, json)
+- Status: `implemented`
+- Code: `src/shared/utils.ts` (`parseSheetFormat`), `src/parser/parse.ts` format handlers
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/format-matrix.*`
 
-2b. External sheet source (`-> /path`) with declared format
-- BYLAWS: implemented
-- SPEC: aligned
-- Code: implemented (parser injects external file lines when `->` appears before rows)
-- Tests: covered (`tests/parser/parse.unit.test.ts`)
+3. External sheet source (`-> path`)
+- Status: `implemented`
+- Code: `src/parser/parse.ts` (`tryHandleExternalSource`)
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/external-source.*`
 
-3. Row behavior (data rows start with `|`, blank lines ignored)
-- BYLAWS: implemented
-- SPEC: aligned (patched)
-- Code: implemented (blank lines ignored, no blank row nodes created)
-- Tests: covered (`tests/parse.unit.test.ts`)
+4. Rows, blank-line handling, row names
+- Status: `implemented`
+- Code: `src/parser/parse.ts` (`splitNativeRow`, blank line handling)
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/comments-blanklines.*`
 
-4. Column header rows (`-name-`)
-- BYLAWS: implemented
-- SPEC: aligned
-- Code: implemented (`isHeaderRow`, `parseHeaderRow`)
-- Tests: covered
+5. Header rows and column metadata/modifiers
+- Status: `implemented`
+- Code: `src/parser/parse.ts` (`parseHeadersFromLine`, `applyHeadersToColumns`)
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/header-rebinding.*`
 
-5. Row names before first `|`
-- BYLAWS: implemented
-- SPEC: aligned
-- Code: implemented (`splitNativeRow`)
-- Tests: covered
+6. Formula parsing + evaluation engine integration
+- Status: `implemented`
+- Code: `src/evaluator/evaluate.ts`
+- Tests: `tests/unit/evaluator/evaluate.unit.test.ts`, `tests/it/evaluator/evaluate.test.ts`
 
-6. Formulas start with `=`
-- BYLAWS: implemented
-- SPEC: partially aligned (claims exceed implementation in named refs)
-- Code: partial (formula cells parsed and sent to HyperFormula)
-- Tests: partial
+7. Named column refs (`SUM(Price)`, `SUM(Sheet!Price)`, slices, `!!`)
+- Status: `implemented`
+- Code: `src/evaluator/formula.ts`
+- Tests: `tests/unit/evaluator/formula.unit.test.ts`
 
-7. Named column ranges (`SUM(Price)`, `SUM(Price[2:5])`)
-- BYLAWS: required
-- SPEC: documents as supported
-- Code: missing translation layer to A1/ranges
-- Tests: missing dedicated support tests
+8. Row-name dot refs (`Sheet!row_name.Column`)
+- Status: `missing`
+- Code: no translation layer for row-name tokens
+- Tests: no support tests
 
-8. Merges (`<`, `^`, merge token must be standalone)
-- BYLAWS: partial
-- SPEC: mostly aligned
-- Code: partial (`<` and `^` resolution exists, but orphan tokens degrade silently)
-- Tests: covered for common cases
+9. Merges (`<`, `^`)
+- Status: `partial`
+- Code: `src/parser/parse.ts` merge token handling
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/it/renderer/render.test.ts`
+- Note: orphan merge tokens degrade silently (no diagnostic)
 
-9. Inferred types
-- BYLAWS: implemented
-- SPEC: aligned
-- Code: implemented in `inferType`
-- Tests: partial
+10. Modifiers precedence (column + row + cell)
+- Status: `implemented`
+- Code: `src/renderer/render.ts` (`collectModifiers` order: column -> row -> cell)
+- Tests: `tests/e2e/fixtures/types-precedence.*`, `tests/e2e/fixtures/row-name-modifiers.*`
 
-10. Modifiers scope and precedence (cell > row > column)
-- BYLAWS: partial
-- SPEC: documents full precedence
-- Code: partial (parser stores row/column/cell modifiers, renderer mainly applies cell modifiers)
-- Tests: partial
+11. Modifier coverage in renderer
+- Status: `partial`
+- Code: `src/renderer/render.ts` (`bold`, `italic`, `bg`, color)
+- Missing: numeric display modifiers (`[€]`, `[%]`, `[Nd]`) and `[hidden]` rendering behavior
 
-11. Inline formatting
-- BYLAWS: implemented (core markers)
-- SPEC: aligned
-- Code: implemented in renderer (`*`, `_`, `~~`, headings)
-- Tests: partial (render-focused)
+12. Inline formatting (`*`, `_`, `~~`, `#`, `##`)
+- Status: `implemented`
+- Code: `src/renderer/render.ts` (`formatInline`)
+- Tests: `tests/it/renderer/render.test.ts`, `tests/e2e/fixtures/native-bylaws.*`
 
-12. Comments only outside rows
-- BYLAWS: implemented
-- SPEC: aligned
-- Code: implemented for line-level comments
-- Tests: covered
-
-13. Reserved tokens
-- BYLAWS: aligned as grammar guidance
-- SPEC: aligned
-- Code: partial enforcement (accepts unknown syntax with diagnostics)
-- Tests: partial
-
-14. Resilience rule (graceful degradation)
-- BYLAWS: partial
-- SPEC: aligned intent, overstates strict guarantees in places
-- Code: partial (diagnostics + evaluate error handling)
-- Tests: partial
+13. Diagnostics and strict mode
+- Status: `implemented`
+- Code: `src/parser/parse.ts`, `src/evaluator/evaluate.ts`, `src/renderer/render.ts`
+- Tests: parser/evaluator unit + integration tests
+- Note: parser strict mode throws on `error` diagnostics only; warnings do not throw

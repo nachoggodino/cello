@@ -6,7 +6,7 @@ export type SheetFormat =
   | { kind: "markdown" }
   | { kind: "json"; path?: string };
 
-export type RowKind = "header" | "data" | "blank";
+export type RowKind = "header" | "data";
 export type CellKind = "value" | "formula" | "merge-left" | "merge-up" | "empty";
 export type InferredType = "number" | "date" | "boolean" | "text" | "empty";
 

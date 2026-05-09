@@ -32,6 +32,15 @@ interface HeaderDef {
   modifiers: Modifier[];
 }
 
+interface ParseRuntime {
+  workbook: WorkbookAst;
+  options: ParseOptions;
+  state: MutableParseState;
+  injectedLines: string[];
+  pushDiagnostic: (d: Diagnostic) => void;
+  ensureSheet: () => SheetNode;
+}
+
 export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
   const workbook: WorkbookAst = {
     version: "1.0",
@@ -39,7 +48,6 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     diagnostics: []
   };
 
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
   const state: MutableParseState = {
     currentSheet: null,
     currentHeaders: [],
@@ -47,148 +55,71 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     jsonBufferBySheet: new Map<string, string[]>(),
     consumedDelimitedHeaderBySheet: new Set<string>()
   };
-
-  const ensureSheet = (): SheetNode => {
-    if (!state.currentSheet) {
-      state.currentSheet = createSheet(options.anonymousSheetName ?? DEFAULT_ANON_SHEET_NAME, undefined);
-      workbook.sheets.push(state.currentSheet);
-      state.currentHeaders = [];
-      state.previousRowByColumn = new Map<number, CellNode>();
-    }
-    return state.currentSheet;
+  const sourceLines = text.replace(/\r\n/g, "\n").split("\n");
+  const runtime: ParseRuntime = {
+    workbook,
+    options,
+    state,
+    injectedLines: [],
+    ensureSheet: () => ensureSheet(workbook, state, options),
+    pushDiagnostic: (d) => pushDiagnostic(workbook, options, d)
   };
 
-  const pushDiagnostic = (d: Diagnostic): void => {
-    workbook.diagnostics.push(d);
-    if (options.strict && d.level === "error") {
-      throw new Error(`Parse error: ${d.message}${d.line ? ` (line ${d.line})` : ""}`);
-    }
-  };
+  let lineNumber = 0;
+  let sourceIndex = 0;
 
-  for (let i = 0; i < lines.length; i += 1) {
-    const lineNumber = i + 1;
-    const rawLine = lines[i] ?? "";
+  while (runtime.injectedLines.length > 0 || sourceIndex < sourceLines.length) {
+    const fromInjected = runtime.injectedLines.length > 0;
+    const rawLine = fromInjected
+      ? (runtime.injectedLines.shift() ?? "")
+      : (sourceLines[sourceIndex] ?? "");
+    if (!fromInjected && sourceIndex < sourceLines.length) {
+      sourceIndex += 1;
+    }
+    lineNumber += 1;
     const trimmed = rawLine.trim();
 
     if (trimmed.startsWith("//")) {
       continue;
     }
 
-    const sheetMatch = trimmed.match(/^@sheet\s+(.+?)(?:\s+\[(.+)\])?$/);
-    if (sheetMatch) {
-      const rawName = sheetMatch[1];
-      const rawFormat = sheetMatch[2];
-      if (!rawName) {
-        pushDiagnostic({ level: "warning", line: lineNumber, message: "Invalid @sheet declaration." });
-        continue;
-      }
-      const nextSheet = createSheet(rawName.trim(), rawFormat?.trim());
-      workbook.sheets.push(nextSheet);
-      state.currentSheet = nextSheet;
-      state.currentHeaders = [];
-      state.previousRowByColumn = new Map<number, CellNode>();
+    if (tryHandleSheetDeclaration(runtime, trimmed, lineNumber)) {
       continue;
     }
 
     if (trimmed.length === 0) {
-      state.previousRowByColumn = new Map<number, CellNode>();
+      resetRowTracking(runtime.state);
       continue;
     }
 
-    const sheet = ensureSheet();
-
-    const externalSourceMatch = trimmed.match(/^->\s+(.+)$/);
-    if (externalSourceMatch) {
-      if (sheet.rows.length > 0) {
-        pushDiagnostic({
-          level: "warning",
-          line: lineNumber,
-          sheet: sheet.name,
-          message: "External sheet source (-> path) must appear before any rows in a sheet."
-        });
-        continue;
-      }
-
-      const rawPath = (externalSourceMatch[1] ?? "").trim();
-      const filePath = resolve(options.baseDir ?? process.cwd(), rawPath);
-      try {
-        const externalText = readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
-        const injectedLines = externalText.split("\n");
-        lines.splice(i + 1, 0, ...injectedLines);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        pushDiagnostic({
-          level: "warning",
-          line: lineNumber,
-          sheet: sheet.name,
-          message: `Failed to load external sheet source "${rawPath}": ${message}`
-        });
-      }
-      continue;
-    }
+    const sheet = runtime.ensureSheet();
 
     if (sheet.format.kind === "json") {
-      if (trimmed.length > 0) {
-        const current = state.jsonBufferBySheet.get(sheet.name) ?? [];
-        current.push(rawLine);
-        state.jsonBufferBySheet.set(sheet.name, current);
-      }
+      bufferJsonLine(runtime.state, sheet.name, rawLine);
       continue;
     }
 
-    if (trimmed.length === 0) {
-      state.previousRowByColumn = new Map<number, CellNode>();
+    if (tryHandleExternalSource(runtime, sheet, trimmed, lineNumber)) {
       continue;
     }
 
-    if (isHeaderRow(trimmed) && sheet.format.kind === "cello") {
-      const headers = parseHeadersFromLine(trimmed);
-      pushHeaderRow(sheet, headers, lineNumber);
-      state.currentHeaders = headers;
-      applyHeadersToColumns(sheet, headers);
+    if (sheet.format.kind === "cello" && isHeaderRow(trimmed)) {
+      applyHeaders(runtime.state, sheet, parseHeadersFromLine(trimmed), lineNumber);
       continue;
     }
 
     if (sheet.format.kind === "delimited") {
-      const parts = splitDelimitedLine(rawLine, sheet.format.delimiter).map((v) => v.trim());
-
-      const headerConsumedKey = sheet.name;
-      if (!sheet.format.noHeader && !state.consumedDelimitedHeaderBySheet.has(headerConsumedKey)) {
-        const headers = parts.map((name) => ({ name, modifiers: [] as Modifier[] }));
-        pushHeaderRow(sheet, headers, lineNumber);
-        state.currentHeaders = headers;
-        applyHeadersToColumns(sheet, headers);
-        state.consumedDelimitedHeaderBySheet.add(headerConsumedKey);
-        continue;
-      }
-
-      state.previousRowByColumn = appendDataRow(sheet, parts, lineNumber, state.previousRowByColumn, state.currentHeaders);
+      handleDelimitedLine(runtime.state, sheet as SheetNode & { format: Extract<SheetNode["format"], { kind: "delimited" }> }, rawLine, lineNumber);
       continue;
     }
 
     if (sheet.format.kind === "markdown") {
-      if (isMarkdownSeparator(trimmed)) {
-        continue;
-      }
-      if (!trimmed.includes("|")) {
-        continue;
-      }
-
-      const parts = parseMarkdownLine(trimmed);
-      if (state.currentHeaders.length === 0) {
-        const headers = parts.map((name) => ({ name, modifiers: [] as Modifier[] }));
-        pushHeaderRow(sheet, headers, lineNumber);
-        state.currentHeaders = headers;
-        applyHeadersToColumns(sheet, headers);
-        continue;
-      }
-
-      state.previousRowByColumn = appendDataRow(sheet, parts, lineNumber, state.previousRowByColumn, state.currentHeaders);
+      handleMarkdownLine(runtime.state, sheet, trimmed, lineNumber);
       continue;
     }
 
     if (!rawLine.includes("|")) {
-      pushDiagnostic({
+      runtime.pushDiagnostic({
         level: "warning",
         line: lineNumber,
         sheet: sheet.name,
@@ -197,24 +128,110 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       continue;
     }
 
-    const { rowName, rowNameModifiers, cells } = splitNativeRow(rawLine);
-    state.previousRowByColumn = appendDataRow(
-      sheet,
-      cells,
-      lineNumber,
-      state.previousRowByColumn,
-      state.currentHeaders,
-      rowName,
-      rowNameModifiers
-    );
+    handleNativeLine(runtime.state, sheet, rawLine, lineNumber);
   }
 
-  // JSON sheets: parse at the end of file.
-  for (const sheet of workbook.sheets) {
+  finalizeJsonSheets(runtime);
+
+  return workbook;
+}
+
+function ensureSheet(workbook: WorkbookAst, state: MutableParseState, options: ParseOptions): SheetNode {
+  if (!state.currentSheet) {
+    state.currentSheet = createSheet(options.anonymousSheetName ?? DEFAULT_ANON_SHEET_NAME, undefined);
+    workbook.sheets.push(state.currentSheet);
+    resetSheetTracking(state);
+  }
+  return state.currentSheet;
+}
+
+function pushDiagnostic(workbook: WorkbookAst, options: ParseOptions, diagnostic: Diagnostic): void {
+  workbook.diagnostics.push(diagnostic);
+  if (options.strict && diagnostic.level === "error") {
+    throw new Error(`Parse error: ${diagnostic.message}${diagnostic.line ? ` (line ${diagnostic.line})` : ""}`);
+  }
+}
+
+function resetSheetTracking(state: MutableParseState): void {
+  state.currentHeaders = [];
+  resetRowTracking(state);
+}
+
+function resetRowTracking(state: MutableParseState): void {
+  state.previousRowByColumn = new Map<number, CellNode>();
+}
+
+function tryHandleSheetDeclaration(runtime: ParseRuntime, trimmed: string, lineNumber: number): boolean {
+  const sheetMatch = trimmed.match(/^@sheet\s+(.+?)(?:\s+\[(.+)\])?$/);
+  if (!sheetMatch) {
+    return false;
+  }
+
+  const rawName = sheetMatch[1];
+  const rawFormat = sheetMatch[2];
+  if (!rawName) {
+    runtime.pushDiagnostic({ level: "warning", line: lineNumber, message: "Invalid @sheet declaration." });
+    return true;
+  }
+
+  const nextSheet = createSheet(rawName.trim(), rawFormat?.trim());
+  runtime.workbook.sheets.push(nextSheet);
+  runtime.state.currentSheet = nextSheet;
+  resetSheetTracking(runtime.state);
+  return true;
+}
+
+function tryHandleExternalSource(
+  runtime: ParseRuntime,
+  sheet: SheetNode,
+  trimmed: string,
+  lineNumber: number
+): boolean {
+  const externalSourceMatch = trimmed.match(/^->\s+(.+)$/);
+  if (!externalSourceMatch) {
+    return false;
+  }
+
+  if (sheet.rows.length > 0) {
+    runtime.pushDiagnostic({
+      level: "warning",
+      line: lineNumber,
+      sheet: sheet.name,
+      message: "External sheet source (-> path) must appear before any rows in a sheet."
+    });
+    return true;
+  }
+
+  const rawPath = (externalSourceMatch[1] ?? "").trim();
+  const filePath = resolve(runtime.options.baseDir ?? process.cwd(), rawPath);
+  try {
+    const externalText = readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+    const externalLines = externalText.split("\n");
+    runtime.injectedLines = externalLines.concat(runtime.injectedLines);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    runtime.pushDiagnostic({
+      level: "warning",
+      line: lineNumber,
+      sheet: sheet.name,
+      message: `Failed to load external sheet source "${rawPath}": ${message}`
+    });
+  }
+  return true;
+}
+
+function bufferJsonLine(state: MutableParseState, sheetName: string, rawLine: string): void {
+  const current = state.jsonBufferBySheet.get(sheetName) ?? [];
+  current.push(rawLine);
+  state.jsonBufferBySheet.set(sheetName, current);
+}
+
+function finalizeJsonSheets(runtime: ParseRuntime): void {
+  for (const sheet of runtime.workbook.sheets) {
     if (sheet.format.kind !== "json") {
       continue;
     }
-    const raw = (state.jsonBufferBySheet.get(sheet.name) ?? []).join("\n").trim();
+    const raw = (runtime.state.jsonBufferBySheet.get(sheet.name) ?? []).join("\n").trim();
     if (raw.length === 0) {
       continue;
     }
@@ -228,8 +245,7 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       const first = parsed[0] as Record<string, unknown> | undefined;
       const headers = Object.keys(first ?? {}).map((name) => ({ name, modifiers: [] as Modifier[] }));
       if (headers.length > 0) {
-        pushHeaderRow(sheet, headers, 0);
-        applyHeadersToColumns(sheet, headers);
+        applyHeaders(runtime.state, sheet, headers, 0);
       }
       let previousRowByColumn = mapLatestVisibleCells(
         sheet.rows[sheet.rows.length - 1] ?? {
@@ -247,7 +263,7 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      workbook.diagnostics.push({
+      runtime.workbook.diagnostics.push({
         level: "warning",
         sheet: sheet.name,
         message: `JSON parse failed. Falling back to single text row: ${message}`
@@ -262,8 +278,6 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       registerColumns(sheet, row.cells, []);
     }
   }
-
-  return workbook;
 }
 
 function createSheet(name: string, rawFormat?: string): SheetNode {
@@ -286,6 +300,12 @@ function parseHeadersFromLine(trimmed: string): HeaderDef[] {
     const parsed = parseTrailingModifiers(token.trim());
     return { name: parsed.base, modifiers: parsed.modifiers };
   });
+}
+
+function applyHeaders(state: MutableParseState, sheet: SheetNode, headers: HeaderDef[], lineNumber: number): void {
+  pushHeaderRow(sheet, headers, lineNumber);
+  state.currentHeaders = headers;
+  applyHeadersToColumns(sheet, headers);
 }
 
 function pushHeaderRow(sheet: SheetNode, headers: HeaderDef[], lineNumber: number): void {
@@ -318,14 +338,58 @@ function splitNativeRow(line: string): { rowName?: string; rowNameModifiers: Mod
   const rowNamePart = line.slice(0, firstPipe).trim();
   const body = line.slice(firstPipe);
   const tokens = body.split("|").map((t) => t.trim());
-
-  const cleaned = tokens.filter((_, idx) => !(idx === 0 && tokens[0] === "")).filter((_, idx, arr) => !(idx === arr.length - 1 && arr[idx] === ""));
+  const cleaned = trimPipeEdgeTokens(tokens);
   if (rowNamePart.length === 0) {
     return { rowNameModifiers: [], cells: cleaned };
   }
 
   const parsed = parseTrailingModifiers(rowNamePart);
   return { rowName: parsed.base, rowNameModifiers: parsed.modifiers, cells: cleaned };
+}
+
+function handleNativeLine(state: MutableParseState, sheet: SheetNode, rawLine: string, lineNumber: number): void {
+  const { rowName, rowNameModifiers, cells } = splitNativeRow(rawLine);
+  state.previousRowByColumn = appendDataRow(
+    sheet,
+    cells,
+    lineNumber,
+    state.previousRowByColumn,
+    state.currentHeaders,
+    rowName,
+    rowNameModifiers
+  );
+}
+
+function handleDelimitedLine(
+  state: MutableParseState,
+  sheet: SheetNode & { format: Extract<SheetNode["format"], { kind: "delimited" }> },
+  rawLine: string,
+  lineNumber: number
+): void {
+  const parts = splitDelimitedLine(rawLine, sheet.format.delimiter).map((v) => v.trim());
+  const headerConsumedKey = sheet.name;
+
+  if (!sheet.format.noHeader && !state.consumedDelimitedHeaderBySheet.has(headerConsumedKey)) {
+    applyHeaders(state, sheet, toHeaderDefs(parts), lineNumber);
+    state.consumedDelimitedHeaderBySheet.add(headerConsumedKey);
+    return;
+  }
+
+  state.previousRowByColumn = appendDataRow(sheet, parts, lineNumber, state.previousRowByColumn, state.currentHeaders);
+}
+
+function handleMarkdownLine(state: MutableParseState, sheet: SheetNode, trimmed: string, lineNumber: number): void {
+  if (isMarkdownSeparator(trimmed) || !trimmed.includes("|")) {
+    return;
+  }
+
+  const parts = parseMarkdownLine(trimmed);
+  if (state.currentHeaders.length === 0) {
+    applyHeaders(state, sheet, toHeaderDefs(parts), lineNumber);
+    return;
+  }
+
+  state.previousRowByColumn = appendDataRow(sheet, parts, lineNumber, state.previousRowByColumn, state.currentHeaders);
 }
 
 function parseDataCells(
@@ -467,13 +531,7 @@ function registerColumns(
       continue;
     }
     const header = currentHeaders[col - 1];
-    sheet.columns[col - 1] = {
-      index: col,
-      letter: columnLetter(col),
-      ...(header?.name ? { name: header.name } : {}),
-      modifiers: header?.modifiers ?? [],
-      hidden: Boolean(header?.modifiers.some((m) => m.key === "hidden"))
-    };
+    sheet.columns[col - 1] = createColumnNode(col, header);
   }
 }
 
@@ -483,14 +541,7 @@ function applyHeadersToColumns(sheet: SheetNode, headers: Array<{ name: string; 
     if (!header) {
       continue;
     }
-    const col: ColumnNode = {
-      index: i + 1,
-      letter: columnLetter(i + 1),
-      ...(header.name ? { name: header.name } : {}),
-      modifiers: header.modifiers,
-      hidden: Boolean(header.modifiers.some((m) => m.key === "hidden"))
-    };
-    sheet.columns[i] = col;
+    sheet.columns[i] = createColumnNode(i + 1, header);
   }
 }
 
@@ -512,9 +563,27 @@ function isMarkdownSeparator(trimmed: string): boolean {
 
 function parseMarkdownLine(trimmed: string): string[] {
   const parts = trimmed.split("|").map((p) => p.trim());
-  return parts
-    .filter((_, idx) => !(idx === 0 && parts[0] === ""))
+  return trimPipeEdgeTokens(parts);
+}
+
+function trimPipeEdgeTokens(tokens: string[]): string[] {
+  return tokens
+    .filter((_, idx) => !(idx === 0 && tokens[0] === ""))
     .filter((_, idx, arr) => !(idx === arr.length - 1 && arr[idx] === ""));
+}
+
+function toHeaderDefs(values: string[]): HeaderDef[] {
+  return values.map((name) => ({ name, modifiers: [] }));
+}
+
+function createColumnNode(index: number, header?: HeaderDef): ColumnNode {
+  return {
+    index,
+    letter: columnLetter(index),
+    ...(header?.name ? { name: header.name } : {}),
+    modifiers: header?.modifiers ?? [],
+    hidden: Boolean(header?.modifiers.some((m) => m.key === "hidden"))
+  };
 }
 
 function stringifyJsonValue(value: unknown): string {
@@ -529,4 +598,3 @@ function stringifyJsonValue(value: unknown): string {
   }
   return JSON.stringify(value);
 }
-

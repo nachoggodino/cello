@@ -72,6 +72,21 @@ describe("cli", () => {
     expect(html).toContain("cello-workbook");
   });
 
+  it("returns 1 when -o is provided without an output file", async () => {
+    const cwd = await makeTempProject();
+    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| A | 1 |", "utf8");
+
+    const stderr: string[] = [];
+    const deps = createCliDeps({
+      cwd,
+      stderrWrite: (text) => stderr.push(text)
+    });
+
+    const code = await runCli(["node", "cli", "render", "sample.cel", "-o"], deps);
+    expect(code).toBe(1);
+    expect(stderr.join("")).toContain("Missing output file after -o/--out.");
+  });
+
   it("runs render and writes html to stdout when no -o is provided", async () => {
     const cwd = await makeTempProject();
     await writeFile(join(cwd, "sample.cel"), "@sheet S\n| A | 1 |", "utf8");

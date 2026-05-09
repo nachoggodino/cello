@@ -9,27 +9,28 @@
 
 ## Main modules
 
-- `src/parse.ts`
+- `src/parser/parse.ts`
   - Parses workbook/sheets/rows/cells
-  - Handles `@sheet`, headers, row names, merges, formats (`csv/tsv/markdown/json`)
+  - Handles `@sheet`, headers, row names, merges, external sheet source (`-> path`), formats (`csv/tsv/excel/markdown/json`)
   - Emits parser diagnostics
 
-- `src/evaluate.ts`
+- `src/evaluator/evaluate.ts`
   - Deep-clones AST
   - Builds per-sheet matrix for HyperFormula
+  - Translates supported named references to A1 ranges before engine evaluation
   - Evaluates formula cells and writes `computed`
   - Emits diagnostics on evaluation failures
 
-- `src/render.ts`
+- `src/renderer/render.ts`
   - Parses + evaluates (if input is text)
   - Generates HTML tabs + tables
-  - Applies basic inline formatting and cell-level styles
+  - Applies inline formatting and style modifiers (`bold`, `italic`, `bg`, color)
 
-- `src/serialize.ts`
+- `src/serializer/serialize.ts`
   - Converts AST back to `.cel` text for roundtrip workflows
 
 ## Design notes
 
 - BYLAWS-first behavior is normative for syntax decisions.
-- Current evaluator lacks a Cello-reference translation layer (named refs).
+- Named-reference translation is intentionally narrow: named columns and `!!` alias supported; row-name dot references are not.
 - Parsing is permissive by design; unknown constructs tend to degrade to text/diagnostics.

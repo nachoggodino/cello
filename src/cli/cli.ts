@@ -26,55 +26,17 @@ export function createCliDeps(overrides: Partial<CliDeps> = {}): CliDeps {
 }
 
 export async function runCli(argv: string[], deps: CliDeps = createCliDeps()): Promise<number> {
-  const [, , command, inputArg, ...rest] = argv;
-  if (!command || !inputArg) {
+  const request = parseCliRequest(argv, deps.cwd);
+  if (!request) {
     printUsage(deps.stdoutWrite);
     return 1;
   }
-
-  const inputPath = resolve(deps.cwd, inputArg);
-  const text = await deps.readFileFn(inputPath, "utf8");
-  const outIndex = rest.findIndex((arg) => arg === "--out" || arg === "-o");
-  const outPath = outIndex >= 0 ? resolve(deps.cwd, rest[outIndex + 1] ?? "") : "";
-
-  if (command === "parse") {
-    const ast = parse(text);
-    deps.stdoutWrite(`${JSON.stringify(ast, null, 2)}\n`);
-    return 0;
+  if ("error" in request) {
+    deps.stderrWrite(`${request.error}\n`);
+    return 1;
   }
 
-  if (command === "evaluate") {
-    const ast = parse(text);
-    const evaluated = await evaluate(ast);
-    deps.stdoutWrite(`${JSON.stringify(evaluated, null, 2)}\n`);
-    return 0;
-  }
-
-  if (command === "render") {
-    const html = await render(text);
-    if (outPath) {
-      await deps.writeFileFn(outPath, html, "utf8");
-      deps.stdoutWrite(`Wrote ${outPath}\n`);
-      return 0;
-    }
-    deps.stdoutWrite(html);
-    return 0;
-  }
-
-  if (command === "serialize") {
-    const ast = parse(text);
-    const output = serialize(ast);
-    if (outPath) {
-      await deps.writeFileFn(outPath, output, "utf8");
-      deps.stdoutWrite(`Wrote ${outPath}\n`);
-      return 0;
-    }
-    deps.stdoutWrite(`${output}\n`);
-    return 0;
-  }
-
-  printUsage(deps.stdoutWrite);
-  return 1;
+  return runCliRequest(request, deps);
 }
 
 export async function runMain(
@@ -105,6 +67,88 @@ function printUsage(write: (text: string) => void): void {
     ].join("\n")
   );
   write("\n");
+}
+
+type CliCommand = "parse" | "evaluate" | "render" | "serialize";
+
+interface CliRequest {
+  command: CliCommand;
+  inputPath: string;
+  outPath: string;
+}
+
+interface CliRequestError {
+  error: string;
+}
+
+function parseCliRequest(argv: string[], cwd: string): CliRequest | CliRequestError | null {
+  const [, , command, inputArg, ...rest] = argv;
+  if (!isCliCommand(command) || !inputArg) {
+    return null;
+  }
+
+  const resolvedOutPath = resolveOutPath(cwd, rest);
+  if (typeof resolvedOutPath !== "string") {
+    return resolvedOutPath;
+  }
+
+  return {
+    command,
+    inputPath: resolve(cwd, inputArg),
+    outPath: resolvedOutPath
+  };
+}
+
+function isCliCommand(command: string | undefined): command is CliCommand {
+  return command === "parse" || command === "evaluate" || command === "render" || command === "serialize";
+}
+
+function resolveOutPath(cwd: string, rest: string[]): string | CliRequestError {
+  const outIndex = rest.findIndex((arg) => arg === "--out" || arg === "-o");
+  if (outIndex < 0) {
+    return "";
+  }
+  const outArg = rest[outIndex + 1];
+  if (!outArg || outArg.startsWith("-")) {
+    return { error: "Missing output file after -o/--out." };
+  }
+  return resolve(cwd, outArg);
+}
+
+async function runCliRequest(request: CliRequest, deps: CliDeps): Promise<number> {
+  const text = await deps.readFileFn(request.inputPath, "utf8");
+
+  switch (request.command) {
+    case "parse":
+      return writeStdoutJson(parse(text), deps.stdoutWrite);
+    case "evaluate":
+      return writeStdoutJson(await evaluate(parse(text)), deps.stdoutWrite);
+    case "render":
+      return writeCliOutput(await render(text), request.outPath, deps, false);
+    case "serialize":
+      return writeCliOutput(serialize(parse(text)), request.outPath, deps, true);
+  }
+}
+
+function writeStdoutJson(value: unknown, stdoutWrite: (text: string) => void): number {
+  stdoutWrite(`${JSON.stringify(value, null, 2)}\n`);
+  return 0;
+}
+
+async function writeCliOutput(
+  output: string,
+  outPath: string,
+  deps: CliDeps,
+  appendTrailingNewline: boolean
+): Promise<number> {
+  if (outPath) {
+    await deps.writeFileFn(outPath, output, "utf8");
+    deps.stdoutWrite(`Wrote ${outPath}\n`);
+    return 0;
+  }
+
+  deps.stdoutWrite(appendTrailingNewline ? `${output}\n` : output);
+  return 0;
 }
 
 const isDirectExecution =

@@ -10,27 +10,31 @@ export function serialize(ast: WorkbookAst): string {
     chunks.push(`@sheet ${sheet.name}${formatToToken(sheet.format)}`);
 
     for (const row of sheet.rows) {
-      if (row.kind === "blank") {
-        chunks.push("");
-        continue;
-      }
-
-      if (row.kind === "header") {
-        const header = `-${row.cells
-          .filter((c) => c.kind !== "merge-left" && c.kind !== "merge-up")
-          .map((c) => `${stringifyCellBase(c)}${stringifyModifiers(c.modifiers)}`)
-          .join("-")}-`;
-        chunks.push(header);
-        continue;
-      }
-
-      const cells = row.cells.map((cell) => stringifyCell(cell)).join(" | ");
-      const rowPrefix = row.name ? `${row.name}${stringifyModifiers(row.modifiers)} ` : "";
-      chunks.push(`${rowPrefix}| ${cells} |`);
+      chunks.push(stringifyRow(row));
     }
   }
 
   return chunks.join("\n");
+}
+
+function stringifyRow(row: WorkbookAst["sheets"][number]["rows"][number]): string {
+  if (row.kind === "header") {
+    return stringifyHeaderRow(row);
+  }
+  return stringifyDataRow(row);
+}
+
+function stringifyHeaderRow(row: WorkbookAst["sheets"][number]["rows"][number]): string {
+  return `-${row.cells
+    .filter((c) => c.kind !== "merge-left" && c.kind !== "merge-up")
+    .map((c) => `${stringifyCellBase(c)}${stringifyModifiers(c.modifiers)}`)
+    .join("-")}-`;
+}
+
+function stringifyDataRow(row: WorkbookAst["sheets"][number]["rows"][number]): string {
+  const cells = row.cells.map((cell) => stringifyCell(cell)).join(" | ");
+  const rowPrefix = row.name ? `${row.name}${stringifyModifiers(row.modifiers)} ` : "";
+  return `${rowPrefix}| ${cells} |`;
 }
 
 function formatToToken(format: SheetFormat): string {
@@ -64,19 +68,7 @@ function stringifyCellBase(cell: CellNode): string {
   if (cell.kind === "formula" && cell.formula) {
     return cell.formula;
   }
-  if (cell.value === null || cell.value === undefined) {
-    return "";
-  }
-  if (typeof cell.value === "string") {
-    return cell.value;
-  }
-  if (typeof cell.value === "number") {
-    return String(cell.value);
-  }
-  if (typeof cell.value === "boolean") {
-    return cell.value ? "TRUE" : "FALSE";
-  }
-  return String(cell.value);
+  return stringifyScalar(cell.value);
 }
 
 function stringifyModifiers(modifiers: Array<{ raw: string }>): string {
@@ -84,5 +76,21 @@ function stringifyModifiers(modifiers: Array<{ raw: string }>): string {
     return "";
   }
   return modifiers.map((m) => `[${m.raw}]`).join("");
+}
+
+function stringifyScalar(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "boolean") {
+    return value ? "TRUE" : "FALSE";
+  }
+  return String(value);
 }
 

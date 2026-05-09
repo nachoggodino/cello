@@ -33,7 +33,7 @@ describe("utils", () => {
   it("parses individual modifier tokens", () => {
     expect(parseModifier("2d")).toMatchObject({ key: "2d", raw: "2d" });
     expect(parseModifier("bg:#eee")).toMatchObject({ key: "bg", value: "#eee" });
-    expect(parseModifier("#bg:#fff")).toMatchObject({ key: "#bg", value: "#fff" });
+    expect(parseModifier("#bg:#111:#fff")).toMatchObject({ key: "bgfg", value: "#111:#fff" });
   });
 
   it("infers scalar types", () => {

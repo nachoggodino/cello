@@ -1,6 +1,6 @@
 # CLI Reference
 
-The package exposes a `cello` CLI binary from `dist/cli.js`.
+The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
 
 ## Commands
 
@@ -12,11 +12,13 @@ The package exposes a `cello` CLI binary from `dist/cli.js`.
 
 - `cello render <file.cel> [-o out.html]`
   - Renders workbook to self-contained HTML.
-  - If `-o/--out` is provided, writes to file; otherwise prints to stdout.
+  - If `-o/--out` is provided, writes to file and prints `Wrote <absolute-path>`.
+  - Otherwise prints HTML to stdout.
 
 - `cello serialize <file.cel> [-o out.cel]`
   - Parses and serializes AST back to `.cel`.
-  - If `-o/--out` is provided, writes to file; otherwise prints to stdout.
+  - If `-o/--out` is provided, writes to file and prints `Wrote <absolute-path>`.
+  - Otherwise prints to stdout.
 
 ## Exit codes
 
@@ -26,4 +28,4 @@ The package exposes a `cello` CLI binary from `dist/cli.js`.
 ## Build/run notes
 
 - Build first: `npm run build`
-- Direct run example: `node dist/cli.js render examples/basic.cel -o out.html`
+- Direct run example: `node dist/cli/cli.js render examples/basic.cel -o out.html`

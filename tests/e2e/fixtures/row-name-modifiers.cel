@@ -1,0 +1,5 @@
+@sheet Rows
+-Label-Amount-Status-
+row_alpha[italic] | Alpha | 5 | open |
+row_beta[bg:#fef3c7] | Beta | 7 | closed |
+row_total[bold] | TOTAL | =SUM(Amount[2:3]) | done[color:green] |

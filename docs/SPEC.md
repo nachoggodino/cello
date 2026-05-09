@@ -4,6 +4,8 @@
 
 Cello is a plain-text format for tabular data with formulas. It is human-readable, git-friendly, LLM-friendly, and renders to HTML with multiple sheets, named columns, evaluated formulas, and rich formatting. It is not a replacement for Excel — it is to Excel what Markdown is to Word.
 
+> Implementation note: this document is the target spec. For exact current behavior status, see `docs/COMPLIANCE.md`.
+
 ---
 
 ## Table of Contents
@@ -199,7 +201,7 @@ A line where content is wrapped in hyphens defines **column names** for all rows
 -Producto-Precio[€][2d]-Stock[0d][bg:#fff9c4]-Activo-
 ```
 
-Use `[hidden]` to define a column name for formula references without rendering the header:
+`[hidden]` is currently parsed into column metadata (`column.hidden`) and can be used by tooling; current renderer does not hide header/cells yet.
 
 ```
 -Producto-Precio[hidden]-Total-
@@ -216,7 +218,8 @@ fila_manzanas | Manzanas | 1.20 | 50 | =Precio*Cantidad |
 fila_peras    | Peras    | 0.90 | 30 | =Precio*Cantidad |
 ```
 
-- Row names are used in cross-row formula references.
+- Row names are parsed and preserved in AST/serialization.
+- Row-name formula references (for example `Sheet!row_name.Column`) are not translated yet.
 - Rows without names are referenceable only by number.
 - Modifiers `[]` on a row name **apply to all cells in that row**.
 
@@ -248,7 +251,7 @@ Force text type with double quotes:
 
 ## 9. Formulas
 
-Any cell value starting with `=` is a formula. All standard Excel functions are supported (via HyperFormula).
+Any cell value starting with `=` is a formula. Evaluation is delegated to HyperFormula, with Cello-side translation for supported named column references.
 
 ```
 | =Precio*Cantidad       |
@@ -274,8 +277,7 @@ Use `!` as the separator:
 ```
 =SUM(Ventas!Total)
 =Ventas!B4
-=Ventas!fila_manzanas.Precio
-=Datos!COUNTIF(edad,25)
+=COUNTIF(Datos!edad,25)
 ```
 
 `!!` is an alias for the first sheet name in the workbook:
@@ -326,8 +328,8 @@ Markdown-style inline formatting is supported inside cell content:
 | `*texto*`     | **bold**            |
 | `_texto_`     | *italic*            |
 | `~~texto~~`   | ~~strikethrough~~   |
-| `# texto`     | Large text (h3)     |
-| `## texto`    | Larger text (h2)    |
+| `# texto`     | Heading style (`cello-h2`) |
+| `## texto`    | Heading style (`cello-h1`) |
 
 `#` and `##` apply to the entire cell and cannot be combined with other inline formatting in the same cell.
 
@@ -361,7 +363,7 @@ Individual cell modifiers **override** column and row modifiers on conflict. Row
 | `[%]`    | Percentage format |
 | `[Nd]`   | N decimal places (e.g. `[2d]`, `[0d]`) |
 
-Can be combined: `-Precio[€][2d]-`
+These modifiers are parsed and preserved in AST today. Numeric display formatting is not yet applied by the renderer.
 
 ### 12.2 Color
 
@@ -381,7 +383,7 @@ Named colors are standard CSS color names (`red`, `blue`, `green`, `orange`, `go
 |------------|---------|
 | `[bold]`   | Bold text |
 | `[italic]` | Italic text |
-| `[hidden]` | Do not render (column, row, or cell) |
+| `[hidden]` | Parsed metadata flag (render-time hiding not implemented yet) |
 
 ### 12.4 Combined example
 
@@ -412,22 +414,21 @@ Ana,25,120
 
 ## 14. Error Handling
 
-Cello never fails completely. Errors degrade gracefully through four levels:
+Primary non-strict contract: parsing/evaluation tries to continue and diagnostics accumulate on `workbook.diagnostics`.
 
-| Level | Condition | Behavior | Visual |
-|-------|-----------|----------|--------|
-| 1 | Formula runtime error (`=1/0`, `#REF!`) | Excel-standard error code in cell | Red text |
-| 2 | Formula not parseable (`=SUM(((`) | Raw formula text rendered as-is | Yellow background + ⚠ |
-| 3 | Cell syntax unrecognized | Raw cell content as plain text | No style change |
-| 4 | Block/sheet structure broken | Affected block as `<pre>`, parsing continues | Gray background |
+| Stage | Behavior |
+|-------|----------|
+| Parse | Non-row native lines -> warning diagnostics and skipped |
+| Parse (json sheet) | Invalid JSON -> warning + single fallback text row |
+| Evaluate | Missing HyperFormula -> warning, formulas left unresolved |
+| Evaluate | Engine/runtime failure -> error diagnostic; throw only in strict evaluate mode |
+| Formula parse error in engine | `computed` falls back to original formula text |
 
-**Error propagation:** A cell error does not propagate to cells that do not depend on it. Independent cells always evaluate correctly.
-
-**Strict mode:** For CI/testing pipelines, pass `{ strict: true }` to the render function. In strict mode, any error throws an exception instead of degrading gracefully.
+**Strict mode:** `strict: true` propagates parse/evaluate throws; warnings alone do not throw.
 
 ```javascript
-render(celContent, { strict: true })  // throws on any error
-render(celContent)                    // always returns HTML
+render(celContent, { strict: true })  // throws when parse/evaluate throw
+render(celContent)                    // returns HTML, diagnostics on AST/eval path
 ```
 
 ---
@@ -475,9 +476,9 @@ fila_global[bold][bg:#f0f0f0] | ## TOTAL | =SUM(total) | =SUM(contador) | =SUM(t
 @sheet Resumen
 
 -Métrica-Valor-
-| Total revenue    | =Por_Edad!SUM(total)      |
-| Total clientes   | =Por_Edad!SUM(contador)   |
-| Ticket medio     | =Por_Edad!AVG(ticket_medio) |
+| Total revenue    | =SUM(Por_Edad!total)      |
+| Total clientes   | =SUM(Por_Edad!contador)   |
+| Ticket medio     | =AVG(Por_Edad!ticket_medio) |
 | Fecha análisis   | 2024-01-15                |
 | Generado por     | "agente-ventas-v2"        |
 ```
@@ -491,32 +492,24 @@ fila_global[bold][bg:#f0f0f0] | ## TOTAL | =SUM(total) | =SUM(contador) | =SUM(t
 The reference implementation is a TypeScript/JavaScript npm package called `cello`. It exposes four core functions:
 
 ```typescript
-parse(text: string): AST
-evaluate(ast: AST): AST          // resolves formulas via HyperFormula
-render(ast: AST): string         // returns HTML string
-serialize(ast: AST): string      // returns .cel text
+parse(text: string, options?): AST
+evaluate(ast: AST, options?): Promise<AST>
+render(input: string | AST, options?): Promise<string>
+serialize(ast: AST): string
 ```
 
-And optional AST mutation helpers:
-
-```typescript
-ast.setCell(sheet, row, col, value)
-ast.addRow(sheet, afterRow?)
-ast.deleteRow(sheet, row)
-ast.addSheet(name, format?)
-ast.renameSheet(oldName, newName)
-```
+There are no built-in AST mutation helpers in current public API.
 
 ### 17.2 Parser design
 
 The parser processes the file in a **single pass**, line by line. It maintains these state variables:
 
 ```javascript
-let currentSheet = null       // active sheet being built
-let currentHeaders = null     // active column header row
-let currentFormat = 'cello'   // input format of current sheet
-let rowIndex = 0              // current row number within sheet
-let lastRow = null            // previous row (for ^ merge resolution)
+let currentSheet = null
+let currentHeaders = []
+let previousRowByColumn = new Map()
+let jsonBufferBySheet = new Map()
+let consumedDelimitedHeaderBySheet = new Set()
 ```
 
 For each line, the parser checks in order:
@@ -525,7 +518,7 @@ For each line, the parser checks in order:
 3. Is it a header row (`-...-`)? → update `currentHeaders`
 4. Is it a data row (`|`)? → parse as Cello row
 5. Is it a blank line? → ignore (does not consume row number)
-6. Otherwise → pass to the active format parser (CSV, JSON, etc.)
+6. Otherwise → handle by active sheet format rules (native/delimited/markdown/json)
 
 Merge tokens are resolved immediately during row parsing:
 - `<` → extend the previous cell's `colspan` in the current row
@@ -555,7 +548,7 @@ The name-to-coordinate translation is the only custom logic needed. HyperFormula
 
 ### 17.4 Renderer
 
-The renderer walks the evaluated AST and produces a self-contained HTML string:
+The renderer walks the evaluated AST and produces a self-contained full HTML document:
 
 ```
 <div class="cello-workbook">
@@ -572,7 +565,7 @@ The renderer walks the evaluated AST and produces a self-contained HTML string:
 </div>
 ```
 
-The default output is a **self-contained HTML fragment** — all CSS and JS are inline. No external dependencies. Can be dropped into any webpage or opened as a standalone file.
+The output is a self-contained HTML document (`<!doctype html>`) with inline CSS/JS. No external dependencies.
 
 ### 17.5 Serializer
 
@@ -583,10 +576,10 @@ AST → serializer → .cel text
 ```
 
 Rules:
-- Preserves original formatting choices (spacing, alignment) where possible
+- Emits normalized Cello row text (`| ... |`) rather than preserving original spacing/alignment
 - Reconstructs header rows from column metadata
 - Outputs row names only where they exist in the AST
-- Modifiers are serialized in consistent order: style → numeric → color
+- Preserves modifier order from parsed AST (`modifiers` array order)
 
 ### 17.6 Ecosystem components
 

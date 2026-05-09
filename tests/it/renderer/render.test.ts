@@ -12,11 +12,14 @@ describe("render", () => {
   });
 
   it("renders inline formatting and cell styles", async () => {
-    const html = await render("@sheet S\n| *Bold* | _Italic_ | ~~Gone~~ |\n| value[bg:red][bold] | # Big | ## Bigger |");
+    const html = await render(
+      "@sheet S\n| *Bold* | _Italic_ | ~~Gone~~ |\n| value[bg:red][bold] | # Big | ## Bigger |\n| mix[#bg:#111:#eee] |"
+    );
     expect(html).toContain('<span class="cello-bold">Bold</span>');
     expect(html).toContain('<span class="cello-italic">Italic</span>');
     expect(html).toContain("<del>Gone</del>");
     expect(html).toContain("background:red");
+    expect(html).toContain("background:#111;color:#eee");
     expect(html).toContain("font-weight:700");
     expect(html).toContain('<span class="cello-h2">Big</span>');
     expect(html).toContain('<span class="cello-h1">Bigger</span>');

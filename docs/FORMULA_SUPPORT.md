@@ -2,45 +2,34 @@
 
 ## What works now
 
-- Formula cells are recognized when a cell starts with `=`.
-- Formulas are evaluated via HyperFormula when dependency is available.
-- A1-style references and regular HyperFormula-compatible formulas can work when they do not require Cello-specific name translation.
-- Cross-sheet A1 references can work when syntax is HyperFormula-compatible.
-- Named range translation is implemented for:
-  - `SUM(Name)` style named column references on current sheet
-  - `SUM(Name[n:m])` slices on current sheet
-  - `SUM(Sheet!Name)` and `SUM(Sheet!Name[n:m])` across sheets
-- `!!` alias is supported as "first sheet" prefix:
-  - `SUM(!!Amount)` -> `SUM(<firstSheet>!Amount)`
+- Formula cells detected when value starts with `=`.
+- Evaluation uses HyperFormula when dependency available.
+- A1 references pass through unchanged.
+- Named column translation supported before engine eval:
+  - `SUM(Name)`
+  - `SUM(Name[n:m])`
+  - `SUM(Sheet!Name)`
+  - `SUM(Sheet!Name[n:m])`
+- `!!` alias supported for first workbook sheet:
+  - `SUM(!!Amount)` -> `SUM(<first-sheet>!Amount)`
 
 ## What does not work yet
 
-- Row-name dot references (for example `Sheet!row_name.Column`) are not translated.
-- Formula grammar translation is intentionally narrow; very complex nested token patterns may still require A1 references.
-- External sheet-file addressing is not available.
+- Row-name dot refs not translated:
+  - `Sheet!row_name.Column`
+- Translation intentionally regex-based/narrow; complex token patterns can require explicit A1 refs.
+- Direct file-style formula addressing is not supported.
 
-## Why
+## Translation model
 
-Current evaluator builds a raw matrix from parsed cells and sends formula strings directly to HyperFormula, without a pre-processing translation pass.
+- Formulas are preprocessed in `src/evaluator/formula.ts`.
+- Unresolvable tokens are kept unchanged.
+- Named refs with missing data rows emit warning diagnostics and remain unchanged.
+- Formula parse errors from engine degrade to original formula text in output (`computed`).
 
-## Remaining implementation to complete named refs
+## Suggested next steps
 
-1. Extend index for row-level named references
-- Add row name -> row index mapping and validate duplicates.
-
-2. Support row-name reference syntax
-- Translate patterns like `Sheet!row_name.Column` to concrete A1 references.
-
-3. Keep original formulas and optionally store translated formulas separately
-- Preserve author intent for serialization/debugging.
-- Evaluate translated formula in HyperFormula.
-
-4. Add strict validation mode for untranslatable references
-- Non-strict: diagnostic + keep raw/degraded behavior
-- Strict: throw error
-
-## Suggested phased rollout
-
-1. v1 complete (already): current-sheet and cross-sheet named column ranges + `!!`.
-2. v2: row-name dot syntax and better duplicate-name diagnostics.
-3. v3: broader grammar-aware translator for advanced expressions.
+1. Add row-name index (`row name -> row index`) per sheet.
+2. Translate row-name dot syntax to A1.
+3. Add strict translation option for unresolved refs.
+4. Expand tests for mixed expressions and nested formula patterns.
