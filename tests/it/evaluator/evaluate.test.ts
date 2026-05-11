@@ -38,6 +38,24 @@ describe("evaluate", () => {
     expect(out.sheets[1].rows[0].cells[0].computed).toBe(10);
   });
 
+  it("supports same-sheet totals without self-referential cycles", async () => {
+    const ast = parse(
+      "@sheet Regions\n-Region-Revenue-Units-Avg-\n| Madrid | 4280 | 15 | =Revenue/Units |\n| Barcelona | 2080 | 7 | =Revenue/Units |\n| Valencia | 760 | 2 | =Revenue/Units |\n| TOTAL | =SUM(Revenue) | =SUM(Units) | =SUM(Revenue)/SUM(Units) |"
+    );
+    const out = await evaluate(ast);
+    expect(out.sheets[0].rows[1].cells[3].computed).toBeCloseTo(285.33333333, 8);
+    expect(out.sheets[0].rows[4].cells[1].computed).toBe(7120);
+    expect(out.sheets[0].rows[4].cells[2].computed).toBe(24);
+    expect(out.sheets[0].rows[4].cells[3].computed).toBeCloseTo(296.66666667, 8);
+  });
+
+  it("supports [*] to force full-column ranges", async () => {
+    const ast = parse("@sheet S\n-Amount-Total-\n| 5 | =SUM(Amount[*]) |\n| 7 | =SUM(Amount[*]) |");
+    const out = await evaluate(ast);
+    expect(out.sheets[0].rows[1].cells[1].computed).toBe(12);
+    expect(out.sheets[0].rows[2].cells[1].computed).toBe(12);
+  });
+
   it("does not mutate the original AST", async () => {
     const ast = parse("@sheet S\n| 1 | 2 | =A1+B1 |");
     const original = ast.sheets[0].rows[0].cells[2];

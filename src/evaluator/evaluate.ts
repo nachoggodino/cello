@@ -138,7 +138,7 @@ function toHyperFormulaValue(
   output: WorkbookAst
 ): string | number | boolean | null {
   if (cell.kind === "formula" && cell.formula) {
-    return translateFormulaForEngine(cell.formula, sheetName, refIndex, output.diagnostics);
+    return translateFormulaForEngine(cell.formula, sheetName, refIndex, output.diagnostics, cell.row);
   }
   return cell.value;
 }

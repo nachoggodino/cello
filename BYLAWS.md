@@ -79,6 +79,7 @@ row_total[bold] | TOTAL | =SUM(Amount) |
 2. Named and coordinate references are both valid.
 3. Cross-sheet references use `!`.
 4. `!!` can be used as alias for the first sheet in the workbook.
+5. On the same sheet, a bare named column is row-aware: scalar formulas use the current row cell, aggregate formulas use rows above the formula row, and `[*]` forces the full data range.
 
 Examples:
 
@@ -88,12 +89,16 @@ Examples:
 | =Sales!B4 |
 | =SUM(Sales!Total) |
 | =SUM(!!Amount) |
+| =Revenue/Units |
+| =SUM(Revenue) |
+| =SUM(Revenue[*]) |
 ```
 
 ## 7) Named column ranges
 
 1. Full column: `SUM(Price)`
 2. Row slice: `SUM(Price[2:5])`
+3. Explicit full data span: `SUM(Price[*])`
 
 Example:
 

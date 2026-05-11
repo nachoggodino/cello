@@ -11,10 +11,17 @@ TypeScript scaffold for the Cello reference library.
 - `cello` CLI (`parse`, `evaluate`, `render`, `serialize`)
 - Named column references translated for evaluation:
   - `=SUM(Price)`
+  - `=Price/Units`
   - `=SUM(Price[2:10])`
+  - `=SUM(Price[*])`
   - `=SUM(Data!Amount)`
 - `!!` alias for first-sheet references in formulas:
   - `=SUM(!!Amount)`
+
+Current named-reference semantics:
+- Same-sheet scalar refs like `=Price/Units` use the current row cells.
+- Same-sheet aggregate refs like `=SUM(Price)` use prior data rows only, avoiding footer self-cycles.
+- `[*]` forces the full data span: `=SUM(Price[*])`.
 
 ## Quick start
 

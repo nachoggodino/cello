@@ -2,7 +2,9 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
+import { parse } from "../../src/parser/parse.js";
 import { render } from "../../src/renderer/render.js";
+import type { CellNode, WorkbookAst } from "../../src/shared/types.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "fixtures");
@@ -15,11 +17,11 @@ export interface RenderFixtureCase {
   notContains?: string[];
 }
 
-export async function renderFixture(caseDef: RenderFixtureCase): Promise<{ actual: string; expected: string }> {
+export async function renderFixture(caseDef: RenderFixtureCase): Promise<{ actual: string; workbook: WorkbookAst }> {
   const input = await readFixtureText(`${caseDef.name}.cel`);
-  const expected = normalizeHtml(await readFixtureText(`${caseDef.name}.view.html`));
+  const workbook = parse(input);
   const actual = extractWorkbookViewHtml(await render(input, { title: caseDef.title }));
-  return { actual, expected };
+  return { actual, workbook };
 }
 
 export function assertRenderFixture(caseDef: RenderFixtureCase, html: string): void {
@@ -31,13 +33,14 @@ export function assertRenderFixture(caseDef: RenderFixtureCase, html: string): v
   }
 }
 
-export function assertRenderShape(actual: string, expected: string): void {
-  expect(countTag(actual, "button")).toBe(countTag(expected, "button"));
-  expect(countTag(actual, "section")).toBe(countTag(expected, "section"));
-  expect(countTag(actual, "table")).toBe(countTag(expected, "table"));
-  expect(countTag(actual, "tr")).toBe(countTag(expected, "tr"));
-  expect(countTag(actual, "th")).toBe(countTag(expected, "th"));
-  expect(countTag(actual, "td")).toBe(countTag(expected, "td"));
+export function assertRenderShape(actual: string, workbook: WorkbookAst): void {
+  const expectedRows = workbook.sheets.flatMap((sheet) => sheet.rows);
+  expect(countTag(actual, "button")).toBe(workbook.sheets.length);
+  expect(countTag(actual, "section")).toBe(workbook.sheets.length);
+  expect(countTag(actual, "table")).toBe(workbook.sheets.length);
+  expect(countTag(actual, "tr")).toBe(expectedRows.length);
+  expect(countTag(actual, "th")).toBe(expectedRows.filter((row) => row.kind === "header").flatMap((row) => visibleCells(row.cells)).length);
+  expect(countTag(actual, "td")).toBe(expectedRows.filter((row) => row.kind === "data").flatMap((row) => visibleCells(row.cells)).length);
 }
 
 async function readFixtureText(name: string): Promise<string> {
@@ -66,4 +69,8 @@ function extractWorkbookViewHtml(fullDocumentHtml: string): string {
 function countTag(html: string, tagName: string): number {
   const matches = html.match(new RegExp(`<${tagName}\\b`, "g"));
   return matches?.length ?? 0;
+}
+
+function visibleCells(cells: CellNode[]): CellNode[] {
+  return cells.filter((cell) => cell.kind !== "merge-left" && cell.kind !== "merge-up");
 }

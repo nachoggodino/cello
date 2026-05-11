@@ -5,8 +5,8 @@ import { assertRenderFixture, assertRenderShape, renderFixture } from "./helpers
 describe("render e2e fixtures", () => {
   for (const fixture of renderFixtureCases) {
     it(`renders ${fixture.name} with expected structure`, async () => {
-      const { actual, expected } = await renderFixture(fixture);
-      assertRenderShape(actual, expected);
+      const { actual, workbook } = await renderFixture(fixture);
+      assertRenderShape(actual, workbook);
       assertRenderFixture(fixture, actual);
       expect(actual).toContain('<div class="cello-workbook">');
     });

@@ -72,10 +72,8 @@ function renderSheets(workbook: WorkbookAst): string {
 }
 
 function renderRow(row: RowNode, sheet: SheetNode): string {
-  const cells = row.cells
-    .filter((cell) => cell.kind !== "merge-left" && cell.kind !== "merge-up")
-    .map((cell) => renderCell(cell, row.kind === "header", collectModifiers(cell, row, sheet)))
-    .join("");
+  const header = row.kind === "header";
+  const cells = row.cells.filter(isRenderableCell).map((cell) => renderCell(cell, header, collectModifiers(cell, row, sheet))).join("");
   return `<tr>${cells}</tr>`;
 }
 
@@ -118,33 +116,34 @@ function formatInline(raw: string): string {
 }
 
 function buildStyleAttribute(modifiers: Modifier[]): string {
-  const style = modifiers
-    .map((mod) => {
-      if (mod.key === "bold") {
-        return "font-weight:700";
-      }
-      if (mod.key === "italic") {
-        return "font-style:italic";
-      }
-      if (mod.key === "bg" && mod.value) {
-        return `background:${mod.value}`;
-      }
-      if (mod.key === "bgfg" && mod.value) {
-        const [background = "", foreground = ""] = mod.value.split(":");
-        return [background ? `background:${background}` : "", foreground ? `color:${foreground}` : ""]
-          .filter(Boolean)
-          .join(";");
-      }
-      if (mod.key.startsWith("#")) {
-        return `color:${mod.key}`;
-      }
-      if (mod.key === "color" && mod.value) {
-        return `color:${mod.value}`;
-      }
-      return "";
-    })
-    .filter(Boolean)
-    .join(";");
+  const style = modifiers.map(toStyleRule).filter(Boolean).join(";");
 
   return style ? `style="${style}"` : "";
+}
+
+function isRenderableCell(cell: CellNode): boolean {
+  return cell.kind !== "merge-left" && cell.kind !== "merge-up";
+}
+
+function toStyleRule(mod: Modifier): string {
+  if (mod.key === "bold") {
+    return "font-weight:700";
+  }
+  if (mod.key === "italic") {
+    return "font-style:italic";
+  }
+  if (mod.key === "bg" && mod.value) {
+    return `background:${mod.value}`;
+  }
+  if (mod.key === "bgfg" && mod.value) {
+    const [background = "", foreground = ""] = mod.value.split(":");
+    return [background ? `background:${background}` : "", foreground ? `color:${foreground}` : ""].filter(Boolean).join(";");
+  }
+  if (mod.key.startsWith("#")) {
+    return `color:${mod.key}`;
+  }
+  if (mod.key === "color" && mod.value) {
+    return `color:${mod.value}`;
+  }
+  return "";
 }

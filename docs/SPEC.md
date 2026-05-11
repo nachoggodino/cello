@@ -265,10 +265,18 @@ Both **named references** and **coordinate references** are valid and can be mix
 ### 9.1 Column range references
 
 ```
-=SUM(Precio)          ← entire Precio column, current sheet
+=Precio               ← current row's Precio cell, current sheet
+=SUM(Precio)          ← Precio rows before current formula row, current sheet
+=SUM(Precio[*])       ← full Precio data column, current sheet
 =SUM(Precio[2:5])     ← rows 2–5 of Precio column
-=AVG(Margen)          ← entire Margen column
+=AVG(Margen)          ← Margen rows before current formula row
 ```
+
+Same-sheet named column references are context-sensitive:
+
+- In scalar context, `Precio` resolves to the current row cell in that column.
+- In aggregate/range context on the same sheet, `Precio` resolves from the first data row up to the row before the formula row. This prevents footer totals like `=SUM(Precio)` from including themselves.
+- `Precio[*]` forces the full data span of the column, including rows below the formula row.
 
 ### 9.2 Cross-sheet references
 
@@ -276,6 +284,7 @@ Use `!` as the separator:
 
 ```
 =SUM(Ventas!Total)
+=SUM(Ventas!Total[*])
 =Ventas!B4
 =COUNTIF(Datos!edad,25)
 ```
@@ -532,7 +541,8 @@ HyperFormula is used as the formula engine. The integration flow:
 AST (with formula strings)
     ↓
 Translate named refs to coordinates
-  "=SUM(Precio)" → "=SUM(B2:B10)"
+  "=SUM(Precio)" → "=SUM(B2:B9)"   // same-sheet footer total excludes current row
+  "=SUM(Precio[*])" → "=SUM(B2:B10)"
   "=Ventas!Total" → sheet cross-reference
     ↓
 Feed all sheets to HyperFormula

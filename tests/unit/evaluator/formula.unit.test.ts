@@ -1,62 +1,45 @@
 import { describe, expect, it } from "vitest";
 import { buildWorkbookRefIndex, translateFormulaForEngine } from "../../../src/evaluator/formula.js";
-import type { CellNode, WorkbookAst } from "../../../src/shared/types.js";
+import { dataRow, sheet, valueCell, workbook } from "../../helpers/ast.js";
 
-function createWorkbook(
-  sheets: Array<{
-    name: string;
-    columns?: string[];
-    dataRows?: Array<Array<string | number | boolean>>;
-  }>
-): WorkbookAst {
-  return {
-    version: "1.0",
-    diagnostics: [],
-    sheets: sheets.map((sheet) => {
-      const columns = (sheet.columns ?? []).map((name, index) => ({
-        index: index + 1,
-        letter: String.fromCharCode(65 + index),
+function createWorkbook(defs: Array<{ name: string; columns?: string[]; dataRows?: Array<Array<string | number | boolean>> }>) {
+  return workbook(
+    defs.map(({ name, columns = [], dataRows = [] }) =>
+      sheet({
         name,
-        modifiers: [],
-        hidden: false
-      }));
-      const rows = (sheet.dataRows ?? []).map((values, rowIndex) => ({
-        index: rowIndex + 2,
-        kind: "data" as const,
-        sourceLine: rowIndex + 1,
-        modifiers: [],
-        cells: values.map((value, colIndex) => createValueCell(rowIndex + 2, colIndex + 1, value))
-      }));
-      return {
-        name: sheet.name,
-        format: { kind: "cello" as const },
-        rows,
-        columns
-      };
-    })
-  };
-}
-
-function createValueCell(row: number, col: number, value: string | number | boolean): CellNode {
-  return {
-    row,
-    col,
-    raw: String(value),
-    kind: "value",
-    inferredType: typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "text",
-    value,
-    modifiers: [],
-    colspan: 1,
-    rowspan: 1
-  };
+        columns,
+        rows: dataRows.map((values, rowIndex) =>
+          dataRow(
+            rowIndex + 2,
+            values.map((value, colIndex) => valueCell(rowIndex + 2, colIndex + 1, value)),
+            { sourceLine: rowIndex + 1 }
+          )
+        )
+      })
+    )
+  );
 }
 
 describe("formula translation", () => {
   it("translates current-sheet named ranges", () => {
     const ast = createWorkbook([{ name: "S", columns: ["Amount"], dataRows: [[5], [7]] }]);
     const index = buildWorkbookRefIndex(ast);
-    const translated = translateFormulaForEngine("=SUM(Amount)", "S", index, ast.diagnostics);
+    const translated = translateFormulaForEngine("=SUM(Amount)", "S", index, ast.diagnostics, 4);
     expect(translated).toBe("=SUM(A2:A3)");
+  });
+
+  it("translates current-sheet bare named refs to the current row in scalar context", () => {
+    const ast = createWorkbook([{ name: "S", columns: ["Revenue", "Units"], dataRows: [[5, 2], [7, 1], [9, 3]] }]);
+    const index = buildWorkbookRefIndex(ast);
+    const translated = translateFormulaForEngine("=Revenue/Units", "S", index, ast.diagnostics, 4);
+    expect(translated).toBe("=A4/B4");
+  });
+
+  it("excludes the current row from same-sheet aggregate named refs", () => {
+    const ast = createWorkbook([{ name: "S", columns: ["Revenue"], dataRows: [[5], [7], [9], [0]] }]);
+    const index = buildWorkbookRefIndex(ast);
+    const translated = translateFormulaForEngine("=SUM(Revenue)", "S", index, ast.diagnostics, 5);
+    expect(translated).toBe("=SUM(A2:A4)");
   });
 
   it("translates cross-sheet named ranges and !! alias", () => {
@@ -115,8 +98,9 @@ describe("formula translation", () => {
     const ast = createWorkbook([{ name: "S", columns: ["Amount"], dataRows: [[5], [7]] }]);
     const index = buildWorkbookRefIndex(ast);
 
-    expect(translateFormulaForEngine("=SUM(Amount[2:3])", "S", index, ast.diagnostics)).toBe("=SUM(A2:A3)");
-    expect(translateFormulaForEngine("=IF(TRUE,FALSE,TRUE)", "S", index, ast.diagnostics)).toBe("=IF(TRUE,FALSE,TRUE)");
+    expect(translateFormulaForEngine("=SUM(Amount[2:3])", "S", index, ast.diagnostics, 4)).toBe("=SUM(A2:A3)");
+    expect(translateFormulaForEngine("=SUM(Amount[*])", "S", index, ast.diagnostics, 4)).toBe("=SUM(A2:A3)");
+    expect(translateFormulaForEngine("=IF(TRUE,FALSE,TRUE)", "S", index, ast.diagnostics, 4)).toBe("=IF(TRUE,FALSE,TRUE)");
   });
 
   it("keeps unresolved tokens when sheetName is not present in the index", () => {

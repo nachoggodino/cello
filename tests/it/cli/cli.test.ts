@@ -22,6 +22,25 @@ async function makeTempProject(): Promise<string> {
   return dir;
 }
 
+async function runCliCase(
+  argv: string[],
+  source = "@sheet S\n| A | 1 |"
+): Promise<{ code: number; cwd: string; stdout: string; stderr: string }> {
+  const cwd = await makeTempProject();
+  await writeFile(join(cwd, "sample.cel"), source, "utf8");
+
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const deps = createCliDeps({
+    cwd,
+    stdoutWrite: (text) => stdout.push(text),
+    stderrWrite: (text) => stderr.push(text)
+  });
+
+  const code = await runCli(argv, deps);
+  return { code, cwd, stdout: stdout.join(""), stderr: stderr.join("") };
+}
+
 describe("cli", () => {
   it("prints usage and exits 1 when command/arg are missing", async () => {
     const stdout: string[] = [];
@@ -35,137 +54,85 @@ describe("cli", () => {
     expect(stdout.join("")).toContain("Usage:");
   });
 
-  it("runs parse and prints AST json", async () => {
-    const cwd = await makeTempProject();
-    const file = join(cwd, "sample.cel");
-    await writeFile(file, "@sheet S\n| A | 1 |", "utf8");
-
-    const stdout: string[] = [];
-    const deps = createCliDeps({
-      cwd,
-      stdoutWrite: (text) => stdout.push(text)
-    });
-
-    const code = await runCli(["node", "cli", "parse", "sample.cel"], deps);
-    expect(code).toBe(0);
-
-    const parsedOutput = JSON.parse(stdout.join(""));
-    expect(parsedOutput.sheets[0].name).toBe("S");
-  });
-
-  it("runs render and writes html file", async () => {
-    const cwd = await makeTempProject();
-    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| A | 1 |", "utf8");
-
-    const stdout: string[] = [];
-    const deps = createCliDeps({
-      cwd,
-      stdoutWrite: (text) => stdout.push(text)
-    });
-
-    const code = await runCli(["node", "cli", "render", "sample.cel", "-o", "out.html"], deps);
-    expect(code).toBe(0);
-    expect(stdout.join("")).toContain("Wrote");
-
-    const html = await readFile(join(cwd, "out.html"), "utf8");
-    expect(html).toContain("<!doctype html>");
-    expect(html).toContain("cello-workbook");
-  });
-
   it("returns 1 when -o is provided without an output file", async () => {
-    const cwd = await makeTempProject();
-    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| A | 1 |", "utf8");
-
-    const stderr: string[] = [];
-    const deps = createCliDeps({
-      cwd,
-      stderrWrite: (text) => stderr.push(text)
-    });
-
-    const code = await runCli(["node", "cli", "render", "sample.cel", "-o"], deps);
+    const { code, stderr } = await runCliCase(["node", "cli", "render", "sample.cel", "-o"]);
     expect(code).toBe(1);
-    expect(stderr.join("")).toContain("Missing output file after -o/--out.");
+    expect(stderr).toContain("Missing output file after -o/--out.");
   });
 
-  it("runs render and writes html to stdout when no -o is provided", async () => {
-    const cwd = await makeTempProject();
-    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| A | 1 |", "utf8");
-
-    const stdout: string[] = [];
-    const deps = createCliDeps({
-      cwd,
-      stdoutWrite: (text) => stdout.push(text)
+  for (const { name, argv, source, assert } of [
+    {
+      name: "runs parse and prints AST json",
+      argv: ["node", "cli", "parse", "sample.cel"],
+      source: "@sheet S\n| A | 1 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(JSON.parse(stdout).sheets[0].name).toBe("S");
+      }
+    },
+    {
+      name: "runs render and writes html file",
+      argv: ["node", "cli", "render", "sample.cel", "-o", "out.html"],
+      source: "@sheet S\n| A | 1 |",
+      assert: async ({ code, cwd, stdout }: { code: number; cwd: string; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("Wrote");
+        const html = await readFile(join(cwd, "out.html"), "utf8");
+        expect(html).toContain("<!doctype html>");
+        expect(html).toContain("cello-workbook");
+      }
+    },
+    {
+      name: "runs render and writes html to stdout when no -o is provided",
+      argv: ["node", "cli", "render", "sample.cel"],
+      source: "@sheet S\n| A | 1 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("<!doctype html>");
+      }
+    },
+    {
+      name: "runs evaluate and prints evaluated AST json",
+      argv: ["node", "cli", "evaluate", "sample.cel"],
+      source: "@sheet S\n| 2 | 3 | =A1+B1 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(JSON.parse(stdout).sheets[0].rows[0].cells[2].computed).toBe(5);
+      }
+    },
+    {
+      name: "runs serialize and writes output file when -o is provided",
+      argv: ["node", "cli", "serialize", "sample.cel", "-o", "out.cel"],
+      source: "@sheet S\n| A | 1 |",
+      assert: async ({ code, cwd, stdout }: { code: number; cwd: string; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("Wrote");
+        expect(await readFile(join(cwd, "out.cel"), "utf8")).toContain("@sheet S");
+      }
+    },
+    {
+      name: "runs serialize and prints output to stdout when no -o is provided",
+      argv: ["node", "cli", "serialize", "sample.cel"],
+      source: "@sheet S\n| A | 1 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("@sheet S");
+      }
+    },
+    {
+      name: "returns 1 for unknown command",
+      argv: ["node", "cli", "unknown", "sample.cel"],
+      source: "@sheet S\n| A | 1 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(1);
+        expect(stdout).toContain("Usage:");
+      }
+    }
+  ]) {
+    it(name, async () => {
+      await assert(await runCliCase(argv, source));
     });
-
-    const code = await runCli(["node", "cli", "render", "sample.cel"], deps);
-    expect(code).toBe(0);
-    expect(stdout.join("")).toContain("<!doctype html>");
-  });
-
-  it("runs evaluate and prints evaluated AST json", async () => {
-    const cwd = await makeTempProject();
-    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| 2 | 3 | =A1+B1 |", "utf8");
-
-    const stdout: string[] = [];
-    const deps = createCliDeps({
-      cwd,
-      stdoutWrite: (text) => stdout.push(text)
-    });
-
-    const code = await runCli(["node", "cli", "evaluate", "sample.cel"], deps);
-    expect(code).toBe(0);
-
-    const parsedOutput = JSON.parse(stdout.join(""));
-    expect(parsedOutput.sheets[0].rows[0].cells[2].computed).toBe(5);
-  });
-
-  it("runs serialize and writes output file when -o is provided", async () => {
-    const cwd = await makeTempProject();
-    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| A | 1 |", "utf8");
-
-    const stdout: string[] = [];
-    const deps = createCliDeps({
-      cwd,
-      stdoutWrite: (text) => stdout.push(text)
-    });
-
-    const code = await runCli(["node", "cli", "serialize", "sample.cel", "-o", "out.cel"], deps);
-    expect(code).toBe(0);
-    expect(stdout.join("")).toContain("Wrote");
-
-    const out = await readFile(join(cwd, "out.cel"), "utf8");
-    expect(out).toContain("@sheet S");
-  });
-
-  it("runs serialize and prints output to stdout when no -o is provided", async () => {
-    const cwd = await makeTempProject();
-    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| A | 1 |", "utf8");
-
-    const stdout: string[] = [];
-    const deps = createCliDeps({
-      cwd,
-      stdoutWrite: (text) => stdout.push(text)
-    });
-
-    const code = await runCli(["node", "cli", "serialize", "sample.cel"], deps);
-    expect(code).toBe(0);
-    expect(stdout.join("")).toContain("@sheet S");
-  });
-
-  it("returns 1 for unknown command", async () => {
-    const cwd = await makeTempProject();
-    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| A | 1 |", "utf8");
-
-    const stdout: string[] = [];
-    const deps = createCliDeps({
-      cwd,
-      stdoutWrite: (text) => stdout.push(text)
-    });
-
-    const code = await runCli(["node", "cli", "unknown", "sample.cel"], deps);
-    expect(code).toBe(1);
-    expect(stdout.join("")).toContain("Usage:");
-  });
+  }
 
   it("runMain exits with CLI return code on success", async () => {
     const exitSpy = vi.fn();

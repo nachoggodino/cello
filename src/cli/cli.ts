@@ -27,12 +27,12 @@ export function createCliDeps(overrides: Partial<CliDeps> = {}): CliDeps {
 
 export async function runCli(argv: string[], deps: CliDeps = createCliDeps()): Promise<number> {
   const request = parseCliRequest(argv, deps.cwd);
-  if (!request) {
-    printUsage(deps.stdoutWrite);
+  if (request && "error" in request) {
+    deps.stderrWrite(`${request.error}\n`);
     return 1;
   }
-  if ("error" in request) {
-    deps.stderrWrite(`${request.error}\n`);
+  if (!request) {
+    printUsage(deps.stdoutWrite);
     return 1;
   }
 
@@ -117,17 +117,20 @@ function resolveOutPath(cwd: string, rest: string[]): string | CliRequestError {
 
 async function runCliRequest(request: CliRequest, deps: CliDeps): Promise<number> {
   const text = await deps.readFileFn(request.inputPath, "utf8");
+  let ast: ReturnType<typeof parse> | undefined;
+  const getAst = (): ReturnType<typeof parse> => {
+    ast ??= parse(text);
+    return ast;
+  };
 
-  switch (request.command) {
-    case "parse":
-      return writeStdoutJson(parse(text), deps.stdoutWrite);
-    case "evaluate":
-      return writeStdoutJson(await evaluate(parse(text)), deps.stdoutWrite);
-    case "render":
-      return writeCliOutput(await render(text), request.outPath, deps, false);
-    case "serialize":
-      return writeCliOutput(serialize(parse(text)), request.outPath, deps, true);
-  }
+  const handlers: Record<CliCommand, () => Promise<number>> = {
+    parse: async () => writeStdoutJson(getAst(), deps.stdoutWrite),
+    evaluate: async () => writeStdoutJson(await evaluate(getAst()), deps.stdoutWrite),
+    render: async () => writeCliOutput(await render(text), request.outPath, deps, false),
+    serialize: async () => writeCliOutput(serialize(getAst()), request.outPath, deps, true)
+  };
+
+  return handlers[request.command]();
 }
 
 function writeStdoutJson(value: unknown, stdoutWrite: (text: string) => void): number {

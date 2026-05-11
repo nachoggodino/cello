@@ -116,23 +116,23 @@ export function parseSheetFormat(rawFormat?: string): SheetFormat {
     return { kind: "json" };
   }
 
-  if (lower.startsWith("csv")) {
-    return { kind: "delimited", delimiter: ",", noHeader: lower.includes("noheader"), alias: "csv" };
-  }
-  if (lower.startsWith("tsv")) {
-    return { kind: "delimited", delimiter: "\t", noHeader: lower.includes("noheader"), alias: "tsv" };
-  }
-  if (lower.startsWith("excel")) {
-    return { kind: "delimited", delimiter: ";", noHeader: lower.includes("noheader"), alias: "excel" };
+  for (const [alias, delimiter] of [
+    ["csv", ","],
+    ["tsv", "\t"],
+    ["excel", ";"]
+  ] as const) {
+    if (lower.startsWith(alias)) {
+      return { kind: "delimited", delimiter, noHeader: lower.includes("noheader"), alias };
+    }
   }
 
   const [formatHead, ...flags] = token.split(":");
   const noHeader = flags.some((f) => f.trim().toLowerCase() === "noheader");
-  if (formatHead && formatHead.length === 1) {
-    return { kind: "delimited", delimiter: formatHead, noHeader };
-  }
   if (formatHead === "\\t") {
     return { kind: "delimited", delimiter: "\t", noHeader };
+  }
+  if (formatHead && formatHead.length === 1) {
+    return { kind: "delimited", delimiter: formatHead, noHeader };
   }
 
   return { kind: "cello" };

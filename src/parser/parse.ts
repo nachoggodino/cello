@@ -315,17 +315,7 @@ function pushHeaderRow(sheet: SheetNode, headers: HeaderDef[], lineNumber: numbe
     kind: "header",
     sourceLine: lineNumber,
     modifiers: [],
-    cells: headers.map((header, col) => ({
-      row: index,
-      col: col + 1,
-      raw: header.name,
-      kind: "value",
-      inferredType: "text",
-      value: header.name,
-      modifiers: header.modifiers,
-      colspan: 1,
-      rowspan: 1
-    }))
+    cells: headers.map((header, col) => createValueCell(index, col + 1, header.name, header.modifiers, "text"))
   });
 }
 
@@ -414,17 +404,7 @@ function parseDataCells(
       if (left) {
         left.colspan += 1;
       }
-      parsedCells.push({
-        row: context.rowIndex,
-        col,
-        raw: token,
-        kind: "merge-left",
-        inferredType: "empty",
-        value: null,
-        modifiers: [],
-        colspan: 0,
-        rowspan: 0
-      });
+      parsedCells.push(createMergeCell(context.rowIndex, col, "merge-left"));
       if (left) {
         currentByColumn.set(col, left);
       }
@@ -436,17 +416,7 @@ function parseDataCells(
       if (above) {
         above.rowspan += 1;
       }
-      parsedCells.push({
-        row: context.rowIndex,
-        col,
-        raw: token,
-        kind: "merge-up",
-        inferredType: "empty",
-        value: null,
-        modifiers: [],
-        colspan: 0,
-        rowspan: 0
-      });
+      parsedCells.push(createMergeCell(context.rowIndex, col, "merge-up"));
       if (above) {
         currentByColumn.set(col, above);
       }
@@ -454,18 +424,7 @@ function parseDataCells(
     }
 
     if (token.startsWith("=")) {
-      const formulaCell: CellNode = {
-        row: context.rowIndex,
-        col,
-        raw: token,
-        kind: "formula",
-        inferredType: "text",
-        value: token,
-        formula: token,
-        modifiers: [],
-        colspan: 1,
-        rowspan: 1
-      };
+      const formulaCell = createFormulaCell(context.rowIndex, col, token);
       parsedCells.push(formulaCell);
       currentByColumn.set(col, formulaCell);
       continue;
@@ -473,30 +432,13 @@ function parseDataCells(
 
     const extracted = parseTrailingModifiers(token);
     const inferred = inferType(extracted.base);
-    const cell: CellNode = {
-      row: context.rowIndex,
-      col,
-      raw: token,
-      kind: inferred.inferredType === "empty" ? "empty" : "value",
-      inferredType: inferred.inferredType,
-      value: inferred.parsed,
-      modifiers: extracted.modifiers,
-      colspan: 1,
-      rowspan: 1
-    };
+    const cell = createValueCell(context.rowIndex, col, inferred.parsed, extracted.modifiers, inferred.inferredType, token);
 
     parsedCells.push(cell);
     currentByColumn.set(col, cell);
   }
 
-  return {
-    index: context.rowIndex,
-    kind: "data",
-    sourceLine: context.lineNumber,
-    ...(context.rowName ? { name: context.rowName } : {}),
-    modifiers: context.rowModifiers,
-    cells: parsedCells
-  };
+  return createDataRow(context.rowIndex, context.lineNumber, parsedCells, context.rowModifiers, context.rowName);
 }
 
 function appendDataRow(
@@ -583,6 +525,73 @@ function createColumnNode(index: number, header?: HeaderDef): ColumnNode {
     ...(header?.name ? { name: header.name } : {}),
     modifiers: header?.modifiers ?? [],
     hidden: Boolean(header?.modifiers.some((m) => m.key === "hidden"))
+  };
+}
+
+function createDataRow(
+  index: number,
+  sourceLine: number,
+  cells: CellNode[],
+  modifiers: Modifier[],
+  rowName?: string
+): RowNode {
+  return {
+    index,
+    kind: "data",
+    sourceLine,
+    ...(rowName ? { name: rowName } : {}),
+    modifiers,
+    cells
+  };
+}
+
+function createValueCell(
+  row: number,
+  col: number,
+  value: CellNode["value"],
+  modifiers: Modifier[],
+  inferredType: CellNode["inferredType"],
+  raw = value === null ? "" : String(value)
+): CellNode {
+  return {
+    row,
+    col,
+    raw,
+    kind: inferredType === "empty" ? "empty" : "value",
+    inferredType,
+    value,
+    modifiers,
+    colspan: 1,
+    rowspan: 1
+  };
+}
+
+function createFormulaCell(row: number, col: number, formula: string): CellNode {
+  return {
+    row,
+    col,
+    raw: formula,
+    kind: "formula",
+    inferredType: "text",
+    value: formula,
+    formula,
+    modifiers: [],
+    colspan: 1,
+    rowspan: 1
+  };
+}
+
+function createMergeCell(row: number, col: number, kind: "merge-left" | "merge-up"): CellNode {
+  return {
+    row,
+    col,
+    raw: kind === "merge-left" ? "<" : "^",
+    kind,
+    inferredType: "empty",
+    value: null,
+    modifiers: [],
+    colspan: 0,
+    rowspan: 0
   };
 }
 
