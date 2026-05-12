@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { evaluate } from "../evaluator/evaluate.js";
 import { parse } from "../parser/parse.js";
 import { render } from "../renderer/render.js";
 import { serialize } from "../serializer/serialize.js";
+import { validate } from "../validator/validate.js";
 
 export interface CliDeps {
   cwd: string;
@@ -62,6 +63,7 @@ function printUsage(write: (text: string) => void): void {
       "Usage:",
       "  cello parse <file.cel>",
       "  cello evaluate <file.cel>",
+      "  cello validate <file.cel>",
       "  cello render <file.cel> [-o out.html]",
       "  cello serialize <file.cel> [-o out.cel]"
     ].join("\n")
@@ -69,7 +71,7 @@ function printUsage(write: (text: string) => void): void {
   write("\n");
 }
 
-type CliCommand = "parse" | "evaluate" | "render" | "serialize";
+type CliCommand = "parse" | "evaluate" | "validate" | "render" | "serialize";
 
 interface CliRequest {
   command: CliCommand;
@@ -100,7 +102,13 @@ function parseCliRequest(argv: string[], cwd: string): CliRequest | CliRequestEr
 }
 
 function isCliCommand(command: string | undefined): command is CliCommand {
-  return command === "parse" || command === "evaluate" || command === "render" || command === "serialize";
+  return (
+    command === "parse" ||
+    command === "evaluate" ||
+    command === "validate" ||
+    command === "render" ||
+    command === "serialize"
+  );
 }
 
 function resolveOutPath(cwd: string, rest: string[]): string | CliRequestError {
@@ -126,11 +134,17 @@ async function runCliRequest(request: CliRequest, deps: CliDeps): Promise<number
   const handlers: Record<CliCommand, () => Promise<number>> = {
     parse: async () => writeStdoutJson(getAst(), deps.stdoutWrite),
     evaluate: async () => writeStdoutJson(await evaluate(getAst()), deps.stdoutWrite),
+    validate: async () => writeValidationResult(await validate(text, { baseDir: dirname(request.inputPath) }), deps.stdoutWrite),
     render: async () => writeCliOutput(await render(text), request.outPath, deps, false),
     serialize: async () => writeCliOutput(serialize(getAst()), request.outPath, deps, true)
   };
 
   return handlers[request.command]();
+}
+
+function writeValidationResult(value: Awaited<ReturnType<typeof validate>>, stdoutWrite: (text: string) => void): number {
+  writeStdoutJson(value, stdoutWrite);
+  return value.valid ? 0 : 1;
 }
 
 function writeStdoutJson(value: unknown, stdoutWrite: (text: string) => void): number {

@@ -71,6 +71,29 @@ describe("cli", () => {
       }
     },
     {
+      name: "runs validate and prints valid result json",
+      argv: ["node", "cli", "validate", "sample.cel"],
+      source: "@sheet S\n| A | 1 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(JSON.parse(stdout)).toEqual({
+          valid: true,
+          diagnostics: []
+        });
+      }
+    },
+    {
+      name: "runs validate and returns 1 when diagnostics exist",
+      argv: ["node", "cli", "validate", "sample.cel"],
+      source: "@sheet S\nnot a row\n| ok |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(1);
+        const result = JSON.parse(stdout) as { valid: boolean; diagnostics: Array<{ level: string; line?: number }> };
+        expect(result.valid).toBe(false);
+        expect(result.diagnostics).toContainEqual(expect.objectContaining({ level: "warning", line: 2 }));
+      }
+    },
+    {
       name: "runs render and writes html file",
       argv: ["node", "cli", "render", "sample.cel", "-o", "out.html"],
       source: "@sheet S\n| A | 1 |",

@@ -10,6 +10,11 @@ The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
 - `cello evaluate <file.cel>`
   - Parses and evaluates formulas, prints resulting AST as JSON.
 
+- `cello validate <file.cel>`
+  - Parses and evaluates workbook diagnostics.
+  - Prints `{ "valid": boolean, "diagnostics": [...] }` as JSON.
+  - Exits `0` when there are no diagnostics, otherwise exits `1`.
+
 - `cello render <file.cel> [-o out.html]`
   - Renders workbook to self-contained HTML.
   - If `-o/--out` is provided, writes to file and prints `Wrote <absolute-path>`.

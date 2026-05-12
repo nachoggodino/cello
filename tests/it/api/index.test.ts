@@ -7,6 +7,14 @@ describe("public API", () => {
     expect(typeof cello.evaluate).toBe("function");
     expect(typeof cello.render).toBe("function");
     expect(typeof cello.serialize).toBe("function");
+    expect(typeof cello.validate).toBe("function");
+  });
+
+  it("validates cello text", async () => {
+    await expect(cello.validate("@sheet S\n| A |")).resolves.toEqual({
+      valid: true,
+      diagnostics: []
+    });
   });
 });
 
