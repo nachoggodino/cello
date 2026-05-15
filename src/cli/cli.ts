@@ -8,6 +8,7 @@ import { parse } from "../parser/parse.js";
 import { render } from "../renderer/render.js";
 import { serialize } from "../serializer/serialize.js";
 import { validate } from "../validator/validate.js";
+import { VERSION } from "../version.js";
 import { startServe } from "./serve.js";
 
 export interface CliDeps {
@@ -68,6 +69,7 @@ function printUsage(write: (text: string) => void): void {
     [
       "Usage:",
       "  cello help [command]",
+      "  cello version",
       "  cello parse <file.cel>",
       "  cello evaluate <file.cel>",
       "  cello validate <file.cel>",
@@ -81,6 +83,7 @@ function printUsage(write: (text: string) => void): void {
 
 const HELP_TEXT: Record<string, string> = {
   help: "Usage: cello help [command]\n\nPrint general help or details for one command.\n",
+  version: "Usage: cello --version\n\nPrint the cello CLI version.\n",
   parse: "Usage: cello parse <file.cel>\n\nParse a workbook and print the AST as JSON.\n",
   evaluate: "Usage: cello evaluate <file.cel>\n\nParse and evaluate formulas, then print the evaluated AST as JSON.\n",
   validate:
@@ -110,25 +113,55 @@ interface HelpRequest {
   topic: string;
 }
 
+interface VersionRequest {
+  command: "version";
+}
+
 interface CliRequestError {
   error: string;
 }
 
-function parseCliRequest(argv: string[], cwd: string): CliRequest | HelpRequest | CliRequestError | null {
+function parseCliRequest(argv: string[], cwd: string): CliRequest | HelpRequest | VersionRequest | CliRequestError | null {
   const [, , command, inputArg, ...rest] = argv;
+  if (command === "--version" || command === "-v" || command === "version") {
+    if (inputArg) {
+      return { error: `Unexpected argument for version: ${inputArg}` };
+    }
+    return { command: "version" };
+  }
   if (command === "help" || command === "--help" || command === "-h") {
+    if (rest.length > 0) {
+      return { error: `Unexpected argument for help: ${rest[0]}` };
+    }
     return { command: "help", topic: inputArg ?? "" };
   }
   if (inputArg === "--help" || inputArg === "-h") {
+    if (rest.length > 0) {
+      return { error: `Unexpected argument for help: ${rest[0]}` };
+    }
     return { command: "help", topic: command ?? "" };
   }
-  if (!isCliCommand(command) || !inputArg) {
+  if (!command) {
     return null;
+  }
+  if (!isCliCommand(command)) {
+    return { error: `Unknown command: ${command}` };
+  }
+  if (!inputArg) {
+    return { error: `Missing input file for ${command}.` };
+  }
+  if (inputArg.startsWith("-")) {
+    return { error: `Missing input file for ${command}; received option ${inputArg}.` };
   }
 
   const serveOptionError = validateServeOptionScope(command, rest);
   if (serveOptionError) {
     return serveOptionError;
+  }
+
+  const argumentError = validateArguments(command, rest);
+  if (argumentError) {
+    return argumentError;
   }
 
   const resolvedOutPath = resolveOutPath(cwd, rest);
@@ -175,6 +208,41 @@ function validateServeOptionScope(command: CliCommand, rest: string[]): CliReque
   return undefined;
 }
 
+function validateArguments(command: CliCommand, rest: string[]): CliRequestError | undefined {
+  const optionsWithValues = new Set(command === "serve" ? ["--host", "--port"] : ["--out", "-o"]);
+  const allowedOptions = new Set<string>();
+  if (command === "render" || command === "serialize") {
+    allowedOptions.add("--out");
+    allowedOptions.add("-o");
+  }
+  if (command === "render" || command === "serve") {
+    allowedOptions.add("--no-eval");
+  }
+  if (command === "serve") {
+    allowedOptions.add("--host");
+    allowedOptions.add("--port");
+    allowedOptions.add("--open");
+  }
+
+  for (let index = 0; index < rest.length; index += 1) {
+    const arg = rest[index];
+    if (arg === undefined) {
+      continue;
+    }
+    if (!arg.startsWith("-")) {
+      return { error: `Unexpected argument: ${arg}` };
+    }
+    if (!allowedOptions.has(arg)) {
+      return { error: `Unsupported option for ${command}: ${arg}` };
+    }
+    if (optionsWithValues.has(arg)) {
+      index += 1;
+      continue;
+    }
+  }
+  return undefined;
+}
+
 function resolveServeOptions(rest: string[]): { host: string; port: number; open: boolean } | CliRequestError {
   const hostValue = readOption(rest, "--host");
   if (hostValue && "error" in hostValue) {
@@ -217,7 +285,12 @@ function resolveOutPath(cwd: string, rest: string[]): string | CliRequestError {
   return resolve(cwd, outArg);
 }
 
-async function runCliRequest(request: CliRequest | HelpRequest, deps: CliDeps): Promise<number> {
+async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest, deps: CliDeps): Promise<number> {
+  if (request.command === "version") {
+    deps.stdoutWrite(`${VERSION}\n`);
+    return 0;
+  }
+
   if (request.command === "help") {
     return writeHelp(request.topic, deps.stdoutWrite, deps.stderrWrite);
   }

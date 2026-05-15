@@ -7,6 +7,9 @@ The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
 - `cello parse <file.cel>`
   - Prints parsed AST as JSON.
 
+- `cello --version`
+  - Prints the package version.
+
 - `cello evaluate <file.cel>`
   - Parses and evaluates formulas, prints resulting AST as JSON.
 
@@ -39,7 +42,7 @@ The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
 ## Exit codes
 
 - `0`: success
-- `1`: usage error or runtime failure
+- `1`: invalid arguments, validation diagnostics, or runtime failure
 
 ## Build/run notes
 

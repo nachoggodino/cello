@@ -5,16 +5,32 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "bin": {
-    "cello": "dist/cli/cli.js"
+    "cello": "./dist/cli/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "docs",
+    "examples",
+    "BYLAWS.md",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue",
     "dev": "tsc -w -p tsconfig.json",
+    "prepack": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",

@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import packageJson from "../../../package.json" with { type: "json" };
 import { createCliDeps, isDirectCliExecution, runCli, runMain } from "../../../src/cli/cli.js";
+import { VERSION } from "../../../src/version.js";
 
 const tempDirs: string[] = [];
 
@@ -65,7 +67,15 @@ describe("cli", () => {
     const { code, stdout } = await runCliCase(["node", "cli", "help"]);
     expect(code).toBe(0);
     expect(stdout).toContain("cello help [command]");
+    expect(stdout).toContain("cello --version");
     expect(stdout).toContain("cello serve <file.cel>");
+  });
+
+  it("prints the package version", async () => {
+    const { code, stdout } = await runCliCase(["node", "cli", "--version"]);
+    expect(code).toBe(0);
+    expect(stdout).toBe(`${packageJson.version}\n`);
+    expect(VERSION).toBe(packageJson.version);
   });
 
   it("prints command help", async () => {
@@ -81,6 +91,12 @@ describe("cli", () => {
     expect(stderr).toContain("Unknown help topic: missing");
   });
 
+  it("rejects extra help arguments", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "help", "serve", "extra"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("Unexpected argument for help: extra");
+  });
+
   it("rejects serve-only flags on other commands", async () => {
     const { code, stderr } = await runCliCase(["node", "cli", "render", "sample.cel", "--port", "9999"]);
     expect(code).toBe(1);
@@ -91,6 +107,18 @@ describe("cli", () => {
     const { code, stderr } = await runCliCase(["node", "cli", "parse", "sample.cel", "--no-eval"]);
     expect(code).toBe(1);
     expect(stderr).toContain("--no-eval is only supported by render and serve.");
+  });
+
+  it("rejects unsupported options with a command-specific message", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "serialize", "sample.cel", "--format", "json"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("Unsupported option for serialize: --format");
+  });
+
+  it("rejects extra positional arguments", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "parse", "sample.cel", "extra.cel"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("Unexpected argument: extra.cel");
   });
 
   it("detects direct execution through a symlinked npm bin", async () => {
@@ -199,9 +227,9 @@ describe("cli", () => {
       name: "returns 1 for unknown command",
       argv: ["node", "cli", "unknown", "sample.cel"],
       source: "@sheet S\n| A | 1 |",
-      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+      assert: ({ code, stderr }: { code: number; stderr: string }) => {
         expect(code).toBe(1);
-        expect(stdout).toContain("Usage:");
+        expect(stderr).toContain("Unknown command: unknown");
       }
     }
   ]) {
