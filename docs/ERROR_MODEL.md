@@ -15,6 +15,7 @@
 ## Render stage
 
 - `render(text, { strict })` delegates to parser/evaluator strictness.
+- `render(text, { evaluate: false })` skips evaluation and renders formula text.
 - Non-strict render still returns HTML even when diagnostics exist.
 - Strict render throws only when parse/evaluate throw; non-fatal diagnostics alone do not throw.
 

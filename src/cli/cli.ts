@@ -1,17 +1,21 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { evaluate } from "../evaluator/evaluate.js";
 import { parse } from "../parser/parse.js";
 import { render } from "../renderer/render.js";
 import { serialize } from "../serializer/serialize.js";
 import { validate } from "../validator/validate.js";
+import { startServe } from "./serve.js";
 
 export interface CliDeps {
   cwd: string;
   readFileFn: typeof readFile;
   writeFileFn: typeof writeFile;
+  startServeFn: typeof startServe;
+  stayOpenFn: () => Promise<number>;
   stdoutWrite: (text: string) => void;
   stderrWrite: (text: string) => void;
 }
@@ -21,6 +25,8 @@ export function createCliDeps(overrides: Partial<CliDeps> = {}): CliDeps {
     cwd: overrides.cwd ?? process.cwd(),
     readFileFn: overrides.readFileFn ?? readFile,
     writeFileFn: overrides.writeFileFn ?? writeFile,
+    startServeFn: overrides.startServeFn ?? startServe,
+    stayOpenFn: overrides.stayOpenFn ?? (() => new Promise<number>(() => undefined)),
     stdoutWrite: overrides.stdoutWrite ?? ((text) => process.stdout.write(text)),
     stderrWrite: overrides.stderrWrite ?? ((text) => process.stderr.write(text))
   };
@@ -61,32 +67,68 @@ function printUsage(write: (text: string) => void): void {
   write(
     [
       "Usage:",
+      "  cello help [command]",
       "  cello parse <file.cel>",
       "  cello evaluate <file.cel>",
       "  cello validate <file.cel>",
-      "  cello render <file.cel> [-o out.html]",
-      "  cello serialize <file.cel> [-o out.cel]"
+      "  cello render <file.cel> [-o out.html] [--no-eval]",
+      "  cello serialize <file.cel> [-o out.cel]",
+      "  cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]"
     ].join("\n")
   );
   write("\n");
 }
 
-type CliCommand = "parse" | "evaluate" | "validate" | "render" | "serialize";
+const HELP_TEXT: Record<string, string> = {
+  help: "Usage: cello help [command]\n\nPrint general help or details for one command.\n",
+  parse: "Usage: cello parse <file.cel>\n\nParse a workbook and print the AST as JSON.\n",
+  evaluate: "Usage: cello evaluate <file.cel>\n\nParse and evaluate formulas, then print the evaluated AST as JSON.\n",
+  validate:
+    "Usage: cello validate <file.cel>\n\nParse and evaluate diagnostics. Prints JSON with valid and diagnostics fields. Exits 0 when valid, 1 when diagnostics exist.\n",
+  render:
+    "Usage: cello render <file.cel> [-o out.html] [--no-eval]\n\nRender a workbook to self-contained HTML. Use --no-eval to leave formula cells unevaluated.\n",
+  serialize: "Usage: cello serialize <file.cel> [-o out.cel]\n\nParse and serialize a workbook back to .cel text.\n",
+  serve:
+    "Usage: cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]\n\nServe a live HTML preview. The server keeps the process warm for faster repeated renders. Use --open to open the URL in a browser.\n"
+};
+
+type CliCommand = "parse" | "evaluate" | "validate" | "render" | "serialize" | "serve";
+type NonServeCliCommand = Exclude<CliCommand, "serve">;
 
 interface CliRequest {
   command: CliCommand;
   inputPath: string;
   outPath: string;
+  evaluate: boolean;
+  host?: string;
+  port?: number;
+  open?: boolean;
+}
+
+interface HelpRequest {
+  command: "help";
+  topic: string;
 }
 
 interface CliRequestError {
   error: string;
 }
 
-function parseCliRequest(argv: string[], cwd: string): CliRequest | CliRequestError | null {
+function parseCliRequest(argv: string[], cwd: string): CliRequest | HelpRequest | CliRequestError | null {
   const [, , command, inputArg, ...rest] = argv;
+  if (command === "help" || command === "--help" || command === "-h") {
+    return { command: "help", topic: inputArg ?? "" };
+  }
+  if (inputArg === "--help" || inputArg === "-h") {
+    return { command: "help", topic: command ?? "" };
+  }
   if (!isCliCommand(command) || !inputArg) {
     return null;
+  }
+
+  const serveOptionError = validateServeOptionScope(command, rest);
+  if (serveOptionError) {
+    return serveOptionError;
   }
 
   const resolvedOutPath = resolveOutPath(cwd, rest);
@@ -94,11 +136,22 @@ function parseCliRequest(argv: string[], cwd: string): CliRequest | CliRequestEr
     return resolvedOutPath;
   }
 
-  return {
+  const request: CliRequest = {
     command,
     inputPath: resolve(cwd, inputArg),
-    outPath: resolvedOutPath
+    outPath: resolvedOutPath,
+    evaluate: !rest.includes("--no-eval")
   };
+  if (command === "serve") {
+    const resolvedServeOptions = resolveServeOptions(rest);
+    if ("error" in resolvedServeOptions) {
+      return resolvedServeOptions;
+    }
+    request.host = resolvedServeOptions.host;
+    request.port = resolvedServeOptions.port;
+    request.open = resolvedServeOptions.open;
+  }
+  return request;
 }
 
 function isCliCommand(command: string | undefined): command is CliCommand {
@@ -107,8 +160,49 @@ function isCliCommand(command: string | undefined): command is CliCommand {
     command === "evaluate" ||
     command === "validate" ||
     command === "render" ||
-    command === "serialize"
+    command === "serialize" ||
+    command === "serve"
   );
+}
+
+function validateServeOptionScope(command: CliCommand, rest: string[]): CliRequestError | undefined {
+  if (command !== "serve" && (rest.includes("--host") || rest.includes("--port") || rest.includes("--open"))) {
+    return { error: "--host, --port, and --open are only supported by serve." };
+  }
+  if (command !== "serve" && command !== "render" && rest.includes("--no-eval")) {
+    return { error: "--no-eval is only supported by render and serve." };
+  }
+  return undefined;
+}
+
+function resolveServeOptions(rest: string[]): { host: string; port: number; open: boolean } | CliRequestError {
+  const hostValue = readOption(rest, "--host");
+  if (hostValue && "error" in hostValue) {
+    return hostValue;
+  }
+  const portValue = readOption(rest, "--port");
+  if (portValue && "error" in portValue) {
+    return portValue;
+  }
+  const host = hostValue?.value ?? "127.0.0.1";
+  const rawPort = portValue?.value;
+  const port = rawPort === undefined ? 4321 : Number(rawPort);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    return { error: "Invalid --port value." };
+  }
+  return { host, port, open: rest.includes("--open") };
+}
+
+function readOption(rest: string[], name: string): { value: string } | CliRequestError | undefined {
+  const index = rest.findIndex((arg) => arg === name);
+  if (index < 0) {
+    return undefined;
+  }
+  const value = rest[index + 1];
+  if (!value || value.startsWith("-")) {
+    return { error: `Missing value after ${name}.` };
+  }
+  return { value };
 }
 
 function resolveOutPath(cwd: string, rest: string[]): string | CliRequestError {
@@ -123,7 +217,27 @@ function resolveOutPath(cwd: string, rest: string[]): string | CliRequestError {
   return resolve(cwd, outArg);
 }
 
-async function runCliRequest(request: CliRequest, deps: CliDeps): Promise<number> {
+async function runCliRequest(request: CliRequest | HelpRequest, deps: CliDeps): Promise<number> {
+  if (request.command === "help") {
+    return writeHelp(request.topic, deps.stdoutWrite, deps.stderrWrite);
+  }
+
+  if (request.command === "serve") {
+    const serveOptions: Parameters<typeof startServe>[1] = { evaluate: request.evaluate };
+    if (request.host !== undefined) {
+      serveOptions.host = request.host;
+    }
+    if (request.port !== undefined) {
+      serveOptions.port = request.port;
+    }
+    if (request.open !== undefined) {
+      serveOptions.open = request.open;
+    }
+    const handle = await deps.startServeFn(request.inputPath, serveOptions);
+    deps.stdoutWrite(`Serving ${request.inputPath}\n${formatTerminalLink(handle.url)}\n`);
+    return deps.stayOpenFn();
+  }
+
   const text = await deps.readFileFn(request.inputPath, "utf8");
   let ast: ReturnType<typeof parse> | undefined;
   const getAst = (): ReturnType<typeof parse> => {
@@ -131,15 +245,46 @@ async function runCliRequest(request: CliRequest, deps: CliDeps): Promise<number
     return ast;
   };
 
-  const handlers: Record<CliCommand, () => Promise<number>> = {
+  const handlers: Record<NonServeCliCommand, () => Promise<number>> = {
     parse: async () => writeStdoutJson(getAst(), deps.stdoutWrite),
     evaluate: async () => writeStdoutJson(await evaluate(getAst()), deps.stdoutWrite),
     validate: async () => writeValidationResult(await validate(text, { baseDir: dirname(request.inputPath) }), deps.stdoutWrite),
-    render: async () => writeCliOutput(await render(text), request.outPath, deps, false),
+    render: async () =>
+      writeCliOutput(
+        await render(text, {
+          baseDir: dirname(request.inputPath),
+          evaluate: request.evaluate
+        }),
+        request.outPath,
+        deps,
+        false
+      ),
     serialize: async () => writeCliOutput(serialize(getAst()), request.outPath, deps, true)
   };
 
   return handlers[request.command]();
+}
+
+function writeHelp(
+  topic: string,
+  stdoutWrite: (text: string) => void,
+  stderrWrite: (text: string) => void
+): number {
+  if (topic.length === 0) {
+    printUsage(stdoutWrite);
+    return 0;
+  }
+  const text = HELP_TEXT[topic];
+  if (!text) {
+    stderrWrite(`Unknown help topic: ${topic}\n`);
+    return 1;
+  }
+  stdoutWrite(text);
+  return 0;
+}
+
+function formatTerminalLink(url: string): string {
+  return `\u001B]8;;${url}\u0007${url}\u001B]8;;\u0007`;
 }
 
 function writeValidationResult(value: Awaited<ReturnType<typeof validate>>, stdoutWrite: (text: string) => void): number {
@@ -169,10 +314,17 @@ async function writeCliOutput(
 }
 
 const isDirectExecution =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+  process.argv[1] !== undefined && isDirectCliExecution(process.argv[1], import.meta.url);
+
+export function isDirectCliExecution(argvPath: string, moduleUrl: string): boolean {
+  try {
+    return realpathSync(argvPath) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return pathToFileURL(argvPath).href === moduleUrl;
+  }
+}
 
 /* c8 ignore next 3 */
 if (isDirectExecution) {
   void runMain(process.argv);
 }
-

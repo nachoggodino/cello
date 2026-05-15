@@ -6,9 +6,9 @@ TypeScript scaffold for the Cello reference library.
 
 - `parse(text)` -> AST
 - `evaluate(ast)` -> AST with formula values (via HyperFormula when available)
-- `render(input)` -> self-contained HTML with sheet tabs
+- `render(input, options?)` -> self-contained HTML with sheet tabs
 - `serialize(ast)` -> `.cel` text
-- `cello` CLI (`parse`, `evaluate`, `render`, `serialize`)
+- `cello` CLI (`parse`, `evaluate`, `validate`, `render`, `serialize`, `serve`, `help`)
 - Named column references translated for evaluation:
   - `=SUM(Price)`
   - `=Price/Units`
@@ -28,7 +28,8 @@ Current named-reference semantics:
 ```bash
 npm install
 npm run build
-node dist/cli.js render examples/basic.cel -o out.html
+node dist/cli/cli.js render examples/basic.cel -o out.html
+node dist/cli/cli.js serve examples/basic.cel
 ```
 
 ## Tests
@@ -40,7 +41,7 @@ npm run coverage
 
 Current suite mix:
 - Unit-focused tests for `utils`, parser edge behavior, evaluator mocked behavior, serializer behavior, and API/CLI contracts.
-- Integration-style tests for parse/evaluate/render/serialize roundtrip behavior.
+- Integration-style tests for parse/evaluate/render/serialize roundtrip behavior and CLI serving.
 
 ## Project layout
 

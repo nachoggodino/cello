@@ -15,6 +15,22 @@ describe("evaluate (unit with mocked HyperFormula)", () => {
     buildFromSheetsMock.mockReset();
   });
 
+  it("skips HyperFormula when workbook has no formulas", async () => {
+    const ast = workbook([
+      sheet({
+        name: "S",
+        columns: 2,
+        rows: [{ index: 1, kind: "data", sourceLine: 1, modifiers: [], cells: [valueCell(1, 1, 1), valueCell(1, 2, 2)] }]
+      })
+    ]);
+
+    const out = await evaluate(ast);
+
+    expect(buildFromSheetsMock).not.toHaveBeenCalled();
+    expect(out).toEqual(ast);
+    expect(out).not.toBe(ast);
+  });
+
   it("maps sheet data to HyperFormula and writes computed values back", async () => {
     buildFromSheetsMock.mockReturnValue({
       getSheetId: vi.fn(() => 0),

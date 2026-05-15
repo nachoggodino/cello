@@ -1,5 +1,5 @@
 import { deserialize, serialize } from "node:v8";
-import type { Modifier, SheetFormat } from "./types.js";
+import type { Modifier, SheetFormat, WorkbookAst } from "./types.js";
 
 export function columnLetter(index: number): string {
   let n = index;
@@ -165,4 +165,10 @@ export function splitDelimitedLine(line: string, delimiter: string): string[] {
   }
   output.push(current);
   return output;
+}
+
+export function workbookHasFormulas(workbook: WorkbookAst): boolean {
+  return workbook.sheets.some((sheet) =>
+    sheet.rows.some((row) => row.cells.some((cell) => cell.kind === "formula"))
+  );
 }

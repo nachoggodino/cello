@@ -16,18 +16,25 @@
 
 - `src/evaluator/evaluate.ts`
   - Deep-clones AST
+  - Skips HyperFormula loading when the workbook contains no formulas
   - Builds per-sheet matrix for HyperFormula
   - Translates supported named references to A1 ranges before engine evaluation
   - Evaluates formula cells and writes `computed`
   - Emits diagnostics on evaluation failures
 
 - `src/renderer/render.ts`
-  - Parses + evaluates (if input is text)
+  - Parses text input, including external sheet sources through `baseDir`
+  - Evaluates by default, with `evaluate: false` available for raw formula previews
   - Generates HTML tabs + tables
   - Applies inline formatting and style modifiers (`bold`, `italic`, `bg`, color)
 
 - `src/serializer/serialize.ts`
   - Converts AST back to `.cel` text for roundtrip workflows
+
+- `src/cli/serve.ts`
+  - Serves a rendered workbook over local HTTP
+  - Caches rendered HTML and refreshes it when the source file changes
+  - Injects a small live-reload script for browser previews
 
 ## Design notes
 

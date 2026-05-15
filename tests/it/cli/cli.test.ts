@@ -1,8 +1,9 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createCliDeps, runCli, runMain } from "../../../src/cli/cli.js";
+import { createCliDeps, isDirectCliExecution, runCli, runMain } from "../../../src/cli/cli.js";
 
 const tempDirs: string[] = [];
 
@@ -60,6 +61,48 @@ describe("cli", () => {
     expect(stderr).toContain("Missing output file after -o/--out.");
   });
 
+  it("prints general help", async () => {
+    const { code, stdout } = await runCliCase(["node", "cli", "help"]);
+    expect(code).toBe(0);
+    expect(stdout).toContain("cello help [command]");
+    expect(stdout).toContain("cello serve <file.cel>");
+  });
+
+  it("prints command help", async () => {
+    const { code, stdout } = await runCliCase(["node", "cli", "help", "serve"]);
+    expect(code).toBe(0);
+    expect(stdout).toContain("Usage: cello serve <file.cel>");
+    expect(stdout).toContain("--open");
+  });
+
+  it("returns 1 for unknown help topics", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "help", "missing"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("Unknown help topic: missing");
+  });
+
+  it("rejects serve-only flags on other commands", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "render", "sample.cel", "--port", "9999"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("--host, --port, and --open are only supported by serve.");
+  });
+
+  it("rejects --no-eval outside render and serve", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "parse", "sample.cel", "--no-eval"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("--no-eval is only supported by render and serve.");
+  });
+
+  it("detects direct execution through a symlinked npm bin", async () => {
+    const cwd = await makeTempProject();
+    const target = join(cwd, "cli.js");
+    const linkedBin = join(cwd, "cello");
+    await writeFile(target, "", "utf8");
+    await symlink(target, linkedBin);
+
+    expect(isDirectCliExecution(linkedBin, pathToFileURL(target).href)).toBe(true);
+  });
+
   for (const { name, argv, source, assert } of [
     {
       name: "runs parse and prints AST json",
@@ -112,6 +155,16 @@ describe("cli", () => {
       assert: ({ code, stdout }: { code: number; stdout: string }) => {
         expect(code).toBe(0);
         expect(stdout).toContain("<!doctype html>");
+      }
+    },
+    {
+      name: "runs render without evaluating formulas",
+      argv: ["node", "cli", "render", "sample.cel", "--no-eval"],
+      source: "@sheet S\n| 1 | 2 | =A1+B1 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("<td >=A1+B1</td>");
+        expect(stdout).not.toContain("<td >3</td>");
       }
     },
     {
@@ -182,5 +235,43 @@ describe("cli", () => {
     expect(stderrSpy.mock.calls[0][0]).toContain("kaboom");
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
-});
 
+  it("starts serve, prints the local url, and passes options", async () => {
+    const cwd = await makeTempProject();
+    await writeFile(join(cwd, "sample.cel"), "@sheet S\n| =1+1 |", "utf8");
+    const stdout: string[] = [];
+    const readFileFn = vi.fn(async () => {
+      throw new Error("serve should not pre-read the input file");
+    }) as unknown as typeof readFile;
+    const startServeFn = vi.fn(async () => ({
+      url: "http://127.0.0.1:9999/",
+      server: {} as never,
+      watcher: {} as never,
+      close: async () => undefined
+    }));
+    const stayOpenFn = vi.fn(async () => 0);
+    const deps = createCliDeps({
+      cwd,
+      readFileFn,
+      stdoutWrite: (text) => stdout.push(text),
+      startServeFn,
+      stayOpenFn
+    });
+
+    const code = await runCli(
+      ["node", "cli", "serve", "sample.cel", "--port", "9999", "--host", "127.0.0.1", "--open", "--no-eval"],
+      deps
+    );
+
+    expect(code).toBe(0);
+    expect(startServeFn).toHaveBeenCalledWith(join(cwd, "sample.cel"), {
+      host: "127.0.0.1",
+      port: 9999,
+      open: true,
+      evaluate: false
+    });
+    expect(readFileFn).not.toHaveBeenCalled();
+    expect(stayOpenFn).toHaveBeenCalledTimes(1);
+    expect(stdout.join("")).toContain("http://127.0.0.1:9999/");
+  });
+});

@@ -9,6 +9,8 @@ describe("render", () => {
     expect(html).toContain('class="cello-tab active"');
     expect(html).toContain('data-sheet="0"');
     expect(html).toContain('data-sheet="1"');
+    expect(html).toContain("cello:active-sheet:");
+    expect(html).toContain("activateSheet(window.localStorage.getItem(activeSheetStorageKey))");
   });
 
   it("renders inline formatting and cell styles", async () => {
@@ -29,6 +31,12 @@ describe("render", () => {
     const html = await render("@sheet M\n| A | 1 | < |\n| ^ | 2 | 3 |");
     expect(html).toContain('colspan="2"');
     expect(html).toContain('rowspan="2"');
+    expect(html).toContain("th[colspan], th[rowspan], td[colspan], td[rowspan] { text-align: center; vertical-align: middle; }");
+  });
+
+  it("can render formula text without evaluation", async () => {
+    const html = await render("@sheet S\n| 1 | 2 | =A1+B1 |", { evaluate: false });
+    expect(html).toContain("<td >=A1+B1</td>");
+    expect(html).not.toContain("<td >3</td>");
   });
 });
-

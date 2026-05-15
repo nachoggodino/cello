@@ -1,6 +1,6 @@
 import type { CellNode, EvaluateOptions, WorkbookAst } from "../shared/types.js";
 import { buildWorkbookRefIndex, translateFormulaForEngine } from "./formula.js";
-import { deepClone } from "../shared/utils.js";
+import { deepClone, workbookHasFormulas } from "../shared/utils.js";
 
 interface HyperFormulaEngine {
   getSheetId(sheetName: string): number | null | undefined;
@@ -18,6 +18,10 @@ let hyperFormulaCtor: HyperFormulaCtor | null = null;
 
 export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}): Promise<WorkbookAst> {
   const output = deepClone(ast);
+
+  if (!workbookHasFormulas(output)) {
+    return output;
+  }
 
   if (!(await loadHyperFormula(output))) {
     return output;

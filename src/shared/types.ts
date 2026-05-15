@@ -82,4 +82,6 @@ export interface EvaluateOptions {
 export interface RenderOptions {
   strict?: boolean;
   title?: string;
+  baseDir?: string;
+  evaluate?: boolean;
 }

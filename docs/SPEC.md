@@ -503,7 +503,7 @@ The reference implementation is a TypeScript/JavaScript npm package called `cell
 ```typescript
 parse(text: string, options?): AST
 evaluate(ast: AST, options?): Promise<AST>
-render(input: string | AST, options?): Promise<string>
+render(input: string | AST, options?: { strict?, title?, baseDir?, evaluate? }): Promise<string>
 serialize(ast: AST): string
 ```
 
@@ -535,7 +535,7 @@ Merge tokens are resolved immediately during row parsing:
 
 ### 17.3 Formula evaluation
 
-HyperFormula is used as the formula engine. The integration flow:
+HyperFormula is used as the formula engine when the workbook contains formulas. Formula-free workbooks skip engine loading. The integration flow:
 
 ```
 AST (with formula strings)
@@ -558,7 +558,7 @@ The name-to-coordinate translation is the only custom logic needed. HyperFormula
 
 ### 17.4 Renderer
 
-The renderer walks the evaluated AST and produces a self-contained full HTML document:
+The renderer evaluates by default, unless `evaluate: false` is passed. It walks the selected AST and produces a self-contained full HTML document:
 
 ```
 <div class="cello-workbook">
@@ -596,7 +596,7 @@ Rules:
 | Component | Description | Priority |
 |-----------|-------------|----------|
 | `cello` (npm) | Core library: parse, evaluate, render, serialize | v1 |
-| `cello-cli` | CLI tool: `cello render file.cel > out.html` | v1 |
+| `cello-cli` | CLI tool: `cello render file.cel > out.html`; `cello serve file.cel` for live previews | v1 |
 | `cello-playground` | Web playground: split-view editor + live preview | v1 |
 | `cello-python` | Python port of parser + renderer | v2 |
 | `cello-vscode` | VSCode extension with live preview | v2 |

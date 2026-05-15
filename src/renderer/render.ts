@@ -1,12 +1,16 @@
 import { evaluate } from "../evaluator/evaluate.js";
 import { parse } from "../parser/parse.js";
 import type { CellNode, Modifier, RenderOptions, RowNode, SheetNode, WorkbookAst } from "../shared/types.js";
-import { escapeHtml } from "../shared/utils.js";
+import { escapeHtml, workbookHasFormulas } from "../shared/utils.js";
 
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
-  const strictOptions = options.strict === undefined ? {} : { strict: options.strict };
-  const parsed = typeof input === "string" ? parse(input, strictOptions) : input;
-  const evaluated = await evaluate(parsed, strictOptions);
+  const parseOptions = {
+    ...(options.strict === undefined ? {} : { strict: options.strict }),
+    ...(options.baseDir === undefined ? {} : { baseDir: options.baseDir })
+  };
+  const parsed = typeof input === "string" ? parse(input, parseOptions) : input;
+  const shouldEvaluate = options.evaluate !== false && workbookHasFormulas(parsed);
+  const evaluated = shouldEvaluate ? await evaluate(parsed, parseOptions) : parsed;
 
   return renderDocument(options.title ?? "Cello Workbook", renderTabs(evaluated), renderSheets(evaluated));
 }
@@ -27,6 +31,7 @@ function renderDocument(title: string, tabs: string, sheetsHtml: string): string
     .cello-sheet.active { display: block; }
     table { border-collapse: collapse; width: max-content; max-width: none; }
     th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; white-space: nowrap; }
+    th[colspan], th[rowspan], td[colspan], td[rowspan] { text-align: center; vertical-align: middle; }
     th { background: #f3f4f6; font-weight: 600; }
     .cello-bold { font-weight: 700; }
     .cello-italic { font-style: italic; }
@@ -42,13 +47,23 @@ function renderDocument(title: string, tabs: string, sheetsHtml: string): string
   <script>
     const tabs = Array.from(document.querySelectorAll(".cello-tab"));
     const sheets = Array.from(document.querySelectorAll(".cello-sheet"));
+    const activeSheetStorageKey = "cello:active-sheet:" + window.location.pathname;
+    function activateSheet(id) {
+      const nextTab = tabs.find((tab) => tab.getAttribute("data-sheet") === id) ?? tabs[0];
+      if (!nextTab) {
+        return;
+      }
+      const nextId = nextTab.getAttribute("data-sheet");
+      tabs.forEach((tab) => tab.classList.toggle("active", tab === nextTab));
+      sheets.forEach((sheet) => sheet.classList.toggle("active", sheet.getAttribute("data-sheet") === nextId));
+      window.localStorage.setItem(activeSheetStorageKey, nextId);
+    }
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => {
-        const id = tab.getAttribute("data-sheet");
-        tabs.forEach((t) => t.classList.toggle("active", t === tab));
-        sheets.forEach((s) => s.classList.toggle("active", s.getAttribute("data-sheet") === id));
+        activateSheet(tab.getAttribute("data-sheet"));
       });
     });
+    activateSheet(window.localStorage.getItem(activeSheetStorageKey));
   </script>
 </body>
 </html>`;
@@ -79,10 +94,20 @@ function renderRow(row: RowNode, sheet: SheetNode): string {
 
 function renderCell(cell: CellNode, header: boolean, modifiers: Modifier[]): string {
   const tag = header ? "th" : "td";
-  const formatted = formatInline(String(cell.computed ?? cell.value ?? ""));
+  const formatted = formatInline(String(renderCellValue(cell)));
   const attrs = buildCellAttributes(cell, modifiers);
 
   return `<${tag} ${attrs}>${formatted}</${tag}>`;
+}
+
+function renderCellValue(cell: CellNode): string | number | boolean | null {
+  if (cell.computed !== undefined) {
+    return cell.computed;
+  }
+  if (cell.kind === "formula" && cell.formula) {
+    return cell.formula;
+  }
+  return cell.value;
 }
 
 function collectModifiers(cell: CellNode, row: RowNode, sheet: SheetNode): Modifier[] {

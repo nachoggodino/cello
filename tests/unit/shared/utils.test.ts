@@ -6,8 +6,10 @@ import {
   parseModifier,
   parseSheetFormat,
   parseTrailingModifiers,
-  splitDelimitedLine
+  splitDelimitedLine,
+  workbookHasFormulas
 } from "../../../src/shared/utils.js";
+import { parse } from "../../../src/parser/parse.js";
 
 describe("utils", () => {
   it("computes spreadsheet column letters", () => {
@@ -59,6 +61,11 @@ describe("utils", () => {
   it("splits delimited lines with quoted delimiters", () => {
     expect(splitDelimitedLine('A,"B,C",D', ",")).toEqual(["A", "B,C", "D"]);
     expect(splitDelimitedLine('"A""B";C', ";")).toEqual(['A"B', "C"]);
+  });
+
+  it("detects whether a workbook has formulas", () => {
+    expect(workbookHasFormulas(parse("@sheet S\n| A | 1 |"))).toBe(false);
+    expect(workbookHasFormulas(parse("@sheet S\n| A | =A1 |"))).toBe(true);
   });
 });
 
