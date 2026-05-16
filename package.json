@@ -1,5 +1,5 @@
 {
-  "name": "cello",
+  "name": "@nachoggodino/cello",
   "version": "0.1.0",
   "description": "Markdown, but for spreadsheets. Plain-text tabular data with formulas.",
   "type": "module",
@@ -46,7 +46,16 @@
     "cello",
     "tabular"
   ],
-  "license": "MIT",
+  "license": "GPL-3.0-only",
+  "author": "Nacho Godino",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nachoggodino/cello.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nachoggodino/cello/issues"
+  },
+  "homepage": "https://github.com/nachoggodino/cello#readme",
   "overrides": {
     "glob": "^13.0.0"
   },

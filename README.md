@@ -1,8 +1,10 @@
-# cello
+# Cello
 
 Plain-text spreadsheets with formulas. Cello gives you a readable `.cel` format, a TypeScript API, and a CLI that can parse, evaluate, validate, serialize, render, and serve workbooks as self-contained HTML.
 
 It is useful when you want spreadsheet-like calculations in files that are easy to diff, review, generate, and keep in source control.
+
+The npm package is `@nachoggodino/cello`. It is licensed as GPLv3 because formula evaluation uses HyperFormula under its GPLv3 option.
 
 ## Features
 
@@ -17,7 +19,7 @@ It is useful when you want spreadsheet-like calculations in files that are easy 
 ## Install
 
 ```bash
-npm install cello
+npm install @nachoggodino/cello
 ```
 
 Requirements:
@@ -97,7 +99,7 @@ Command details:
 ## Library API
 
 ```ts
-import { evaluate, parse, render, serialize, validate } from "cello";
+import { evaluate, parse, render, serialize, validate } from "@nachoggodino/cello";
 
 const source = `
 @sheet KPI
@@ -194,4 +196,6 @@ This project uses Semantic Versioning. See [CHANGELOG.md](CHANGELOG.md) for rele
 
 ## License
 
-MIT
+GPL-3.0-only.
+
+Cello uses HyperFormula for formula evaluation and configures it with `licenseKey: "gpl-v3"`. HyperFormula is available under GPLv3 or a commercial license from Handsontable; this package uses the GPLv3 option.

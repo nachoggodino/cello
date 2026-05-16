@@ -4,6 +4,8 @@
 
 Cello is a plain-text format for tabular data with formulas. It is human-readable, git-friendly, LLM-friendly, and renders to HTML with multiple sheets, named columns, evaluated formulas, and rich formatting. It is not a replacement for Excel — it is to Excel what Markdown is to Word.
 
+The reference implementation is the GPLv3 npm package `@nachoggodino/cello`. Formula evaluation uses HyperFormula under its GPLv3 option.
+
 > Implementation note: this document is the target spec. For exact current behavior status, see `docs/COMPLIANCE.md`.
 
 ---
@@ -498,11 +500,12 @@ fila_global[bold][bg:#f0f0f0] | ## TOTAL | =SUM(total) | =SUM(contador) | =SUM(t
 
 ### 17.1 Library architecture
 
-The reference implementation is a TypeScript/JavaScript npm package called `cello`. It exposes four core functions:
+The reference implementation is a TypeScript/JavaScript npm package called `@nachoggodino/cello`. It exposes five core functions:
 
 ```typescript
 parse(text: string, options?): AST
 evaluate(ast: AST, options?): Promise<AST>
+validate(text: string, options?): Promise<{ valid: boolean, diagnostics: Diagnostic[] }>
 render(input: string | AST, options?: { strict?, title?, baseDir?, evaluate? }): Promise<string>
 serialize(ast: AST): string
 ```
@@ -535,7 +538,7 @@ Merge tokens are resolved immediately during row parsing:
 
 ### 17.3 Formula evaluation
 
-HyperFormula is used as the formula engine when the workbook contains formulas. Formula-free workbooks skip engine loading. The integration flow:
+HyperFormula is used as the formula engine when the workbook contains formulas. Formula-free workbooks skip engine loading. The package is licensed as GPLv3 and configures HyperFormula with `licenseKey: "gpl-v3"`. The integration flow:
 
 ```
 AST (with formula strings)
@@ -597,8 +600,8 @@ Rules:
 
 | Component | Description | Priority |
 |-----------|-------------|----------|
-| `cello` (npm) | Core library: parse, evaluate, render, serialize | v1 |
-| `cello-cli` | CLI tool: `cello render file.cel > out.html`; `cello serve file.cel` for live previews | v1 |
+| `@nachoggodino/cello` (npm) | GPLv3 core library: parse, evaluate, validate, render, serialize | v1 |
+| `cello` CLI | CLI tool: `cello render file.cel > out.html`; `cello serve file.cel` for live previews | v1 |
 | `cello-playground` | Web playground: split-view editor + live preview | v1 |
 | `cello-python` | Python port of parser + renderer | v2 |
 | `cello-vscode` | VSCode extension with live preview | v2 |
