@@ -34,6 +34,11 @@ Status legend:
 - Code: `src/parser/parse.ts` (`parseHeadersFromLine`, `applyHeadersToColumns`)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/header-rebinding.*`
 
+5a. Column default formulas (`[default:=Formula]`)
+- Status: `implemented`
+- Code: `src/parser/parse.ts` (`getColumnDefaultFormula`)
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/it/evaluator/evaluate.test.ts`, `tests/it/renderer/render.test.ts`
+
 6. Formula parsing + evaluation engine integration
 - Status: `implemented`
 - Code: `src/evaluator/evaluate.ts`
@@ -62,8 +67,8 @@ Status legend:
 
 11. Modifier coverage in renderer
 - Status: `partial`
-- Code: `src/renderer/render.ts` (`bold`, `italic`, `bg`, color)
-- Missing: numeric display modifiers (`[€]`, `[%]`, `[Nd]`) and `[hidden]` rendering behavior
+- Code: `src/renderer/render.ts` (`bold`, `italic`, `bg`, color, numeric display)
+- Missing: `[hidden]` rendering behavior
 
 12. Inline formatting (`*`, `_`, `~~`, `#`, `##`)
 - Status: `implemented`

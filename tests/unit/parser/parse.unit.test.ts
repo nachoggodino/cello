@@ -29,6 +29,26 @@ describe("parse (unit-focused edge cases)", () => {
     expect(row.modifiers[1]).toMatchObject({ key: "bg", value: "#eee" });
   });
 
+  it("fills empty column cells from column default formulas", () => {
+    const ast = parse("@sheet S\n-Qty-Price-Total[default:=Qty*Price]-\n| 2 | 3 |\n| 4 | 5 | 99 |");
+    const sheet = ast.sheets[0];
+    const firstDataRow = sheet.rows[1];
+    const secondDataRow = sheet.rows[2];
+
+    expect(sheet.columns[2]?.modifiers).toEqual([{ key: "default", value: "=Qty*Price", raw: "default:=Qty*Price" }]);
+    expect(firstDataRow.cells[2]).toMatchObject({ kind: "formula", formula: "=Qty*Price", col: 3 });
+    expect(secondDataRow.cells[2]).toMatchObject({ kind: "value", value: 99, col: 3 });
+  });
+
+  it("does not treat row or cell default modifiers as generated formulas", () => {
+    const ast = parse("@sheet S\n-Qty-Price-Total-\nrow_1[default:=Qty*Price] | 2 | 3 |\n| 4 | 5 | [default:=Qty*Price] |");
+    const sheet = ast.sheets[0];
+
+    expect(sheet.rows[1].cells).toHaveLength(2);
+    expect(sheet.rows[2].cells[2]).toMatchObject({ kind: "empty" });
+    expect(sheet.rows[2].cells[2].formula).toBeUndefined();
+  });
+
   it("preserves formula cells including trailing modifier-like text", () => {
     const ast = parse("@sheet S\n| =A1+B1[bold] |");
     const cell = ast.sheets[0].rows[0].cells[0];
@@ -80,4 +100,3 @@ describe("parse (unit-focused edge cases)", () => {
     expect(ast.sheets[0].rows[2].cells[1].value).toBe(7);
   });
 });
-

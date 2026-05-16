@@ -3,6 +3,14 @@ import { parse } from "../parser/parse.js";
 import type { CellNode, Modifier, RenderOptions, RowNode, SheetNode, WorkbookAst } from "../shared/types.js";
 import { columnLetter, escapeHtml, workbookHasFormulas } from "../shared/utils.js";
 
+type CurrencySymbol = "€" | "$" | "£";
+
+interface NumericDisplayFormat {
+  decimals?: number;
+  currency?: CurrencySymbol;
+  percent: boolean;
+}
+
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
   const parseOptions = {
     ...(options.strict === undefined ? {} : { strict: options.strict }),
@@ -101,7 +109,7 @@ function renderRow(row: RowNode, sheet: SheetNode): string {
 
 function renderCell(cell: CellNode, header: boolean, modifiers: Modifier[]): string {
   const tag = header ? "th" : "td";
-  const formatted = formatInline(String(renderCellValue(cell)));
+  const formatted = formatInline(formatDisplayValue(renderCellValue(cell), modifiers));
   const attrs = buildCellAttributes(cell, modifiers);
 
   return `<${tag} ${attrs}>${formatted}</${tag}>`;
@@ -153,6 +161,61 @@ function buildStyleAttribute(modifiers: Modifier[]): string {
   return style ? `style="${style}"` : "";
 }
 
+function formatDisplayValue(value: string | number | boolean | null, modifiers: Modifier[]): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return String(value);
+  }
+
+  const format = collectNumericDisplayFormat(modifiers);
+  if (!format) {
+    return String(value);
+  }
+
+  const scaled = format.percent ? value * 100 : value;
+  const numberText = format.decimals === undefined ? String(scaled) : scaled.toFixed(format.decimals);
+  return `${format.currency ?? ""}${numberText}${format.percent ? "%" : ""}`;
+}
+
+function collectNumericDisplayFormat(modifiers: Modifier[]): NumericDisplayFormat | undefined {
+  const format: NumericDisplayFormat = { percent: false };
+  let found = false;
+
+  for (const mod of modifiers) {
+    if (isCurrencyModifier(mod.key)) {
+      format.currency = mod.key;
+      found = true;
+      continue;
+    }
+    if (mod.key === "%") {
+      format.percent = true;
+      found = true;
+      continue;
+    }
+
+    const decimals = parseDecimalsModifier(mod.key);
+    if (decimals !== undefined) {
+      format.decimals = decimals;
+      found = true;
+    }
+  }
+
+  return found ? format : undefined;
+}
+
+function isCurrencyModifier(key: string): key is CurrencySymbol {
+  return key === "€" || key === "$" || key === "£";
+}
+
+function parseDecimalsModifier(key: string): number | undefined {
+  const match = /^(\d+)d$/.exec(key);
+  if (!match) {
+    return undefined;
+  }
+
+  const decimals = Number(match[1]);
+  return Number.isSafeInteger(decimals) ? decimals : undefined;
+}
+
 function isRenderableCell(cell: CellNode): boolean {
   return cell.kind !== "merge-left" && cell.kind !== "merge-up";
 }
@@ -189,5 +252,12 @@ function toStyleRule(mod: Modifier): string {
   if (mod.key === "color" && mod.value) {
     return `color:${mod.value}`;
   }
+  if (isNamedColorModifier(mod.key)) {
+    return `color:${mod.key}`;
+  }
   return "";
+}
+
+function isNamedColorModifier(key: string): boolean {
+  return /^[a-z]+$/.test(key) && !["bold", "default", "italic", "hidden"].includes(key);
 }

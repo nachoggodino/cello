@@ -143,11 +143,12 @@ Example:
    - Row name: whole row
    - Cell value: that single cell
 3. Precedence: cell > row > column.
+4. Column headers may use `[default:=Formula]` to fill empty cells in that column; explicit cell values/formulas take precedence.
 
 Example:
 
 ```cel
--Price[€][2d]-Stock[0d][bg:#fff9c4]-
+-Price[€][2d]-Stock[0d][bg:#fff9c4]-Total[default:=Price*Stock]-
 row_total[bold] | TOTAL | =SUM(Price) |
 | critical[bg:red][#fff] | 12 |
 ```

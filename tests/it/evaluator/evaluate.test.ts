@@ -56,6 +56,13 @@ describe("evaluate", () => {
     expect(out.sheets[0].rows[2].cells[1].computed).toBe(12);
   });
 
+  it("evaluates column default formulas for empty cells", async () => {
+    const ast = parse("@sheet S\n-Qty-Price-Total[default:=Qty*Price]-\n| 2 | 3 |\n| 4 | 5 | 99 |");
+    const out = await evaluate(ast);
+    expect(out.sheets[0].rows[1].cells[2]).toMatchObject({ kind: "formula", formula: "=Qty*Price", computed: 6 });
+    expect(out.sheets[0].rows[2].cells[2]).toMatchObject({ kind: "value", value: 99 });
+  });
+
   it("does not mutate the original AST", async () => {
     const ast = parse("@sheet S\n| 1 | 2 | =A1+B1 |");
     const original = ast.sheets[0].rows[0].cells[2];

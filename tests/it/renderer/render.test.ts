@@ -15,7 +15,7 @@ describe("render", () => {
 
   it("renders inline formatting and cell styles", async () => {
     const html = await render(
-      "@sheet S\n| *Bold* | _Italic_ | ~~Gone~~ |\n| value[bg:red][bold] | # Big | ## Bigger |\n| mix[#bg:#111:#eee] |"
+      "@sheet S\n| *Bold* | _Italic_ | ~~Gone~~ |\n| value[bg:red][bold] | # Big | ## Bigger |\n| mix[#bg:#111:#eee] | named[red] |"
     );
     expect(html).toContain('<span class="cello-bold">Bold</span>');
     expect(html).toContain('<span class="cello-italic">Italic</span>');
@@ -23,8 +23,30 @@ describe("render", () => {
     expect(html).toContain("background:red");
     expect(html).toContain("background:#111;color:#eee");
     expect(html).toContain("font-weight:700");
+    expect(html).toContain("color:red");
     expect(html).toContain('<span class="cello-h2">Big</span>');
     expect(html).toContain('<span class="cello-h1">Bigger</span>');
+  });
+
+  it("renders numeric display modifiers from columns, rows and cells", async () => {
+    const html = await render(
+      "@sheet S\n-Item-Price[€][2d]-Margin[%][1d]-Units[0d]-\n" +
+        "row_discount[0d] | Discount | 1.2 | 0.125 | 3.8 |\n" +
+        "| Regular | 2[£][0d] | 0.5[2d] | 4.2 |"
+    );
+
+    expect(html).toContain("<td >€1</td>");
+    expect(html).toContain("<td >13%</td>");
+    expect(html).toContain("<td >4</td>");
+    expect(html).toContain("<td >£2</td>");
+    expect(html).toContain("<td >50.00%</td>");
+  });
+
+  it("renders evaluated column default formulas", async () => {
+    const html = await render("@sheet S\n-Qty-Price-Total[default:=Qty*Price][€][2d]-\n| 2 | 3 |\n| 4 | 5 | 99 |");
+
+    expect(html).toContain("<td >€6.00</td>");
+    expect(html).toContain("<td >€99.00</td>");
   });
 
   it("renders spreadsheet coordinate chrome around sheets", async () => {

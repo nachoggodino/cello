@@ -364,7 +364,21 @@ celda[bold][bg:red]
 
 Individual cell modifiers **override** column and row modifiers on conflict. Row modifiers override column modifiers.
 
-### 12.1 Numeric format
+### 12.1 Column default formulas
+
+| Modifier | Meaning |
+|----------|---------|
+| `[default:=Formula]` | Fill empty cells in that column with the formula |
+
+`default` is a column-only modifier. It is only read from column headers and is ignored as row or cell formatting. The formula may include the leading `=` or omit it; both `[default:=Qty*Price]` and `[default:Qty*Price]` create `=Qty*Price` formula cells. Explicit row values and formulas always win over the column default.
+
+```
+-Qty-Price-Total[default:=Qty*Price][€][2d]-
+| 2 | 3 |        ← Total becomes =Qty*Price and renders as €6.00
+| 4 | 5 | 99     ← explicit Total value is preserved
+```
+
+### 12.2 Numeric format
 
 | Modifier | Meaning |
 |----------|---------|
@@ -374,9 +388,9 @@ Individual cell modifiers **override** column and row modifiers on conflict. Row
 | `[%]`    | Percentage format |
 | `[Nd]`   | N decimal places (e.g. `[2d]`, `[0d]`) |
 
-These modifiers are parsed and preserved in AST today. Numeric display formatting is not yet applied by the renderer.
+These modifiers are parsed, preserved in AST, and applied by the renderer to numeric cells. When used on a column header, they apply to every numeric cell in that column. Row and cell modifiers follow the normal precedence rules, so a row or cell can override column decimal/currency choices. Percent display multiplies numeric values by 100 before appending `%`.
 
-### 12.2 Color
+### 12.3 Color
 
 | Syntax         | Meaning |
 |----------------|---------|
@@ -388,7 +402,7 @@ These modifiers are parsed and preserved in AST today. Numeric display formattin
 
 Named colors are standard CSS color names (`red`, `blue`, `green`, `orange`, `gold`, etc.).
 
-### 12.3 Style
+### 12.4 Style
 
 | Modifier   | Meaning |
 |------------|---------|
@@ -396,7 +410,7 @@ Named colors are standard CSS color names (`red`, `blue`, `green`, `orange`, `go
 | `[italic]` | Italic text |
 | `[hidden]` | Parsed metadata flag (render-time hiding not implemented yet) |
 
-### 12.4 Combined example
+### 12.5 Combined example
 
 ```
 -Producto-Precio[€][2d]-Margen[%][1d][bg:#e8f5e9]-

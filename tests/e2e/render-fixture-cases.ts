@@ -25,7 +25,7 @@ const baseCases: RenderFixtureCase[] = [
 ];
 
 const generatedCaseSpecs: Array<[string, string, string[], string[], string[]?]> = [
-  ["multi-native-kpis", "Multi Native KPIs", ["1.core-structure", "6.cross-sheet-formulas", "7.named-column-ranges", "10.modifiers"], [">Data<", ">Summary<", ">Regions<", "<td >650</td>", "<td >400</td>", ">420</td>", ">230</td>"]],
+  ["multi-native-kpis", "Multi Native KPIs", ["1.core-structure", "6.cross-sheet-formulas", "7.named-column-ranges", "10.modifiers"], [">Data<", ">Summary<", ">Regions<", "<td >650</td>", "<td >400</td>", ">€420.00</td>", ">€230.00</td>", ">8</td>", ">4</td>"]],
   ["multi-chain-waterfall", "Multi Chain Waterfall", ["1.core-structure", "6.cross-sheet-formulas", "11.inline-formatting"], [">Data<", ">Stage1<", ">Stage2<", ">Board<", "<td >1000</td>", "<td >570</td>", "<td >0.57</td>", "<td >GO</td>"]],
   ["multi-row-mod-style", "Multi Row Mod Style", ["5.row-name-references", "6.cross-sheet-formulas", "10.modifier-scope"], [">Summary<", "style=\"font-weight:700\"", "style=\"font-style:italic\"", "style=\"background:#fef3c7\"", ">20</td>", ">6</td>", ">26</td>"], ["row_sales", "row_units", "row_total"]],
   ["multi-merge-dashboard", "Multi Merge Dashboard", ["6.cross-sheet-formulas", "8.merges", "11.inline-formatting"], [">Dashboard<", "colspan=\"3\"", "<td >15</td>", "<td >38</td>", "<td >2.5333333333</td>", "<td >53</td>"]],

@@ -272,7 +272,8 @@ function finalizeJsonSheets(runtime: ParseRuntime): void {
         rowIndex: sheet.rows.length + 1,
         lineNumber: 0,
         rowModifiers: [],
-        previousRowByColumn: new Map<number, CellNode>()
+        previousRowByColumn: new Map<number, CellNode>(),
+        currentHeaders: []
       });
       sheet.rows.push(row);
       registerColumns(sheet, row.cells, []);
@@ -390,14 +391,17 @@ function parseDataCells(
     rowName?: string;
     rowModifiers: Modifier[];
     previousRowByColumn: Map<number, CellNode>;
+    currentHeaders: HeaderDef[];
   }
 ): RowNode {
   const parsedCells: CellNode[] = [];
   const currentByColumn = new Map<number, CellNode>();
+  const maxColumn = Math.max(cells.length, getLastDefaultColumnIndex(context.currentHeaders));
 
-  for (let idx = 0; idx < cells.length; idx += 1) {
+  for (let idx = 0; idx < maxColumn; idx += 1) {
     const col = idx + 1;
     const token = cells[idx]?.trim() ?? "";
+    const defaultFormula = getColumnDefaultFormula(context.currentHeaders[idx]);
 
     if (token === "<") {
       const left = currentByColumn.get(col - 1);
@@ -420,6 +424,13 @@ function parseDataCells(
       if (above) {
         currentByColumn.set(col, above);
       }
+      continue;
+    }
+
+    if (token.length === 0 && defaultFormula) {
+      const formulaCell = createFormulaCell(context.rowIndex, col, defaultFormula);
+      parsedCells.push(formulaCell);
+      currentByColumn.set(col, formulaCell);
       continue;
     }
 
@@ -455,7 +466,8 @@ function appendDataRow(
     lineNumber,
     ...(rowName ? { rowName } : {}),
     rowModifiers,
-    previousRowByColumn
+    previousRowByColumn,
+    currentHeaders
   });
   sheet.rows.push(row);
   registerColumns(sheet, row.cells, currentHeaders);
@@ -516,6 +528,25 @@ function trimPipeEdgeTokens(tokens: string[]): string[] {
 
 function toHeaderDefs(values: string[]): HeaderDef[] {
   return values.map((name) => ({ name, modifiers: [] }));
+}
+
+function getLastDefaultColumnIndex(headers: HeaderDef[]): number {
+  for (let idx = headers.length - 1; idx >= 0; idx -= 1) {
+    if (getColumnDefaultFormula(headers[idx])) {
+      return idx + 1;
+    }
+  }
+
+  return 0;
+}
+
+function getColumnDefaultFormula(header?: HeaderDef): string | undefined {
+  const formula = header?.modifiers.find((modifier) => modifier.key === "default")?.value?.trim();
+  if (!formula) {
+    return undefined;
+  }
+
+  return formula.startsWith("=") ? formula : `=${formula}`;
 }
 
 function createColumnNode(index: number, header?: HeaderDef): ColumnNode {

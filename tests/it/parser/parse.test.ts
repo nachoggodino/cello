@@ -16,6 +16,10 @@ row_apple[bold] | Apple | 1.2 | =B2*2 |
     expect(sheet.name).toBe("Main");
     expect(sheet.rows[0].kind).toBe("header");
     expect(sheet.columns[1]).toMatchObject({ name: "Price", letter: "B" });
+    expect(sheet.columns[1]?.modifiers).toEqual([
+      { key: "€", raw: "€" },
+      { key: "2d", raw: "2d" }
+    ]);
 
     const dataRow = sheet.rows[1];
     expect(dataRow.name).toBe("row_apple");

@@ -34,6 +34,10 @@ describe("utils", () => {
 
   it("parses individual modifier tokens", () => {
     expect(parseModifier("2d")).toMatchObject({ key: "2d", raw: "2d" });
+    expect(parseModifier("€")).toMatchObject({ key: "€", raw: "€" });
+    expect(parseModifier("%")).toMatchObject({ key: "%", raw: "%" });
+    expect(parseModifier("red")).toMatchObject({ key: "red", raw: "red" });
+    expect(parseModifier("default:=Qty*Price")).toMatchObject({ key: "default", value: "=Qty*Price", raw: "default:=Qty*Price" });
     expect(parseModifier("bg:#eee")).toMatchObject({ key: "bg", value: "#eee" });
     expect(parseModifier("#bg:#111:#fff")).toMatchObject({ key: "bgfg", value: "#111:#fff" });
   });
@@ -68,4 +72,3 @@ describe("utils", () => {
     expect(workbookHasFormulas(parse("@sheet S\n| A | =A1 |"))).toBe(true);
   });
 });
-
