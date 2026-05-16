@@ -577,6 +577,8 @@ The renderer evaluates by default, unless `evaluate: false` is passed. It walks 
 
 The output is a self-contained HTML document (`<!doctype html>`) with inline CSS/JS. No external dependencies.
 
+Rendered tables include spreadsheet coordinate chrome: a synthetic top row displays column letters (`A`, `B`, `C`...), and a synthetic first column displays semantic row numbers. This chrome is presentation-only; it is not part of the AST or serialized `.cel` text. Header rows use the same row numbering as formulas, so a header at the top of a sheet is row `1` and the first value row below it is row `2`.
+
 ### 17.5 Serializer
 
 The serializer converts an AST back to valid `.cel` text. This enables round-trip editing: parse → mutate → serialize → parse again.

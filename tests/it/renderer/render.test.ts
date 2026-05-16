@@ -27,6 +27,18 @@ describe("render", () => {
     expect(html).toContain('<span class="cello-h1">Bigger</span>');
   });
 
+  it("renders spreadsheet coordinate chrome around sheets", async () => {
+    const html = await render("@sheet S\n-Name-Amount-\n| Ada | 5 |");
+    expect(html).toContain('<thead><tr><th class="cello-corner-index"></th><th class="cello-column-index">A</th><th class="cello-column-index">B</th></tr></thead>');
+    expect(html).toContain('<tr><th class="cello-row-index" scope="row">1</th><th >Name</th><th >Amount</th></tr>');
+    expect(html).toContain('<tr><th class="cello-row-index" scope="row">2</th><td >Ada</td><td >5</td></tr>');
+  });
+
+  it("extends column letters to rendered row width", async () => {
+    const html = await render("@sheet S\n| A | B | C |");
+    expect(html).toContain('<th class="cello-column-index">C</th>');
+  });
+
   it("renders merge spans as table attributes", async () => {
     const html = await render("@sheet M\n| A | 1 | < |\n| ^ | 2 | 3 |");
     expect(html).toContain('colspan="2"');

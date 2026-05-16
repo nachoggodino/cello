@@ -35,11 +35,14 @@ export function assertRenderFixture(caseDef: RenderFixtureCase, html: string): v
 
 export function assertRenderShape(actual: string, workbook: WorkbookAst): void {
   const expectedRows = workbook.sheets.flatMap((sheet) => sheet.rows);
+  const expectedCoordinateHeaders = workbook.sheets.reduce((count, sheet) => count + 1 + getSheetColumnCount(sheet), 0);
+  const expectedRowHeaders = expectedRows.length;
+  const expectedHeaderCells = expectedRows.filter((row) => row.kind === "header").flatMap((row) => visibleCells(row.cells)).length;
   expect(countTag(actual, "button")).toBe(workbook.sheets.length);
   expect(countTag(actual, "section")).toBe(workbook.sheets.length);
   expect(countTag(actual, "table")).toBe(workbook.sheets.length);
-  expect(countTag(actual, "tr")).toBe(expectedRows.length);
-  expect(countTag(actual, "th")).toBe(expectedRows.filter((row) => row.kind === "header").flatMap((row) => visibleCells(row.cells)).length);
+  expect(countTag(actual, "tr")).toBe(expectedRows.length + workbook.sheets.length);
+  expect(countTag(actual, "th")).toBe(expectedCoordinateHeaders + expectedRowHeaders + expectedHeaderCells);
   expect(countTag(actual, "td")).toBe(expectedRows.filter((row) => row.kind === "data").flatMap((row) => visibleCells(row.cells)).length);
 }
 
@@ -73,4 +76,14 @@ function countTag(html: string, tagName: string): number {
 
 function visibleCells(cells: CellNode[]): CellNode[] {
   return cells.filter((cell) => cell.kind !== "merge-left" && cell.kind !== "merge-up");
+}
+
+function getSheetColumnCount(sheet: WorkbookAst["sheets"][number]): number {
+  const maxRenderedColumn = Math.max(
+    0,
+    ...sheet.rows.flatMap((row) =>
+      visibleCells(row.cells).map((cell) => cell.col + Math.max(cell.colspan, 1) - 1)
+    )
+  );
+  return Math.max(sheet.columns.length, maxRenderedColumn);
 }

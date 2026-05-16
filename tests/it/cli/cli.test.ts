@@ -67,7 +67,7 @@ describe("cli", () => {
     const { code, stdout } = await runCliCase(["node", "cli", "help"]);
     expect(code).toBe(0);
     expect(stdout).toContain("cello help [command]");
-    expect(stdout).toContain("cello --version");
+    expect(stdout).toContain("cello version");
     expect(stdout).toContain("cello serve <file.cel>");
   });
 

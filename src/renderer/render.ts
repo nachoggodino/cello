@@ -1,7 +1,7 @@
 import { evaluate } from "../evaluator/evaluate.js";
 import { parse } from "../parser/parse.js";
 import type { CellNode, Modifier, RenderOptions, RowNode, SheetNode, WorkbookAst } from "../shared/types.js";
-import { escapeHtml, workbookHasFormulas } from "../shared/utils.js";
+import { columnLetter, escapeHtml, workbookHasFormulas } from "../shared/utils.js";
 
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
   const parseOptions = {
@@ -33,6 +33,8 @@ function renderDocument(title: string, tabs: string, sheetsHtml: string): string
     th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; white-space: nowrap; }
     th[colspan], th[rowspan], td[colspan], td[rowspan] { text-align: center; vertical-align: middle; }
     th { background: #f3f4f6; font-weight: 600; }
+    .cello-corner-index, .cello-column-index, .cello-row-index { background: #f9fafb; color: #6b7280; font-size: 0.75rem; font-weight: 600; text-align: center; }
+    .cello-corner-index, .cello-row-index { min-width: 36px; }
     .cello-bold { font-weight: 700; }
     .cello-italic { font-style: italic; }
     .cello-h1 { font-size: 1.25rem; font-weight: 700; }
@@ -79,17 +81,22 @@ function renderSheets(workbook: WorkbookAst): string {
   return workbook.sheets
     .map(
       (sheet, idx) =>
-        `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${idx}"><table><tbody>${sheet.rows
+        `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${idx}"><table>${renderColumnIndexRow(sheet)}<tbody>${sheet.rows
           .map((row) => renderRow(row, sheet))
           .join("")}</tbody></table></section>`
     )
     .join("");
 }
 
+function renderColumnIndexRow(sheet: SheetNode): string {
+  const columns = Array.from({ length: getSheetColumnCount(sheet) }, (_, idx) => `<th class="cello-column-index">${columnLetter(idx + 1)}</th>`).join("");
+  return `<thead><tr><th class="cello-corner-index"></th>${columns}</tr></thead>`;
+}
+
 function renderRow(row: RowNode, sheet: SheetNode): string {
   const header = row.kind === "header";
   const cells = row.cells.filter(isRenderableCell).map((cell) => renderCell(cell, header, collectModifiers(cell, row, sheet))).join("");
-  return `<tr>${cells}</tr>`;
+  return `<tr><th class="cello-row-index" scope="row">${row.index}</th>${cells}</tr>`;
 }
 
 function renderCell(cell: CellNode, header: boolean, modifiers: Modifier[]): string {
@@ -148,6 +155,18 @@ function buildStyleAttribute(modifiers: Modifier[]): string {
 
 function isRenderableCell(cell: CellNode): boolean {
   return cell.kind !== "merge-left" && cell.kind !== "merge-up";
+}
+
+function getSheetColumnCount(sheet: SheetNode): number {
+  const maxRenderedColumn = Math.max(
+    0,
+    ...sheet.rows.flatMap((row) =>
+      row.cells
+        .filter(isRenderableCell)
+        .map((cell) => cell.col + Math.max(cell.colspan, 1) - 1)
+    )
+  );
+  return Math.max(sheet.columns.length, maxRenderedColumn);
 }
 
 function toStyleRule(mod: Modifier): string {
