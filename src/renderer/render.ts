@@ -19,18 +19,35 @@ export async function render(input: string | WorkbookAst, options: RenderOptions
   const parsed = typeof input === "string" ? parse(input, parseOptions) : input;
   const shouldEvaluate = options.evaluate !== false && workbookHasFormulas(parsed);
   const evaluated = shouldEvaluate ? await evaluate(parsed, parseOptions) : parsed;
+  const workbookHtml = renderWorkbook(renderTabs(evaluated), renderSheets(evaluated));
 
-  return renderDocument(options.title ?? "Cello Workbook", renderTabs(evaluated), renderSheets(evaluated));
+  return options.format === "fragment" ? renderFragment(workbookHtml) : renderDocument(options.title ?? "Cello Workbook", workbookHtml);
 }
 
-function renderDocument(title: string, tabs: string, sheetsHtml: string): string {
+function renderDocument(title: string, workbookHtml: string): string {
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>${escapeHtml(title)}</title>
-  <style>
+  ${renderStyles()}
+</head>
+<body>
+  ${workbookHtml}
+  ${renderScript()}
+</body>
+</html>`;
+}
+
+function renderFragment(workbookHtml: string): string {
+  return `${renderStyles()}
+  ${workbookHtml}
+  ${renderScript()}`;
+}
+
+function renderStyles(): string {
+  return `<style>
     .cello-workbook { font-family: Inter, Segoe UI, Arial, sans-serif; color: #111827; }
     .cello-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 12px; }
     .cello-tab { border: 1px solid #d1d5db; background: #ffffff; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
@@ -47,16 +64,26 @@ function renderDocument(title: string, tabs: string, sheetsHtml: string): string
     .cello-italic { font-style: italic; }
     .cello-h1 { font-size: 1.25rem; font-weight: 700; }
     .cello-h2 { font-size: 1.1rem; font-weight: 700; }
-  </style>
-</head>
-<body>
-  <div class="cello-workbook">
+  </style>`;
+}
+
+function renderWorkbook(tabs: string, sheetsHtml: string): string {
+  return `<div class="cello-workbook">
     <div class="cello-tabs">${tabs}</div>
     ${sheetsHtml}
-  </div>
-  <script>
-    const tabs = Array.from(document.querySelectorAll(".cello-tab"));
-    const sheets = Array.from(document.querySelectorAll(".cello-sheet"));
+  </div>`;
+}
+
+function renderScript(): string {
+  return `<script>
+    (() => {
+    const currentScript = document.currentScript;
+    const root = currentScript?.previousElementSibling;
+    if (!(root instanceof HTMLElement) || !root.classList.contains("cello-workbook")) {
+      return;
+    }
+    const tabs = Array.from(root.querySelectorAll(".cello-tab"));
+    const sheets = Array.from(root.querySelectorAll(".cello-sheet"));
     const activeSheetStorageKey = "cello:active-sheet:" + window.location.pathname;
     function activateSheet(id) {
       const nextTab = tabs.find((tab) => tab.getAttribute("data-sheet") === id) ?? tabs[0];
@@ -74,9 +101,8 @@ function renderDocument(title: string, tabs: string, sheetsHtml: string): string
       });
     });
     activateSheet(window.localStorage.getItem(activeSheetStorageKey));
-  </script>
-</body>
-</html>`;
+    })();
+  </script>`;
 }
 
 function renderTabs(workbook: WorkbookAst): string {

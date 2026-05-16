@@ -77,7 +77,7 @@ cello --version
 cello parse <file.cel>
 cello evaluate <file.cel>
 cello validate <file.cel>
-cello render <file.cel> [-o out.html] [--no-eval]
+cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]
 cello serialize <file.cel> [-o out.cel]
 cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]
 ```
@@ -92,7 +92,7 @@ Command details:
 - `parse` prints the workbook AST as JSON.
 - `evaluate` prints the AST with computed formula values.
 - `validate` prints `{ "valid": boolean, "diagnostics": [...] }`; it exits `1` when diagnostics exist.
-- `render` writes self-contained HTML with `-o/--out`, or prints HTML to stdout.
+- `render` writes self-contained HTML with `-o/--out`, or prints HTML to stdout. `--format document` is the default full HTML document; `--format fragment` emits an embeddable chunk without `html`/`head`/`body` wrappers.
 - `serialize` converts the parsed AST back to `.cel` text.
 - `serve` starts a local live-preview server and only opens the browser when `--open` is provided.
 
@@ -110,6 +110,7 @@ const ast = parse(source);
 const evaluated = await evaluate(ast);
 const result = await validate(source);
 const html = await render(source);
+const fragment = await render(source, { format: "fragment" });
 const text = serialize(evaluated);
 
 console.log(result.valid, html, text);

@@ -10,6 +10,7 @@ import { serialize } from "../serializer/serialize.js";
 import { validate } from "../validator/validate.js";
 import { VERSION } from "../version.js";
 import { startServe } from "./serve.js";
+import type { RenderOptions } from "../shared/types.js";
 
 export interface CliDeps {
   cwd: string;
@@ -73,7 +74,7 @@ function printUsage(write: (text: string) => void): void {
       "  cello parse <file.cel>",
       "  cello evaluate <file.cel>",
       "  cello validate <file.cel>",
-      "  cello render <file.cel> [-o out.html] [--no-eval]",
+      "  cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]",
       "  cello serialize <file.cel> [-o out.cel]",
       "  cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]"
     ].join("\n")
@@ -89,7 +90,7 @@ const HELP_TEXT: Record<string, string> = {
   validate:
     "Usage: cello validate <file.cel>\n\nParse and evaluate diagnostics. Prints JSON with valid and diagnostics fields. Exits 0 when valid, 1 when diagnostics exist.\n",
   render:
-    "Usage: cello render <file.cel> [-o out.html] [--no-eval]\n\nRender a workbook to self-contained HTML. Use --no-eval to leave formula cells unevaluated.\n",
+    "Usage: cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]\n\nRender a workbook to HTML. The default format is document. Use fragment for an embeddable chunk without html/head/body wrappers. Use --no-eval to leave formula cells unevaluated.\n",
   serialize: "Usage: cello serialize <file.cel> [-o out.cel]\n\nParse and serialize a workbook back to .cel text.\n",
   serve:
     "Usage: cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]\n\nServe a live HTML preview. The server keeps the process warm for faster repeated renders. Use --open to open the URL in a browser.\n"
@@ -103,6 +104,7 @@ interface CliRequest {
   inputPath: string;
   outPath: string;
   evaluate: boolean;
+  renderFormat?: RenderOptions["format"];
   host?: string;
   port?: number;
   open?: boolean;
@@ -168,6 +170,10 @@ function parseCliRequest(argv: string[], cwd: string): CliRequest | HelpRequest 
   if (typeof resolvedOutPath !== "string") {
     return resolvedOutPath;
   }
+  const resolvedRenderFormat = command === "render" ? resolveRenderFormat(rest) : undefined;
+  if (resolvedRenderFormat && "error" in resolvedRenderFormat) {
+    return resolvedRenderFormat;
+  }
 
   const request: CliRequest = {
     command,
@@ -175,6 +181,9 @@ function parseCliRequest(argv: string[], cwd: string): CliRequest | HelpRequest 
     outPath: resolvedOutPath,
     evaluate: !rest.includes("--no-eval")
   };
+  if (resolvedRenderFormat) {
+    request.renderFormat = resolvedRenderFormat.format;
+  }
   if (command === "serve") {
     const resolvedServeOptions = resolveServeOptions(rest);
     if ("error" in resolvedServeOptions) {
@@ -209,7 +218,7 @@ function validateServeOptionScope(command: CliCommand, rest: string[]): CliReque
 }
 
 function validateArguments(command: CliCommand, rest: string[]): CliRequestError | undefined {
-  const optionsWithValues = new Set(command === "serve" ? ["--host", "--port"] : ["--out", "-o"]);
+  const optionsWithValues = new Set(command === "serve" ? ["--host", "--port"] : ["--out", "-o", "--format"]);
   const allowedOptions = new Set<string>();
   if (command === "render" || command === "serialize") {
     allowedOptions.add("--out");
@@ -217,6 +226,9 @@ function validateArguments(command: CliCommand, rest: string[]): CliRequestError
   }
   if (command === "render" || command === "serve") {
     allowedOptions.add("--no-eval");
+  }
+  if (command === "render") {
+    allowedOptions.add("--format");
   }
   if (command === "serve") {
     allowedOptions.add("--host");
@@ -285,6 +297,20 @@ function resolveOutPath(cwd: string, rest: string[]): string | CliRequestError {
   return resolve(cwd, outArg);
 }
 
+function resolveRenderFormat(rest: string[]): { format: RenderOptions["format"] } | CliRequestError | undefined {
+  const raw = readOption(rest, "--format");
+  if (!raw) {
+    return undefined;
+  }
+  if ("error" in raw) {
+    return raw;
+  }
+  if (raw.value !== "document" && raw.value !== "fragment") {
+    return { error: "Invalid --format value. Expected document or fragment." };
+  }
+  return { format: raw.value };
+}
+
 async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest, deps: CliDeps): Promise<number> {
   if (request.command === "version") {
     deps.stdoutWrite(`${VERSION}\n`);
@@ -326,7 +352,8 @@ async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest,
       writeCliOutput(
         await render(text, {
           baseDir: dirname(request.inputPath),
-          evaluate: request.evaluate
+          evaluate: request.evaluate,
+          ...(request.renderFormat ? { format: request.renderFormat } : {})
         }),
         request.outPath,
         deps,

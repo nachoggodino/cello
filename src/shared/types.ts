@@ -84,4 +84,5 @@ export interface RenderOptions {
   title?: string;
   baseDir?: string;
   evaluate?: boolean;
+  format?: "document" | "fragment";
 }

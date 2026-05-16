@@ -4,13 +4,32 @@ import { render } from "../../../src/renderer/render.js";
 describe("render", () => {
   it("renders full html document with tab controls", async () => {
     const html = await render("@sheet One\n| A |\n@sheet Two\n| B |", { title: "Workbook" });
-    expect(html).toContain("<!doctype html>");
+    expect(html.startsWith("<!doctype html>")).toBe(true);
+    expect(html).toContain("<html lang=\"en\">");
+    expect(html).toContain("<head>");
+    expect(html).toContain("<body>");
     expect(html).toContain("<title>Workbook</title>");
+    expect(html).toContain("<style>");
     expect(html).toContain('class="cello-tab active"');
     expect(html).toContain('data-sheet="0"');
     expect(html).toContain('data-sheet="1"');
     expect(html).toContain("cello:active-sheet:");
     expect(html).toContain("activateSheet(window.localStorage.getItem(activeSheetStorageKey))");
+  });
+
+  it("renders embeddable html fragments without document wrappers", async () => {
+    const html = await render("@sheet One\n| A |\n@sheet Two\n| B |", { format: "fragment" });
+
+    expect(html).not.toContain("<!doctype html>");
+    expect(html).not.toContain("<html");
+    expect(html).not.toContain("<head>");
+    expect(html).not.toContain("<body>");
+    expect(html).not.toContain("<title>");
+    expect(html).toContain("<style>");
+    expect(html).toContain('<div class="cello-workbook">');
+    expect(html).toContain("<script>");
+    expect(html).toContain("document.currentScript");
+    expect(html).toContain('data-sheet="1"');
   });
 
   it("renders inline formatting and cell styles", async () => {

@@ -63,11 +63,18 @@ describe("cli", () => {
     expect(stderr).toContain("Missing output file after -o/--out.");
   });
 
+  it("returns 1 when --format is provided without a value", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "render", "sample.cel", "--format"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("Missing value after --format.");
+  });
+
   it("prints general help", async () => {
     const { code, stdout } = await runCliCase(["node", "cli", "help"]);
     expect(code).toBe(0);
     expect(stdout).toContain("cello help [command]");
     expect(stdout).toContain("cello version");
+    expect(stdout).toContain("cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]");
     expect(stdout).toContain("cello serve <file.cel>");
   });
 
@@ -113,6 +120,12 @@ describe("cli", () => {
     const { code, stderr } = await runCliCase(["node", "cli", "serialize", "sample.cel", "--format", "json"]);
     expect(code).toBe(1);
     expect(stderr).toContain("Unsupported option for serialize: --format");
+  });
+
+  it("rejects invalid render output formats", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "render", "sample.cel", "--format", "json"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("Invalid --format value. Expected document or fragment.");
   });
 
   it("rejects extra positional arguments", async () => {
@@ -183,6 +196,31 @@ describe("cli", () => {
       assert: ({ code, stdout }: { code: number; stdout: string }) => {
         expect(code).toBe(0);
         expect(stdout).toContain("<!doctype html>");
+      }
+    },
+    {
+      name: "runs render and writes fragment html to stdout",
+      argv: ["node", "cli", "render", "sample.cel", "--format", "fragment"],
+      source: "@sheet S\n| A | 1 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).not.toContain("<!doctype html>");
+        expect(stdout).not.toContain("<body>");
+        expect(stdout).toContain('<div class="cello-workbook">');
+        expect(stdout).toContain("<style>");
+        expect(stdout).toContain("<script>");
+      }
+    },
+    {
+      name: "runs render and writes fragment html to output file",
+      argv: ["node", "cli", "render", "sample.cel", "--format", "fragment", "-o", "fragment.html"],
+      source: "@sheet S\n| A | 1 |",
+      assert: async ({ code, cwd, stdout }: { code: number; cwd: string; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("Wrote");
+        const html = await readFile(join(cwd, "fragment.html"), "utf8");
+        expect(html).not.toContain("<!doctype html>");
+        expect(html).toContain("cello-workbook");
       }
     },
     {

@@ -520,7 +520,7 @@ The reference implementation is a TypeScript/JavaScript npm package called `@nac
 parse(text: string, options?): AST
 evaluate(ast: AST, options?): Promise<AST>
 validate(text: string, options?): Promise<{ valid: boolean, diagnostics: Diagnostic[] }>
-render(input: string | AST, options?: { strict?, title?, baseDir?, evaluate? }): Promise<string>
+render(input: string | AST, options?: { strict?, title?, baseDir?, evaluate?, format?: "document" | "fragment" }): Promise<string>
 serialize(ast: AST): string
 ```
 
@@ -575,9 +575,10 @@ The name-to-coordinate translation is the only custom logic needed. HyperFormula
 
 ### 17.4 Renderer
 
-The renderer evaluates by default, unless `evaluate: false` is passed. It walks the selected AST and produces a self-contained full HTML document:
+The renderer evaluates by default, unless `evaluate: false` is passed. It walks the selected AST and produces HTML in one of two shapes:
 
 ```
+<style> /* inline CSS */ </style>
 <div class="cello-workbook">
   <div class="cello-tabs">
     <button class="tab active">Datos</button>
@@ -587,12 +588,11 @@ The renderer evaluates by default, unless `evaluate: false` is passed. It walks 
   <div class="cello-sheet active"> ... </div>
   <div class="cello-sheet hidden"> ... </div>
   <div class="cello-sheet hidden"> ... </div>
-  <style> /* inline CSS */ </style>
-  <script> /* inline tab switching JS */ </script>
 </div>
+<script> /* inline tab switching JS */ </script>
 ```
 
-The output is a self-contained HTML document (`<!doctype html>`) with inline CSS/JS. No external dependencies.
+`format: "document"` is the default and returns a self-contained HTML document (`<!doctype html>`) with `html`, `head`, and `body` wrappers. `format: "fragment"` returns only the inline CSS, workbook container, and inline JS so the output can be embedded inside an existing page. No external dependencies are required in either format.
 
 Rendered tables include spreadsheet coordinate chrome: a synthetic top row displays column letters (`A`, `B`, `C`...), and a synthetic first column displays semantic row numbers. This chrome is presentation-only; it is not part of the AST or serialized `.cel` text. Header rows use the same row numbering as formulas, so a header at the top of a sheet is row `1` and the first value row below it is row `2`.
 

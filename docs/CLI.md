@@ -18,8 +18,10 @@ The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
   - Prints `{ "valid": boolean, "diagnostics": [...] }` as JSON.
   - Exits `0` when there are no diagnostics, otherwise exits `1`.
 
-- `cello render <file.cel> [-o out.html] [--no-eval]`
+- `cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]`
   - Renders workbook to self-contained HTML.
+  - `--format document` is the default full HTML document.
+  - `--format fragment` emits an embeddable chunk without `html`, `head`, or `body` wrappers.
   - Use `--no-eval` to render formula text without evaluating formulas.
   - If `-o/--out` is provided, writes to file and prints `Wrote <absolute-path>`.
   - Otherwise prints HTML to stdout.
