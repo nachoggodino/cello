@@ -1,0 +1,12 @@
+services:
+  cello:
+    build: .
+    container_name: cello
+    restart: unless-stopped
+    # No ports: section - Caddy is the only entry point via the shared network
+    networks:
+      - caddy
+
+networks:
+  caddy:
+    external: true
