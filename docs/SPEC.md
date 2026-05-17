@@ -413,7 +413,20 @@ Named colors are standard CSS color names (`red`, `blue`, `green`, `orange`, `go
 | `[italic]` | Italic text |
 | `[hidden]` | Parsed metadata flag (render-time hiding not implemented yet) |
 
-### 12.5 Combined example
+### 12.5 Tone presets
+
+| Modifier | Meaning |
+|----------|---------|
+| `[tone:ok]` | Positive/success emphasis |
+| `[tone:warn]` | Warning/caution emphasis |
+| `[tone:error]` | Error/failure emphasis |
+| `[tone:info]` | Informational emphasis |
+| `[tone:muted]` | Secondary/de-emphasized emphasis |
+| `[tone:accent]` | Primary highlight emphasis |
+
+Tone presets are rendered as CSS classes (`cello-tone-*`) rather than inline colors so host applications can override them with custom CSS. The built-in renderer defines default foreground/background pairs through CSS variables on `.cello-workbook`.
+
+### 12.6 Combined example
 
 ```
 @header | Producto | Precio[€][2d] | Margen[%][1d][bg:#e8f5e9] |
@@ -421,6 +434,7 @@ Named colors are standard CSS color names (`red`, `blue`, `green`, `orange`, `go
 [bold][bg:#f0f0f0] | ## TOTAL | < | =SUM(Precio) | =SUM(Margen) |
 
 | valor crítico[bg:red][#fff] | < | dato |
+| estado[tone:accent] | normal[tone:ok] | atención[tone:warn] |
 ```
 
 ---

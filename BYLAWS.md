@@ -310,9 +310,11 @@ Supported modifiers:
 | `[colorname]` | CSS named text color |
 | `[bg:colorname]` | CSS named background color |
 | `[#bg:#rrggbb:#rrggbb]` | Background and text color shorthand |
+| `[tone:ok]`, `[tone:warn]`, `[tone:error]`, `[tone:info]`, `[tone:muted]`, `[tone:accent]` | Semantic tone preset |
 | `[hidden]` | Parsed as hidden metadata for tooling |
 
 Named CSS colors such as `red`, `blue`, `green`, `orange`, and `gold` are accepted.
+Tone presets map to renderer-defined CSS classes so embedding clients can override their colors with custom CSS.
 
 ## 12. Column default formulas
 

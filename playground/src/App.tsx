@@ -1,64 +1,45 @@
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent, PointerEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { format as formatCello } from "@cello/core";
 import type { Diagnostic } from "@cello/core";
 import { examples, getExample } from "./examples";
-import { renderPreview } from "./preview";
+import { LogoMark, ToolbarIcon } from "./icons";
+import { bylawsUrl, previewDownloadFileName } from "./playgroundConfig";
 import { loadStoredState, saveStoredState } from "./playgroundState";
+import { syntaxExamples } from "./syntaxReference";
+import { useClipboardStatus } from "./useClipboardStatus";
+import { usePreviewRender } from "./usePreviewRender";
+import { useResizableSplit } from "./useResizableSplit";
 
-const bylawsUrl = "https://github.com/nachoggodino/cello/blob/main/BYLAWS.md";
 const CodeEditor = lazy(async () => ({ default: (await import("./CodeEditor")).CodeEditor }));
 
 type MobilePanel = "editor" | "preview" | "syntax";
-type RenderState = "idle" | "rendering" | "failed";
+
+const mobilePanels: Array<{ id: MobilePanel; label: string }> = [
+  { id: "editor", label: "Editor" },
+  { id: "preview", label: "Preview" },
+  { id: "syntax", label: "Syntax" }
+];
 
 export function App() {
   const initialState = useMemo(() => loadStoredState(window.localStorage), []);
   const [selectedExampleId, setSelectedExampleId] = useState(initialState.exampleId);
   const [source, setSource] = useState(initialState.source);
-  const deferredSource = useDeferredValue(source);
-  const [previewHtml, setPreviewHtml] = useState("");
-  const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
-  const [renderState, setRenderState] = useState<RenderState>("rendering");
   const [syntaxOpen, setSyntaxOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("editor");
-  const [editorBasis, setEditorBasis] = useState(50);
-  const [actionMessage, setActionMessage] = useState("");
-  const dragState = useRef<{ startX: number; startBasis: number } | null>(null);
-  const renderRun = useRef(0);
-  const lastGoodHtmlRef = useRef("");
+  const { diagnostics, lastGoodHtml, previewHtml, renderState } = usePreviewRender(source);
+  const { actionMessage, copiedTarget, copyText, setActionMessage } = useClipboardStatus();
+  const {
+    editorBasis,
+    onDividerKeyDown,
+    onDividerPointerDown,
+    onDividerPointerMove,
+    splitPane,
+    stopDrag
+  } = useResizableSplit();
 
   useEffect(() => {
     saveStoredState(window.localStorage, { exampleId: selectedExampleId, source });
   }, [selectedExampleId, source]);
-
-  useEffect(() => {
-    const runId = ++renderRun.current;
-    setRenderState("rendering");
-
-    const timeout = window.setTimeout(() => {
-      void renderPreview(deferredSource)
-        .then((result) => {
-          if (runId !== renderRun.current) {
-            return;
-          }
-          setPreviewHtml(result.html);
-          lastGoodHtmlRef.current = result.html;
-          setDiagnostics(result.diagnostics);
-          setRenderState("idle");
-        })
-        .catch((error: unknown) => {
-          if (runId !== renderRun.current) {
-            return;
-          }
-          const message = error instanceof Error ? error.message : String(error);
-          setPreviewHtml(lastGoodHtmlRef.current);
-          setDiagnostics([{ level: "error", message: `Render failed: ${message}` }]);
-          setRenderState("failed");
-        });
-    }, 400);
-
-    return () => window.clearTimeout(timeout);
-  }, [deferredSource]);
 
   const selectedExample = getExample(selectedExampleId);
   const issueCount = diagnostics.length;
@@ -76,13 +57,14 @@ export function App() {
     setSource(current.source);
   };
 
-  const copyText = async (value: string, label: string) => {
+  const formatSource = () => {
     try {
-      await navigator.clipboard.writeText(value);
-      setActionMessage(`${label} copied.`);
+      const formatted = formatCello(source);
+      setSource(formatted);
+      setActionMessage("Source formatted.");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setActionMessage(`Copy failed: ${message}`);
+      setActionMessage(`Format failed: ${message}`);
     }
   };
 
@@ -94,7 +76,7 @@ export function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "cello-preview.html";
+    link.download = previewDownloadFileName;
     document.body.append(link);
     link.click();
     link.remove();
@@ -102,68 +84,159 @@ export function App() {
     setActionMessage("HTML download started.");
   };
 
-  const onDividerPointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      dragState.current = { startX: event.clientX, startBasis: editorBasis };
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [editorBasis]
-  );
-
-  const onDividerPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const drag = dragState.current;
-    const container = event.currentTarget.parentElement;
-    if (!drag || !container) {
-      return;
-    }
-    const delta = ((event.clientX - drag.startX) / container.clientWidth) * 100;
-    setEditorBasis(Math.min(68, Math.max(32, drag.startBasis + delta)));
-  };
-
-  const stopDrag = () => {
-    dragState.current = null;
-  };
-
-  const resizeEditor = (nextBasis: number) => {
-    setEditorBasis(Math.min(68, Math.max(32, nextBasis)));
-  };
-
-  const onDividerKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowLeft") {
-      resizeEditor(editorBasis - 4);
-      event.preventDefault();
-      return;
-    }
-    if (event.key === "ArrowRight") {
-      resizeEditor(editorBasis + 4);
-      event.preventDefault();
-      return;
-    }
-    if (event.key === "Home") {
-      resizeEditor(32);
-      event.preventDefault();
-      return;
-    }
-    if (event.key === "End") {
-      resizeEditor(68);
-      event.preventDefault();
-    }
-  };
-
   return (
     <div className="appShell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brandMark">C</div>
-          <div>
-            <h1>Cello Playground</h1>
-            <p>Plain-text spreadsheets, rendered live.</p>
-          </div>
+      <Topbar syntaxOpen={syntaxOpen} onToggleSyntax={() => setSyntaxOpen((open) => !open)} />
+
+      <MobileSwitch activePanel={mobilePanel} onChange={setMobilePanel} />
+
+      <main className="workbench">
+        <div className={`workspace ${syntaxOpen ? "syntaxVisible" : ""}`}>
+          <EditorPane
+            copiedTarget={copiedTarget}
+            editorBasis={editorBasis}
+            mobileVisible={mobilePanel === "editor"}
+            selectedExampleId={selectedExampleId}
+            selectedExampleFileName={selectedExample.fileName}
+            source={source}
+            onChooseExample={chooseExample}
+            onCopy={(value, label) => void copyText(value, label)}
+            onFormat={formatSource}
+            onReset={resetExample}
+            onSourceChange={setSource}
+          />
+
+          <div
+            className="divider"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize editor and preview panes"
+            aria-valuemin={splitPane.min}
+            aria-valuemax={splitPane.max}
+            aria-valuenow={Math.round(editorBasis)}
+            tabIndex={0}
+            onPointerDown={onDividerPointerDown}
+            onPointerMove={onDividerPointerMove}
+            onPointerUp={stopDrag}
+            onPointerCancel={stopDrag}
+            onKeyDown={onDividerKeyDown}
+          />
+
+          <PreviewPane
+            copiedTarget={copiedTarget}
+            lastGoodHtml={lastGoodHtml}
+            mobileVisible={mobilePanel === "preview"}
+            previewHtml={previewHtml}
+            renderState={renderState}
+            onCopy={(value, label) => void copyText(value, label)}
+            onDownload={downloadHtml}
+          />
+
+          <aside id="panel-syntax" role="tabpanel" aria-labelledby="tab-syntax" className={`syntaxPanel ${syntaxOpen ? "open" : ""} ${mobilePanel === "syntax" ? "mobileVisible" : ""}`}>
+            <SyntaxPanel
+              onClose={() => {
+                setSyntaxOpen(false);
+                setMobilePanel("editor");
+              }}
+              onCopy={(value, label) => void copyText(value, label)}
+              copiedTarget={copiedTarget}
+            />
+          </aside>
         </div>
-        <div className="toolbar">
-          <label className="exampleSelect">
-            <span>Example</span>
-            <select value={selectedExampleId} onChange={(event) => chooseExample(event.target.value)}>
+
+        <DiagnosticsBar actionMessage={actionMessage} diagnostics={diagnostics} hasErrors={hasErrors} issueCount={issueCount} />
+      </main>
+
+      <footer className="siteFooter">
+        <span>BYLAWS-first syntax for durable plain text spreadsheets.</span>
+        <span>Render live, copy HTML, keep the source reviewable.</span>
+        <a href={bylawsUrl} target="_blank" rel="noreferrer">Read the BYLAWS</a>
+      </footer>
+    </div>
+  );
+}
+
+function Topbar({ syntaxOpen, onToggleSyntax }: { syntaxOpen: boolean; onToggleSyntax: () => void }) {
+  return (
+    <header className="topbar">
+      <div className="brand">
+        <div className="brandMark" aria-hidden="true">
+          <LogoMark />
+        </div>
+        <div className="brandCopy">
+          <h1>cello</h1>
+          <p>plain text and LLM friendly spreadsheets</p>
+        </div>
+      </div>
+      <nav className="topbarNav" aria-label="Playground navigation">
+        <a className="navLink" href={bylawsUrl} target="_blank" rel="noreferrer">BYLAWS</a>
+        <button type="button" className={`glassButton iconTextButton topbarSyntaxToggle ${syntaxOpen ? "active" : ""}`} onClick={onToggleSyntax}>
+          <ToolbarIcon name="book" />
+          <span>Syntax</span>
+        </button>
+      </nav>
+    </header>
+  );
+}
+
+function MobileSwitch({ activePanel, onChange }: { activePanel: MobilePanel; onChange: (panel: MobilePanel) => void }) {
+  return (
+    <div className="mobileSwitch" role="tablist" aria-label="Playground panels">
+      {mobilePanels.map((panel) => (
+        <button
+          key={panel.id}
+          id={`tab-${panel.id}`}
+          role="tab"
+          aria-controls={`panel-${panel.id}`}
+          aria-selected={activePanel === panel.id}
+          className={activePanel === panel.id ? "active" : ""}
+          onClick={() => onChange(panel.id)}
+        >
+          {panel.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function EditorPane({
+  copiedTarget,
+  editorBasis,
+  mobileVisible,
+  selectedExampleFileName,
+  selectedExampleId,
+  source,
+  onChooseExample,
+  onCopy,
+  onFormat,
+  onReset,
+  onSourceChange
+}: {
+  copiedTarget: string;
+  editorBasis: number;
+  mobileVisible: boolean;
+  selectedExampleFileName: string;
+  selectedExampleId: string;
+  source: string;
+  onChooseExample: (exampleId: string) => void;
+  onCopy: (value: string, label: string) => void;
+  onFormat: () => void;
+  onReset: () => void;
+  onSourceChange: (value: string) => void;
+}) {
+  const sourceLabel = ".cel source";
+
+  return (
+    <section id="panel-editor" role="tabpanel" aria-labelledby="tab-editor" className={`pane editorPane ${mobileVisible ? "mobileVisible" : ""}`} style={{ flexBasis: `${editorBasis}%` }}>
+      <div className="paneHeader">
+        <div className="paneTitle">
+          <span>Source</span>
+          <strong className="sourceFileName">{selectedExampleFileName}</strong>
+        </div>
+        <div className="paneActions paneActionsStart">
+          <label className="exampleSelect" aria-label="Choose example">
+            <ToolbarIcon name="chevron" />
+            <select aria-label="Choose example" value={selectedExampleId} onChange={(event) => onChooseExample(event.target.value)}>
               {examples.map((example) => (
                 <option key={example.id} value={example.id}>
                   {example.name}
@@ -171,110 +244,134 @@ export function App() {
               ))}
             </select>
           </label>
-          <button type="button" onClick={resetExample}>Reset</button>
-          <button type="button" onClick={() => void copyText(source, ".cel source")}>Copy .cel</button>
-          <button type="button" onClick={() => void copyText(previewHtml, "HTML")} disabled={!previewHtml}>Copy HTML</button>
-          <button type="button" onClick={downloadHtml} disabled={!previewHtml}>Download HTML</button>
-          <button type="button" className={syntaxOpen ? "active" : ""} onClick={() => setSyntaxOpen((open) => !open)}>
-            Syntax
+        </div>
+        <div className="paneActions">
+          <button type="button" className="glassButton iconTextButton primaryAction" onClick={onFormat}>
+            <ToolbarIcon name="format" />
+            <span>Format</span>
           </button>
+          <button type="button" className="glassButton iconButton" aria-label="Reset example" title="Reset example" onClick={onReset}>
+            <ToolbarIcon name="reset" />
+          </button>
+          <CopyButton label={sourceLabel} copiedTarget={copiedTarget} onCopy={() => onCopy(source, sourceLabel)} />
         </div>
-      </header>
-
-      <div className="mobileSwitch" role="tablist" aria-label="Playground panels">
-        <button id="tab-editor" role="tab" aria-controls="panel-editor" aria-selected={mobilePanel === "editor"} className={mobilePanel === "editor" ? "active" : ""} onClick={() => setMobilePanel("editor")}>Editor</button>
-        <button id="tab-preview" role="tab" aria-controls="panel-preview" aria-selected={mobilePanel === "preview"} className={mobilePanel === "preview" ? "active" : ""} onClick={() => setMobilePanel("preview")}>Preview</button>
-        <button id="tab-syntax" role="tab" aria-controls="panel-syntax" aria-selected={mobilePanel === "syntax"} className={mobilePanel === "syntax" ? "active" : ""} onClick={() => setMobilePanel("syntax")}>Syntax</button>
       </div>
+      <Suspense fallback={<div className="editorLoading">Loading editor...</div>}>
+        <CodeEditor value={source} onChange={onSourceChange} />
+      </Suspense>
+    </section>
+  );
+}
 
-      <main className={`workspace ${syntaxOpen ? "syntaxVisible" : ""}`}>
-        <section id="panel-editor" role="tabpanel" aria-labelledby="tab-editor" className={`pane editorPane ${mobilePanel === "editor" ? "mobileVisible" : ""}`} style={{ flexBasis: `${editorBasis}%` }}>
-          <div className="paneHeader">
-            <div>
-              <strong>{selectedExample.name}</strong>
-              <span>{selectedExample.description}</span>
-            </div>
+function PreviewPane({
+  copiedTarget,
+  lastGoodHtml,
+  mobileVisible,
+  previewHtml,
+  renderState,
+  onCopy,
+  onDownload
+}: {
+  copiedTarget: string;
+  lastGoodHtml: string;
+  mobileVisible: boolean;
+  previewHtml: string;
+  renderState: "idle" | "rendering" | "failed";
+  onCopy: (value: string, label: string) => void;
+  onDownload: () => void;
+}) {
+  const previewTitle = renderState === "rendering" ? "Rendering" : renderState === "failed" ? "Last good render" : "Live render";
+
+  return (
+    <div className="previewRegion">
+      <section id="panel-preview" role="tabpanel" aria-labelledby="tab-preview" className={`pane previewPane ${mobileVisible ? "mobileVisible" : ""}`}>
+        <div className="paneHeader previewHeader">
+          <div className="paneTitle">
+            <span>{previewTitle}</span>
+            <strong>Preview</strong>
           </div>
-          <Suspense fallback={<div className="editorLoading">Loading editor...</div>}>
-            <CodeEditor value={source} onChange={setSource} />
-          </Suspense>
-        </section>
-
-        <div
-          className="divider"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize editor and preview panes"
-          aria-valuemin={32}
-          aria-valuemax={68}
-          aria-valuenow={Math.round(editorBasis)}
-          tabIndex={0}
-          onPointerDown={onDividerPointerDown}
-          onPointerMove={onDividerPointerMove}
-          onPointerUp={stopDrag}
-          onPointerCancel={stopDrag}
-          onKeyDown={onDividerKeyDown}
-        />
-
-        <section id="panel-preview" role="tabpanel" aria-labelledby="tab-preview" className={`pane previewPane ${mobilePanel === "preview" ? "mobileVisible" : ""}`}>
-          <div className="paneHeader">
-            <div>
-              <strong>Rendered HTML</strong>
-              <span>{renderState === "rendering" ? "Rendering..." : renderState === "failed" ? "Showing last successful preview" : "Live preview"}</span>
-            </div>
+          <div className="paneActions">
+            <CopyButton label="HTML" copiedTarget={copiedTarget} disabled={!previewHtml} onCopy={() => onCopy(previewHtml, "HTML")} />
+            <button type="button" className="glassButton iconButton exportAction" aria-label="Download HTML" title="Download HTML" onClick={onDownload} disabled={!previewHtml}>
+              <ToolbarIcon name="download" />
+            </button>
           </div>
-          <div className="previewFrameWrap">
-            {renderState === "rendering" && <div className="previewOverlay">Rendering...</div>}
-            <iframe title="Rendered Cello workbook" srcDoc={previewHtml || lastGoodHtmlRef.current} sandbox="" />
-          </div>
-        </section>
-
-        <aside id="panel-syntax" role="tabpanel" aria-labelledby="tab-syntax" className={`syntaxPanel ${syntaxOpen ? "open" : ""} ${mobilePanel === "syntax" ? "mobileVisible" : ""}`}>
-          <SyntaxPanel />
-        </aside>
-      </main>
-
-      <footer className={`diagnostics ${hasErrors ? "hasErrors" : issueCount > 0 ? "hasWarnings" : ""}`}>
-        <div className="diagnosticSummary">
-          <strong>{issueCount === 0 ? "No issues" : `${issueCount} ${issueCount === 1 ? "issue" : "issues"}`}</strong>
-          <span>{issueCount === 0 ? actionMessage || "The workbook parsed and rendered cleanly." : "Review diagnostics below."}</span>
         </div>
-        {issueCount > 0 && (
-          <ol className="diagnosticList" aria-label="Diagnostics">
-            {diagnostics.map((diagnostic, index) => (
-              <li key={`${diagnostic.level}-${diagnostic.sheet ?? ""}-${diagnostic.line ?? ""}-${index}`}>
-                {formatDiagnostic(diagnostic)}
-              </li>
-            ))}
-          </ol>
-        )}
-      </footer>
+        <div className="previewFrameWrap">
+          {renderState === "rendering" && <div className="previewOverlay">Rendering...</div>}
+          <iframe title="Rendered Cello workbook" srcDoc={previewHtml || lastGoodHtml} sandbox="allow-scripts allow-same-origin" />
+        </div>
+      </section>
     </div>
   );
 }
 
-function SyntaxPanel() {
+function CopyButton({ copiedTarget, disabled = false, label, onCopy }: { copiedTarget: string; disabled?: boolean; label: string; onCopy: () => void }) {
+  const copied = copiedTarget === label;
+
+  return (
+    <button type="button" className={`glassButton iconButton ${copied ? "success" : ""}`} aria-label={`Copy ${label}`} title={`Copy ${label}`} onClick={onCopy} disabled={disabled}>
+      <ToolbarIcon name={copied ? "check" : "copy"} />
+    </button>
+  );
+}
+
+function SyntaxPanel({ onClose, onCopy, copiedTarget }: { onClose: () => void; onCopy: (value: string, label: string) => void; copiedTarget: string }) {
   return (
     <div className="syntaxContent">
       <div className="syntaxHeader">
-        <h2>Syntax</h2>
-        <a href={bylawsUrl} target="_blank" rel="noreferrer">Open BYLAWS.md</a>
+        <div>
+          <span>BYLAWS reference</span>
+          <h2>Syntax sheet</h2>
+          <p>Small patterns for authoring readable `.cel` files. The full rules live in the BYLAWS.</p>
+        </div>
+        <div className="syntaxHeaderActions">
+          <a className="glassButton iconTextButton bylawsButton" href={bylawsUrl} target="_blank" rel="noreferrer" aria-label="Open BYLAWS.md" title="Open BYLAWS.md">
+            <span>BYLAWS</span>
+            <ToolbarIcon name="external" />
+          </a>
+          <button type="button" className="glassButton iconButton" aria-label="Close syntax" title="Close syntax" onClick={onClose}>
+            <ToolbarIcon name="x" />
+          </button>
+        </div>
       </div>
-      <SyntaxBlock title="Sheets" code={'@sheet Budget\n@sheet Sales [csv]\n@sheet Notes [markdown]\n@sheet Data [json]'} />
-      <SyntaxBlock title="Headers And Rows" code={'@header | Item | Plan[€][2d] | Actual[€][2d] |\n| Hosting | 300 | 340 |\n[bold] | TOTAL | =SUM(Plan) | =SUM(Actual) |'} />
-      <SyntaxBlock title="Formulas" code={'| Total | =SUM(Amount) |\n| Madrid | =SUMIF(Raw!region,"Madrid",Raw!amount) |\n| First sheet | =SUM(!!amount) |'} />
-      <SyntaxBlock title="Modifiers" code={'[bold] [italic] [bg:#fef3c7] [#7c2d12]\n[€] [$] [2d] [%]'} />
-      <SyntaxBlock title="Merges And Comments" code={'// comments are ignored\n| ## Title | < | < |\n| ^ | stacked | cells |'} />
+      {syntaxExamples.map((example) => (
+        <SyntaxBlock key={example.title} {...example} onCopy={onCopy} copiedTarget={copiedTarget} />
+      ))}
     </div>
   );
 }
 
-function SyntaxBlock({ title, code }: { title: string; code: string }) {
+function SyntaxBlock({ title, code, onCopy, copiedTarget }: { title: string; code: string; onCopy: (value: string, label: string) => void; copiedTarget: string }) {
+  const label = `Syntax: ${title}`;
   return (
-    <section>
-      <h3>{title}</h3>
+    <section className="syntaxBlock">
+      <div className="syntaxBlockHeader">
+        <h3>{title}</h3>
+        <CopyButton label={label} copiedTarget={copiedTarget} onCopy={() => onCopy(code, label)} />
+      </div>
       <pre>{code}</pre>
     </section>
+  );
+}
+
+function DiagnosticsBar({ actionMessage, diagnostics, hasErrors, issueCount }: { actionMessage: string; diagnostics: Diagnostic[]; hasErrors: boolean; issueCount: number }) {
+  return (
+    <footer className={`diagnostics ${hasErrors ? "hasErrors" : issueCount > 0 ? "hasWarnings" : ""}`}>
+      <div className="diagnosticSummary">
+        <strong>{issueCount === 0 ? "No issues" : `${issueCount} ${issueCount === 1 ? "issue" : "issues"}`}</strong>
+        <span>{issueCount === 0 ? actionMessage || "The workbook parsed and rendered cleanly." : "Review diagnostics below."}</span>
+      </div>
+      {issueCount > 0 && (
+        <ol className="diagnosticList" aria-label="Diagnostics">
+          {diagnostics.map((diagnostic, index) => (
+            <li key={`${diagnostic.level}-${diagnostic.sheet ?? ""}-${diagnostic.line ?? ""}-${index}`}>
+              {formatDiagnostic(diagnostic)}
+            </li>
+          ))}
+        </ol>
+      )}
+    </footer>
   );
 }
 

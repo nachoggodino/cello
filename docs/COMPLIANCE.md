@@ -67,7 +67,7 @@ Status legend:
 
 11. Modifier coverage in renderer
 - Status: `partial`
-- Code: `src/renderer/render.ts` (`bold`, `italic`, `bg`, color, numeric display)
+- Code: `src/renderer/render.ts` (`bold`, `italic`, `bg`, color, tone presets, numeric display)
 - Missing: `[hidden]` rendering behavior
 
 12. Inline formatting (`*`, `_`, `~~`, `#`, `##`)

@@ -37,6 +37,7 @@ describe("utils", () => {
     expect(parseModifier("€")).toMatchObject({ key: "€", raw: "€" });
     expect(parseModifier("%")).toMatchObject({ key: "%", raw: "%" });
     expect(parseModifier("red")).toMatchObject({ key: "red", raw: "red" });
+    expect(parseModifier("tone:warn")).toMatchObject({ key: "tone", value: "warn", raw: "tone:warn" });
     expect(parseModifier("default:=Qty*Price")).toMatchObject({ key: "default", value: "=Qty*Price", raw: "default:=Qty*Price" });
     expect(parseModifier("bg:#eee")).toMatchObject({ key: "bg", value: "#eee" });
     expect(parseModifier("#bg:#111:#fff")).toMatchObject({ key: "bgfg", value: "#111:#fff" });

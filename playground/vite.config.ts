@@ -18,8 +18,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          codemirror: [
+        manualChunks(id) {
+          if (
+            [
             "@codemirror/autocomplete",
             "@codemirror/commands",
             "@codemirror/language",
@@ -27,8 +28,14 @@ export default defineConfig({
             "@codemirror/state",
             "@codemirror/view",
             "@lezer/highlight"
-          ],
-          spreadsheet: ["hyperformula"]
+            ].some((moduleName) => id.includes(`/node_modules/${moduleName}/`))
+          ) {
+            return "codemirror";
+          }
+          if (id.includes("/node_modules/hyperformula/")) {
+            return "spreadsheet";
+          }
+          return undefined;
         }
       }
     }

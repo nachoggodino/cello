@@ -11,10 +11,10 @@ describe("render", () => {
     expect(html).toContain("<title>Workbook</title>");
     expect(html).toContain("<style>");
     expect(html).toContain('class="cello-tab active"');
-    expect(html).toContain('data-sheet="0"');
-    expect(html).toContain('data-sheet="1"');
+    expect(html).toContain('data-sheet="One"');
+    expect(html).toContain('data-sheet="Two"');
     expect(html).toContain("cello:active-sheet:");
-    expect(html).toContain("activateSheet(window.localStorage.getItem(activeSheetStorageKey))");
+    expect(html).toContain("activateSheet(readStoredSheet())");
   });
 
   it("renders embeddable html fragments without document wrappers", async () => {
@@ -29,7 +29,7 @@ describe("render", () => {
     expect(html).toContain('<div class="cello-workbook">');
     expect(html).toContain("<script>");
     expect(html).toContain("document.currentScript");
-    expect(html).toContain('data-sheet="1"');
+    expect(html).toContain('data-sheet="Two"');
   });
 
   it("renders inline formatting and cell styles", async () => {
@@ -45,6 +45,21 @@ describe("render", () => {
     expect(html).toContain("color:red");
     expect(html).toContain('<span class="cello-h2">Big</span>');
     expect(html).toContain('<span class="cello-h1">Bigger</span>');
+  });
+
+  it("renders supported tone modifiers as overridable css classes", async () => {
+    const html = await render(
+      "@sheet S\n@header | Name[tone:accent] | State |\n[tone:muted] | muted | ok[tone:ok] |\n| warn[tone:warn] | error[tone:error] |\n| info[tone:info][bg:black] | plain |"
+    );
+
+    expect(html).toContain("--cello-tone-ok-background");
+    expect(html).toContain(".cello-tone-accent { color: var(--cello-tone-accent-color); background: var(--cello-tone-accent-background); }");
+    expect(html).toContain('<th class="cello-tone-accent">Name</th>');
+    expect(html).toContain('<td class="cello-tone-accent cello-tone-muted">muted</td>');
+    expect(html).toContain('<td class="cello-tone-muted cello-tone-ok">ok</td>');
+    expect(html).toContain('<td class="cello-tone-accent cello-tone-warn">warn</td>');
+    expect(html).toContain('<td class="cello-tone-error">error</td>');
+    expect(html).toContain('<td class="cello-tone-accent cello-tone-info" style="background:black">info</td>');
   });
 
   it("renders numeric display modifiers from columns, rows and cells", async () => {

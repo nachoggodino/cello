@@ -4,6 +4,7 @@ import type { CellNode, Modifier, RenderOptions, RowNode, SheetNode, WorkbookAst
 import { columnLetter, escapeHtml, workbookHasFormulas } from "../shared/utils.js";
 
 type CurrencySymbol = "€" | "$" | "£";
+type ToneName = "ok" | "warn" | "error" | "info" | "muted" | "accent";
 
 interface NumericDisplayFormat {
   decimals?: number;
@@ -51,7 +52,22 @@ function renderFragment(workbookHtml: string, interactive: boolean): string {
 
 function renderStyles(): string {
   return `<style>
-    .cello-workbook { font-family: Inter, Segoe UI, Arial, sans-serif; color: #111827; }
+    .cello-workbook {
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      color: #111827;
+      --cello-tone-ok-color: #166534;
+      --cello-tone-ok-background: #dcfce7;
+      --cello-tone-warn-color: #9a3412;
+      --cello-tone-warn-background: #ffedd5;
+      --cello-tone-error-color: #991b1b;
+      --cello-tone-error-background: #fee2e2;
+      --cello-tone-info-color: #1d4ed8;
+      --cello-tone-info-background: #dbeafe;
+      --cello-tone-muted-color: #475569;
+      --cello-tone-muted-background: #e2e8f0;
+      --cello-tone-accent-color: #6d28d9;
+      --cello-tone-accent-background: #ede9fe;
+    }
     .cello-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 12px; }
     .cello-tab { border: 1px solid #d1d5db; background: #ffffff; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
     .cello-tab.active { background: #111827; color: #ffffff; border-color: #111827; }
@@ -67,6 +83,12 @@ function renderStyles(): string {
     .cello-italic { font-style: italic; }
     .cello-h1 { font-size: 1.25rem; font-weight: 700; }
     .cello-h2 { font-size: 1.1rem; font-weight: 700; }
+    .cello-tone-ok { color: var(--cello-tone-ok-color); background: var(--cello-tone-ok-background); }
+    .cello-tone-warn { color: var(--cello-tone-warn-color); background: var(--cello-tone-warn-background); }
+    .cello-tone-error { color: var(--cello-tone-error-color); background: var(--cello-tone-error-background); }
+    .cello-tone-info { color: var(--cello-tone-info-color); background: var(--cello-tone-info-background); }
+    .cello-tone-muted { color: var(--cello-tone-muted-color); background: var(--cello-tone-muted-background); }
+    .cello-tone-accent { color: var(--cello-tone-accent-color); background: var(--cello-tone-accent-background); }
   </style>`;
 }
 
@@ -88,6 +110,18 @@ function renderScript(): string {
     const tabs = Array.from(root.querySelectorAll(".cello-tab"));
     const sheets = Array.from(root.querySelectorAll(".cello-sheet"));
     const activeSheetStorageKey = "cello:active-sheet:" + window.location.pathname;
+    function readStoredSheet() {
+      try {
+        return window.localStorage.getItem(activeSheetStorageKey);
+      } catch {
+        return null;
+      }
+    }
+    function writeStoredSheet(id) {
+      try {
+        window.localStorage.setItem(activeSheetStorageKey, id);
+      } catch {}
+    }
     function activateSheet(id) {
       const nextTab = tabs.find((tab) => tab.getAttribute("data-sheet") === id) ?? tabs[0];
       if (!nextTab) {
@@ -96,21 +130,23 @@ function renderScript(): string {
       const nextId = nextTab.getAttribute("data-sheet");
       tabs.forEach((tab) => tab.classList.toggle("active", tab === nextTab));
       sheets.forEach((sheet) => sheet.classList.toggle("active", sheet.getAttribute("data-sheet") === nextId));
-      window.localStorage.setItem(activeSheetStorageKey, nextId);
+      if (nextId) {
+        writeStoredSheet(nextId);
+      }
     }
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => {
         activateSheet(tab.getAttribute("data-sheet"));
       });
     });
-    activateSheet(window.localStorage.getItem(activeSheetStorageKey));
+    activateSheet(readStoredSheet());
     })();
   </script>`;
 }
 
 function renderTabs(workbook: WorkbookAst): string {
   return workbook.sheets
-    .map((sheet, idx) => `<button class="cello-tab ${idx === 0 ? "active" : ""}" data-sheet="${idx}">${escapeHtml(sheet.name)}</button>`)
+    .map((sheet, idx) => `<button class="cello-tab ${idx === 0 ? "active" : ""}" data-sheet="${escapeHtml(sheet.name)}">${escapeHtml(sheet.name)}</button>`)
     .join("");
 }
 
@@ -118,7 +154,7 @@ function renderSheets(workbook: WorkbookAst): string {
   return workbook.sheets
     .map(
       (sheet, idx) =>
-        `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${idx}"><table>${renderColumnIndexRow(sheet)}<tbody>${sheet.rows
+        `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${escapeHtml(sheet.name)}"><table>${renderColumnIndexRow(sheet)}<tbody>${sheet.rows
           .map((row) => renderRow(row, sheet))
           .join("")}</tbody></table></section>`
     )
@@ -160,10 +196,14 @@ function collectModifiers(cell: CellNode, row: RowNode, sheet: SheetNode): Modif
 }
 
 function buildCellAttributes(cell: CellNode, modifiers: Modifier[]): string {
+  const className = buildClassAttribute(modifiers);
+  const style = buildStyleAttribute(modifiers);
+
   return [
     cell.colspan > 1 ? `colspan="${cell.colspan}"` : "",
     cell.rowspan > 1 ? `rowspan="${cell.rowspan}"` : "",
-    buildStyleAttribute(modifiers)
+    className,
+    style
   ]
     .filter(Boolean)
     .join(" ");
@@ -188,6 +228,11 @@ function buildStyleAttribute(modifiers: Modifier[]): string {
   const style = modifiers.map(toStyleRule).filter(Boolean).join(";");
 
   return style ? `style="${style}"` : "";
+}
+
+function buildClassAttribute(modifiers: Modifier[]): string {
+  const classes = modifiers.map(toClassName).filter(Boolean);
+  return classes.length > 0 ? `class="${classes.join(" ")}"` : "";
 }
 
 function formatDisplayValue(value: string | number | boolean | null, modifiers: Modifier[]): string {
@@ -281,12 +326,27 @@ function toStyleRule(mod: Modifier): string {
   if (mod.key === "color" && mod.value) {
     return `color:${mod.value}`;
   }
+  if (mod.key === "tone") {
+    return "";
+  }
   if (isNamedColorModifier(mod.key)) {
     return `color:${mod.key}`;
   }
   return "";
 }
 
+function toClassName(mod: Modifier): string {
+  if (mod.key !== "tone" || !mod.value) {
+    return "";
+  }
+
+  return isToneName(mod.value) ? `cello-tone-${mod.value}` : "";
+}
+
 function isNamedColorModifier(key: string): boolean {
   return /^[a-z]+$/.test(key) && !["bold", "default", "italic", "hidden"].includes(key);
+}
+
+function isToneName(value: string): value is ToneName {
+  return ["ok", "warn", "error", "info", "muted", "accent"].includes(value);
 }

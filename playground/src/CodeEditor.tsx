@@ -24,6 +24,7 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
+  const initialValueRef = useRef(value);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -37,7 +38,7 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
     const view = new EditorView({
       parent: hostRef.current,
       state: EditorState.create({
-        doc: value,
+        doc: initialValueRef.current,
         extensions: [
           lineNumbers(),
           history(),
@@ -91,35 +92,39 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
 const editorTheme = EditorView.theme({
   "&": {
     height: "100%",
-    color: "#f7ead9",
-    backgroundColor: "rgba(37, 24, 17, 0.94)",
-    fontSize: "14px"
+    color: "var(--code-text)",
+    backgroundColor: "var(--code-bg-strong)",
+    fontSize: "var(--font-size-code)"
   },
   ".cm-scroller": {
-    fontFamily: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace",
-    lineHeight: "1.65"
+    fontFamily: "var(--font-code)",
+    lineHeight: "var(--line-height-code)",
+    fontVariantLigatures: "contextual"
   },
   ".cm-content": {
-    padding: "18px 0",
-    caretColor: "#f0a64b"
+    padding: "var(--space-5) 0",
+    caretColor: "var(--orange-light)"
   },
   ".cm-line": {
-    padding: "0 18px"
+    padding: "0 var(--space-4)"
   },
   ".cm-gutters": {
-    backgroundColor: "rgba(24, 15, 10, 0.92)",
-    borderRight: "1px solid rgba(255, 226, 185, 0.11)",
-    color: "#9a8271"
+    backgroundColor: "var(--code-bg-2-strong)",
+    borderRight: "1px solid var(--line-on-dark)",
+    color: "var(--code-muted)"
   },
   ".cm-activeLineGutter": {
-    backgroundColor: "rgba(213, 137, 57, 0.18)",
-    color: "#ffd29a"
+    backgroundColor: "var(--orange-wash)",
+    color: "var(--orange-pale)"
   },
   ".cm-activeLine": {
-    backgroundColor: "rgba(255, 224, 178, 0.055)"
+    backgroundColor: "var(--surface-on-dark-subtle)"
   },
   ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
-    backgroundColor: "rgba(226, 145, 58, 0.32)"
+    backgroundColor: "var(--orange-selection)"
+  },
+  ".cm-cursor": {
+    borderLeftColor: "var(--orange)"
   },
   "&.cm-focused": {
     outline: "none"
