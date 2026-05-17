@@ -5,6 +5,7 @@ describe("public API", () => {
   it("exports core functions", () => {
     expect(typeof cello.parse).toBe("function");
     expect(typeof cello.evaluate).toBe("function");
+    expect(typeof cello.format).toBe("function");
     expect(typeof cello.render).toBe("function");
     expect(typeof cello.serialize).toBe("function");
     expect(typeof cello.validate).toBe("function");
@@ -17,4 +18,3 @@ describe("public API", () => {
     });
   });
 });
-

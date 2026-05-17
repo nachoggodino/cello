@@ -1,6 +1,6 @@
 # Cello
 
-Plain-text spreadsheets with formulas. Cello gives you a readable `.cel` format, a TypeScript API, and a CLI that can parse, evaluate, validate, serialize, render, and serve workbooks as self-contained HTML.
+Plain-text spreadsheets with formulas. Cello gives you a readable `.cel` format, a TypeScript API, and a CLI that can parse, evaluate, validate, format, serialize, render, and serve workbooks as self-contained HTML.
 
 It is useful when you want spreadsheet-like calculations in files that are easy to diff, review, generate, and keep in source control.
 
@@ -76,6 +76,7 @@ cello help
 cello --version
 cello parse <file.cel>
 cello evaluate <file.cel>
+cello format <file.cel> [--check] [-o out.cel]
 cello validate <file.cel>
 cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]
 cello serialize <file.cel> [-o out.cel]
@@ -91,6 +92,7 @@ Command details:
 
 - `parse` prints the workbook AST as JSON.
 - `evaluate` prints the AST with computed formula values.
+- `format` pretty-prints native Cello pipe tables, writes in place by default, supports `-o/--out`, and uses `--check` to report formatting drift with exit code `1`.
 - `validate` prints `{ "valid": boolean, "diagnostics": [...] }`; it exits `1` when diagnostics exist.
 - `render` writes self-contained HTML with `-o/--out`, or prints HTML to stdout. `--format document` is the default full HTML document; `--format fragment` emits an embeddable chunk without `html`/`head`/`body` wrappers.
 - `serialize` converts the parsed AST back to `.cel` text.
@@ -99,7 +101,7 @@ Command details:
 ## Library API
 
 ```ts
-import { evaluate, parse, render, serialize, validate } from "@nachoggodino/cello";
+import { evaluate, format, parse, render, serialize, validate } from "@nachoggodino/cello";
 
 const source = `
 @sheet KPI
@@ -108,18 +110,20 @@ const source = `
 
 const ast = parse(source);
 const evaluated = await evaluate(ast);
+const pretty = format(source);
 const result = await validate(source);
 const html = await render(source);
 const fragment = await render(source, { format: "fragment" });
 const text = serialize(evaluated);
 
-console.log(result.valid, html, text);
+console.log(result.valid, pretty, html, text);
 ```
 
 Primary exports:
 
 - `parse(text, options?)`
 - `evaluate(ast, options?)`
+- `format(text)`
 - `validate(text, options?)`
 - `render(input, options?)`
 - `serialize(ast)`
@@ -151,6 +155,7 @@ Useful syntax:
 
 - `@sheet Name [format]` starts a sheet.
 - `@header | Column | Names |` declares named columns.
+- `@defaults | | | =Formula |` declares non-rendered column default formulas.
 - `| cell | cell |` declares rows.
 - `[bold] | ... |` applies row-level modifiers.
 - `=A1+B1`, `=SUM(Revenue)`, and `=Sales!Amount` create formulas.
@@ -185,6 +190,7 @@ Repository layout:
 
 - `src/parser/` parses workbooks into ASTs.
 - `src/evaluator/` computes formulas.
+- `src/formatter/` pretty-prints native Cello pipe tables.
 - `src/validator/` reports parse/evaluation diagnostics.
 - `src/renderer/` creates self-contained HTML.
 - `src/serializer/` converts ASTs back to `.cel`.

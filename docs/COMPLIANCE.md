@@ -34,9 +34,9 @@ Status legend:
 - Code: `src/parser/parse.ts` (`parseHeadersFromLine`, `applyHeadersToColumns`)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/header-rebinding.*`
 
-5a. Column default formulas (`[default:=Formula]`)
+5a. Column default formulas (`@defaults | ... |`)
 - Status: `implemented`
-- Code: `src/parser/parse.ts` (`getColumnDefaultFormula`)
+- Code: `src/parser/parse.ts` (`tryHandleDefaultsDirective`, `getColumnDefaultFormula`)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/it/evaluator/evaluate.test.ts`, `tests/it/renderer/render.test.ts`
 
 6. Formula parsing + evaluation engine integration

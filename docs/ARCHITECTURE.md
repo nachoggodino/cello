@@ -11,7 +11,7 @@
 
 - `src/parser/parse.ts`
   - Parses workbook/sheets/rows/cells
-  - Handles `@sheet`, `@header`, rows, row modifiers, merges, external sheet source (`-> path`), formats (`csv/tsv/excel/markdown/json`)
+  - Handles `@sheet`, `@header`, `@defaults`, rows, row modifiers, merges, external sheet source (`-> path`), formats (`csv/tsv/excel/markdown/json`)
   - Emits parser diagnostics
 
 - `src/evaluator/evaluate.ts`

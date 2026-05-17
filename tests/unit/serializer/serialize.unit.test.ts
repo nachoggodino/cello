@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parse } from "../../../src/parser/parse.js";
 import { serialize } from "../../../src/serializer/serialize.js";
 import type { WorkbookAst } from "../../../src/shared/types.js";
 import { dataRow, headerRow, sheet, valueCell, workbook } from "../../helpers/ast.js";
@@ -41,6 +42,12 @@ describe("serialize (unit-focused behavior)", () => {
     const out = serialize(ast);
     expect(out).toContain("@header | Price[€][2d] |");
     expect(out).toContain("\n| 10 |");
+  });
+
+  it("serializes column defaults declared outside the header", () => {
+    const out = serialize(parse("@sheet S\n@header | Qty | Price | Total |\n@defaults | | | =Qty*Price |\n| 2 | 3 |"));
+    expect(out).toContain("@header | Qty | Price | Total |");
+    expect(out).toContain("@defaults |  |  | =Qty*Price |");
   });
 
   it("serializes booleans and numbers as plain literals", () => {

@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { evaluate } from "../evaluator/evaluate.js";
+import { format as formatCello } from "../formatter/format.js";
 import { parse } from "../parser/parse.js";
 import { render } from "../renderer/render.js";
 import { serialize } from "../serializer/serialize.js";
@@ -73,6 +74,7 @@ function printUsage(write: (text: string) => void): void {
       "  cello version",
       "  cello parse <file.cel>",
       "  cello evaluate <file.cel>",
+      "  cello format <file.cel> [--check] [-o out.cel]",
       "  cello validate <file.cel>",
       "  cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]",
       "  cello serialize <file.cel> [-o out.cel]",
@@ -87,6 +89,8 @@ const HELP_TEXT: Record<string, string> = {
   version: "Usage: cello --version\n\nPrint the cello CLI version.\n",
   parse: "Usage: cello parse <file.cel>\n\nParse a workbook and print the AST as JSON.\n",
   evaluate: "Usage: cello evaluate <file.cel>\n\nParse and evaluate formulas, then print the evaluated AST as JSON.\n",
+  format:
+    "Usage: cello format <file.cel> [--check] [-o out.cel]\n\nPretty-print native Cello pipe tables. Writes in place by default, supports -o/--out for an alternate destination, and --check to report whether formatting changes are needed.\n",
   validate:
     "Usage: cello validate <file.cel>\n\nParse and evaluate diagnostics. Prints JSON with valid and diagnostics fields. Exits 0 when valid, 1 when diagnostics exist.\n",
   render:
@@ -96,7 +100,7 @@ const HELP_TEXT: Record<string, string> = {
     "Usage: cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]\n\nServe a live HTML preview. The server keeps the process warm for faster repeated renders. Use --open to open the URL in a browser.\n"
 };
 
-type CliCommand = "parse" | "evaluate" | "validate" | "render" | "serialize" | "serve";
+type CliCommand = "parse" | "evaluate" | "format" | "validate" | "render" | "serialize" | "serve";
 type NonServeCliCommand = Exclude<CliCommand, "serve">;
 
 interface CliRequest {
@@ -104,6 +108,7 @@ interface CliRequest {
   inputPath: string;
   outPath: string;
   evaluate: boolean;
+  check?: boolean;
   renderFormat?: RenderOptions["format"];
   host?: string;
   port?: number;
@@ -181,6 +186,9 @@ function parseCliRequest(argv: string[], cwd: string): CliRequest | HelpRequest 
     outPath: resolvedOutPath,
     evaluate: !rest.includes("--no-eval")
   };
+  if (command === "format") {
+    request.check = rest.includes("--check");
+  }
   if (resolvedRenderFormat) {
     request.renderFormat = resolvedRenderFormat.format;
   }
@@ -200,6 +208,7 @@ function isCliCommand(command: string | undefined): command is CliCommand {
   return (
     command === "parse" ||
     command === "evaluate" ||
+    command === "format" ||
     command === "validate" ||
     command === "render" ||
     command === "serialize" ||
@@ -214,13 +223,16 @@ function validateServeOptionScope(command: CliCommand, rest: string[]): CliReque
   if (command !== "serve" && command !== "render" && rest.includes("--no-eval")) {
     return { error: "--no-eval is only supported by render and serve." };
   }
+  if (command !== "format" && rest.includes("--check")) {
+    return { error: "--check is only supported by format." };
+  }
   return undefined;
 }
 
 function validateArguments(command: CliCommand, rest: string[]): CliRequestError | undefined {
   const optionsWithValues = new Set(command === "serve" ? ["--host", "--port"] : ["--out", "-o", "--format"]);
   const allowedOptions = new Set<string>();
-  if (command === "render" || command === "serialize") {
+  if (command === "render" || command === "serialize" || command === "format") {
     allowedOptions.add("--out");
     allowedOptions.add("-o");
   }
@@ -229,6 +241,9 @@ function validateArguments(command: CliCommand, rest: string[]): CliRequestError
   }
   if (command === "render") {
     allowedOptions.add("--format");
+  }
+  if (command === "format") {
+    allowedOptions.add("--check");
   }
   if (command === "serve") {
     allowedOptions.add("--host");
@@ -347,6 +362,7 @@ async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest,
   const handlers: Record<NonServeCliCommand, () => Promise<number>> = {
     parse: async () => writeStdoutJson(getAst(), deps.stdoutWrite),
     evaluate: async () => writeStdoutJson(await evaluate(getAst()), deps.stdoutWrite),
+    format: async () => writeFormattedOutput(formatCello(text), text, request, deps),
     validate: async () => writeValidationResult(await validate(text, { baseDir: dirname(request.inputPath) }), deps.stdoutWrite),
     render: async () =>
       writeCliOutput(
@@ -363,6 +379,30 @@ async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest,
   };
 
   return handlers[request.command]();
+}
+
+async function writeFormattedOutput(
+  formatted: string,
+  original: string,
+  request: CliRequest,
+  deps: CliDeps
+): Promise<number> {
+  const changed = formatted !== original;
+
+  if (request.check) {
+    deps.stdoutWrite(`${changed ? "Needs formatting" : "Already formatted"}: ${request.inputPath}\n`);
+    return changed ? 1 : 0;
+  }
+
+  const destination = request.outPath || request.inputPath;
+  if (!changed && destination === request.inputPath) {
+    deps.stdoutWrite(`Already formatted: ${request.inputPath}\n`);
+    return 0;
+  }
+
+  await deps.writeFileFn(destination, formatted, "utf8");
+  deps.stdoutWrite(`Wrote ${destination}\n`);
+  return 0;
 }
 
 function writeHelp(

@@ -368,15 +368,18 @@ Individual cell modifiers **override** column and row modifiers on conflict. Row
 
 | Modifier | Meaning |
 |----------|---------|
-| `[default:=Formula]` | Fill empty cells in that column with the formula |
+| `@defaults | ... |` | Fill empty cells in each matching column with the formula |
 
-`default` is a column-only modifier. It is only read from column headers and is ignored as row or cell formatting. The formula may include the leading `=` or omit it; both `[default:=Qty*Price]` and `[default:Qty*Price]` create `=Qty*Price` formula cells. Explicit row values and formulas always win over the column default.
+`default` is a column-only behavior declared in a non-rendered `@defaults` row below the active header. Header, row, and cell-level default modifiers are ignored. The formula may include the leading `=` or omit it. Explicit row values and formulas always win over the column default.
 
 ```
-@header | Qty | Price | Total[default:=Qty*Price][€][2d] |
+@header   | Qty | Price | Total[€][2d] |
+@defaults |     |       | =Qty*Price   |
 | 2 | 3 |        ← Total becomes =Qty*Price and renders as €6.00
 | 4 | 5 | 99     ← explicit Total value is preserved
 ```
+
+`@defaults` rows update column metadata only. They do not render and do not consume row numbers.
 
 ### 12.2 Numeric format
 
@@ -542,9 +545,10 @@ For each line, the parser checks in order:
 1. Is it a comment (`//`)? → skip
 2. Is it a `@sheet` declaration? → open new sheet, reset state
 3. Is it a header row (`@header | ... |`)? → update `currentHeaders`
-4. Is it a data row (`|`)? → parse as Cello row
-5. Is it a blank line? → ignore (does not consume row number)
-6. Otherwise → handle by active sheet format rules (native/delimited/markdown/json)
+4. Is it a defaults row (`@defaults | ... |`)? → update active column defaults
+5. Is it a data row (`|`)? → parse as Cello row
+6. Is it a blank line? → ignore (does not consume row number)
+7. Otherwise → handle by active sheet format rules (native/delimited/markdown/json)
 
 Merge tokens are resolved immediately during row parsing:
 - `<` → extend the previous cell's `colspan` in the current row

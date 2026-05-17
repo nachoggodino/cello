@@ -62,10 +62,11 @@ describe("render", () => {
   });
 
   it("renders evaluated column default formulas", async () => {
-    const html = await render("@sheet S\n@header | Qty | Price | Total[default:=Qty*Price][€][2d] |\n| 2 | 3 |\n| 4 | 5 | 99 |");
+    const html = await render("@sheet S\n@header | Qty | Price | Total[€][2d] |\n@defaults | | | =Qty*Price |\n| 2 | 3 |\n| 4 | 5 | 99 |");
 
     expect(html).toContain("<td >€6.00</td>");
     expect(html).toContain("<td >€99.00</td>");
+    expect(html).not.toContain("@defaults");
   });
 
   it("renders spreadsheet coordinate chrome around sheets", async () => {

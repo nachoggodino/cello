@@ -107,6 +107,10 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       continue;
     }
 
+    if (sheet.format.kind === "cello" && tryHandleDefaultsDirective(runtime, sheet, rawLine, trimmed, lineNumber)) {
+      continue;
+    }
+
     if (sheet.format.kind === "delimited") {
       handleDelimitedLine(runtime.state, sheet as SheetNode & { format: Extract<SheetNode["format"], { kind: "delimited" }> }, rawLine, lineNumber);
       continue;
@@ -330,7 +334,7 @@ function tryHandleHeaderDirective(
 function parseHeadersFromLine(line: string): HeaderDef[] {
   return splitNativeCells(line).map((token) => {
     const parsed = parseTrailingModifiers(token.trim());
-    return { name: parsed.base, modifiers: parsed.modifiers };
+    return { name: parsed.base, modifiers: parsed.modifiers.filter((modifier) => modifier.key !== "default") };
   });
 }
 
@@ -338,6 +342,60 @@ function applyHeaders(state: MutableParseState, sheet: SheetNode, headers: Heade
   pushHeaderRow(sheet, headers, lineNumber);
   state.currentHeaders = headers;
   applyHeadersToColumns(sheet, headers);
+}
+
+function tryHandleDefaultsDirective(
+  runtime: ParseRuntime,
+  sheet: SheetNode,
+  rawLine: string,
+  trimmed: string,
+  lineNumber: number
+): boolean {
+  if (!/^@defaults(?:\s|$)/.test(trimmed)) {
+    return false;
+  }
+
+  const markerStart = rawLine.indexOf("@defaults");
+  const body = rawLine.slice(markerStart + "@defaults".length).trim();
+  if (!body.includes("|")) {
+    runtime.pushDiagnostic({
+      level: "warning",
+      line: lineNumber,
+      sheet: sheet.name,
+      message: "@defaults must be followed by a pipe-separated row."
+    });
+    return true;
+  }
+
+  applyDefaults(runtime.state, sheet, splitNativeCells(body));
+  return true;
+}
+
+function applyDefaults(state: MutableParseState, sheet: SheetNode, defaults: string[]): void {
+  const maxColumns = Math.max(defaults.length, state.currentHeaders.length);
+  const nextHeaders: HeaderDef[] = [];
+
+  for (let idx = 0; idx < maxColumns; idx += 1) {
+    const header = state.currentHeaders[idx] ?? { name: "", modifiers: [] };
+    const rawDefault = defaults[idx]?.trim() ?? "";
+    const modifiers = rawDefault.length > 0
+      ? upsertDefaultModifier(header.modifiers, rawDefault)
+      : header.modifiers;
+    nextHeaders[idx] = { name: header.name, modifiers };
+  }
+
+  state.currentHeaders = nextHeaders;
+  applyHeadersToColumns(sheet, nextHeaders);
+}
+
+function upsertDefaultModifier(modifiers: Modifier[], formula: string): Modifier[] {
+  const normalized = formula.startsWith("=") ? formula : `=${formula}`;
+  const defaultModifier: Modifier = {
+    raw: `default:${normalized}`,
+    key: "default",
+    value: normalized
+  };
+  return [...modifiers.filter((modifier) => modifier.key !== "default"), defaultModifier];
 }
 
 function pushHeaderRow(sheet: SheetNode, headers: HeaderDef[], lineNumber: number): void {

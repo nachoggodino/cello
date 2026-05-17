@@ -1,4 +1,4 @@
-import type { CellNode, SheetFormat, WorkbookAst } from "../shared/types.js";
+import type { CellNode, Modifier, SheetFormat, SheetNode, WorkbookAst } from "../shared/types.js";
 
 export function serialize(ast: WorkbookAst): string {
   const chunks: string[] = [];
@@ -11,6 +11,12 @@ export function serialize(ast: WorkbookAst): string {
 
     for (const row of sheet.rows) {
       chunks.push(stringifyRow(row));
+      if (row.kind === "header") {
+        const defaultsRow = stringifyDefaultsRow(sheet, row);
+        if (defaultsRow) {
+          chunks.push(defaultsRow);
+        }
+      }
     }
   }
 
@@ -27,7 +33,7 @@ function stringifyRow(row: WorkbookAst["sheets"][number]["rows"][number]): strin
 function stringifyHeaderRow(row: WorkbookAst["sheets"][number]["rows"][number]): string {
   const cells = row.cells
     .filter((c) => c.kind !== "merge-left" && c.kind !== "merge-up")
-    .map((c) => `${stringifyCellBase(c)}${stringifyModifiers(c.modifiers)}`)
+    .map((c) => `${stringifyCellBase(c)}${stringifyModifiers(c.modifiers.filter((modifier) => modifier.key !== "default"))}`)
     .join(" | ");
   return `@header | ${cells} |`;
 }
@@ -36,6 +42,26 @@ function stringifyDataRow(row: WorkbookAst["sheets"][number]["rows"][number]): s
   const cells = row.cells.map((cell) => stringifyCell(cell)).join(" | ");
   const rowPrefix = row.modifiers.length > 0 ? `${stringifyModifiers(row.modifiers)} ` : "";
   return `${rowPrefix}| ${cells} |`;
+}
+
+function stringifyDefaultsRow(sheet: SheetNode, row: WorkbookAst["sheets"][number]["rows"][number]): string | undefined {
+  const cells = sheet.columns.map((column) => {
+    const columnDefault = findDefaultModifier(column.modifiers);
+    if (!columnDefault) {
+      return "";
+    }
+    return columnDefault.value ?? "";
+  });
+
+  if (!cells.some((cell) => cell.length > 0)) {
+    return undefined;
+  }
+
+  return `@defaults | ${cells.join(" | ")} |`;
+}
+
+function findDefaultModifier(modifiers: Modifier[]): Modifier | undefined {
+  return modifiers.find((modifier) => modifier.key === "default");
 }
 
 function formatToToken(format: SheetFormat): string {
@@ -94,4 +120,3 @@ function stringifyScalar(value: unknown): string {
   }
   return String(value);
 }
-

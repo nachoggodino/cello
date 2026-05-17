@@ -316,10 +316,11 @@ Named CSS colors such as `red`, `blue`, `green`, `orange`, and `gold` are accept
 
 ## 12. Column default formulas
 
-A column header can define a default formula for empty cells in that column.
+A column can define a default formula for empty cells in that column with a non-rendered `@defaults` row.
 
 ```cel
-@header | Product | Price[€][2d] | Quantity[0d] | Total[default:=Price*Quantity][€][2d] |
+@header   | Product | Price[€][2d] | Quantity[0d] | Total[€][2d] |
+@defaults |         |              |              | =Price*Quantity |
 | Apple | 1.20 | 5 | |
 | Pear  | 0.90 | 3 | |
 | Override | 10 | 2 | 99 |
@@ -327,17 +328,18 @@ A column header can define a default formula for empty cells in that column.
 
 Rules:
 
-1. Defaults are declared with `[default:=Formula]`.
-2. The leading `=` is optional inside the modifier.
+1. Defaults are declared with `@defaults | ... |` below the active header.
+2. `@defaults` rows are configuration rows. They do not render and do not consume row numbers.
 3. Defaults only apply to empty cells.
 4. Explicit cell values and formulas always win.
-5. `default` is a column-level behavior; do not use it as row or cell formatting.
+5. `default` is a column-level behavior; do not use it as header, row, or cell formatting.
+6. The leading `=` is optional.
 
-Both forms are valid:
+Header, row, and cell-level default modifiers are ignored:
 
 ```cel
 @header | Total[default:=Price*Quantity] |
-@header | Total[default:Price*Quantity] |
+| [default:=Price*Quantity] |
 ```
 
 ## 13. Inline formatting

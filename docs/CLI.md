@@ -13,6 +13,12 @@ The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
 - `cello evaluate <file.cel>`
   - Parses and evaluates formulas, prints resulting AST as JSON.
 
+- `cello format <file.cel> [--check] [-o out.cel]`
+  - Pretty-prints native Cello pipe tables with padded cells.
+  - Rewrites the input file in place by default.
+  - `-o` / `--out` writes formatted output to another path instead.
+  - `--check` exits `0` when the file is already formatted and `1` when formatting would change it.
+
 - `cello validate <file.cel>`
   - Parses and evaluates workbook diagnostics.
   - Prints `{ "valid": boolean, "diagnostics": [...] }` as JSON.
@@ -39,7 +45,7 @@ The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
   - Does not open a browser unless `--open` is provided.
 
 - `cello help [command]`
-  - Prints basic CLI help, or command-specific help for `parse`, `evaluate`, `validate`, `render`, `serialize`, or `serve`.
+  - Prints basic CLI help, or command-specific help for `parse`, `evaluate`, `format`, `validate`, `render`, `serialize`, or `serve`.
 
 ## Exit codes
 

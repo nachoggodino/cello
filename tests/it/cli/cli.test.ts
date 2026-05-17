@@ -74,6 +74,7 @@ describe("cli", () => {
     expect(code).toBe(0);
     expect(stdout).toContain("cello help [command]");
     expect(stdout).toContain("cello version");
+    expect(stdout).toContain("cello format <file.cel> [--check] [-o out.cel]");
     expect(stdout).toContain("cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]");
     expect(stdout).toContain("cello serve <file.cel>");
   });
@@ -114,6 +115,12 @@ describe("cli", () => {
     const { code, stderr } = await runCliCase(["node", "cli", "parse", "sample.cel", "--no-eval"]);
     expect(code).toBe(1);
     expect(stderr).toContain("--no-eval is only supported by render and serve.");
+  });
+
+  it("rejects --check outside format", async () => {
+    const { code, stderr } = await runCliCase(["node", "cli", "serialize", "sample.cel", "--check"]);
+    expect(code).toBe(1);
+    expect(stderr).toContain("--check is only supported by format.");
   });
 
   it("rejects unsupported options with a command-specific message", async () => {
@@ -240,6 +247,45 @@ describe("cli", () => {
       assert: ({ code, stdout }: { code: number; stdout: string }) => {
         expect(code).toBe(0);
         expect(JSON.parse(stdout).sheets[0].rows[0].cells[2].computed).toBe(5);
+      }
+    },
+    {
+      name: "runs format in place by default",
+      argv: ["node", "cli", "format", "sample.cel"],
+      source: "@sheet S\n@header | A | B |\n| 1 | 22 |",
+      assert: async ({ code, cwd, stdout }: { code: number; cwd: string; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("Wrote");
+        expect(await readFile(join(cwd, "sample.cel"), "utf8")).toBe("@sheet S\n@header | A | B  |\n        | 1 | 22 |");
+      }
+    },
+    {
+      name: "runs format and writes output file when -o is provided",
+      argv: ["node", "cli", "format", "sample.cel", "-o", "out.cel"],
+      source: "@sheet S\n| A | 1 |",
+      assert: async ({ code, cwd, stdout }: { code: number; cwd: string; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("Wrote");
+        expect(await readFile(join(cwd, "out.cel"), "utf8")).toBe("@sheet S\n| A | 1 |");
+        expect(await readFile(join(cwd, "sample.cel"), "utf8")).toBe("@sheet S\n| A | 1 |");
+      }
+    },
+    {
+      name: "runs format --check and reports drift",
+      argv: ["node", "cli", "format", "sample.cel", "--check"],
+      source: "@sheet S\n@header | A | B |\n| 1 | 22 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(1);
+        expect(stdout).toContain("Needs formatting");
+      }
+    },
+    {
+      name: "runs format --check and reports already formatted files",
+      argv: ["node", "cli", "format", "sample.cel", "--check"],
+      source: "@sheet S\n@header | A | B  |\n        | 1 | 22 |",
+      assert: ({ code, stdout }: { code: number; stdout: string }) => {
+        expect(code).toBe(0);
+        expect(stdout).toContain("Already formatted");
       }
     },
     {

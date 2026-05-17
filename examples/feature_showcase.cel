@@ -9,9 +9,10 @@
 
 @sheet Budget
 @header | Item | Plan[€][2d] | Actual[€][2d] | Diff[€][2d] | Flag |
-| Hosting | 300 | 340 | =Actual-Plan | over[bg:#fee2e2][#991b1b] |
-| Tools   | 120 | 90  | =Actual-Plan | ok[bg:#dcfce7][#166534] |
-| Ops     | 210 | 210 | =Actual-Plan | ok[bg:#dcfce7][#166534] |
+@defaults | | | | =Actual-Plan | |
+| Hosting | 300 | 340 | | over[bg:#fee2e2][#991b1b] |
+| Tools   | 120 | 90  | | ok[bg:#dcfce7][#166534] |
+| Ops     | 210 | 210 | | ok[bg:#dcfce7][#166534] |
 [bold] | TOTAL | =SUM(Plan) | =SUM(Actual) | =SUM(Diff) | < |
 
 @sheet ImportedMd [markdown]
