@@ -203,7 +203,7 @@ function tryHandleExternalSource(
   }
 
   const rawPath = (externalSourceMatch[1] ?? "").trim();
-  const filePath = resolve(runtime.options.baseDir ?? process.cwd(), rawPath);
+  const filePath = resolve(runtime.options.baseDir ?? getDefaultBaseDir(), rawPath);
   try {
     const externalText = readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
     const externalLines = externalText.split("\n");
@@ -218,6 +218,10 @@ function tryHandleExternalSource(
     });
   }
   return true;
+}
+
+function getDefaultBaseDir(): string {
+  return typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".";
 }
 
 function bufferJsonLine(state: MutableParseState, sheetName: string, rawLine: string): void {

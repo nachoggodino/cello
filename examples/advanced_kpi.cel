@@ -8,20 +8,33 @@ date,region,agent,amount,units
 2026-01-02,Valencia,Pedro,760,2
 2026-01-03,Madrid,Ana,1660,6
 2026-01-03,Barcelona,Luis,1100,4
+2026-01-04,Valencia,Pedro,920,3
+2026-01-04,Madrid,Sara,1510,5
+2026-01-05,Barcelona,Luis,1340,5
+2026-01-05,Madrid,Ana,1720,6
 
 @sheet KPIs
 
 -Metric-Value-
 | ## Revenue KPIs | < |
 | Total revenue | =SUM(!!amount) |
-| First 3 rows revenue | =SUM(!!amount[2:4]) |
 | Total units | =SUM(!!units) |
 | Avg ticket | =SUM(!!amount)/SUM(!!units) |
+| Best single sale | =MAX(!!amount) |
+| First 5 rows revenue | =SUM(!!amount[2:6]) |
 
 @sheet Regions
 
--Region-Revenue[€][2d]-Units[0d]-Avg_ticket[€][2d]-
-row_madrid | Madrid | =SUMIF(RawData!region,"Madrid",RawData!amount) | =SUMIF(RawData!region,"Madrid",RawData!units) | =Revenue/Units |
-row_barcelona | Barcelona | =SUMIF(RawData!region,"Barcelona",RawData!amount) | =SUMIF(RawData!region,"Barcelona",RawData!units) | =Revenue/Units |
-row_valencia | Valencia | =SUMIF(RawData!region,"Valencia",RawData!amount) | =SUMIF(RawData!region,"Valencia",RawData!units) | =Revenue/Units |
-row_total[bold][bg:#f3f4f6] | ## TOTAL | =SUM(Revenue) | =SUM(Units) | =SUM(Revenue)/SUM(Units) |
+-Region-Revenue[€][2d]-Units[0d]-Avg_ticket[€][2d]-Target[€][0d]-Variance[€][2d]-Attainment[%][1d]-
+row_madrid | Madrid | =SUMIF(RawData!region,"Madrid",RawData!amount) | =SUMIF(RawData!region,"Madrid",RawData!units) | =Revenue/Units | 7200 | =Revenue-Target | =Revenue/Target |
+row_barcelona | Barcelona | =SUMIF(RawData!region,"Barcelona",RawData!amount) | =SUMIF(RawData!region,"Barcelona",RawData!units) | =Revenue/Units | 3900 | =Revenue-Target | =Revenue/Target |
+row_valencia | Valencia | =SUMIF(RawData!region,"Valencia",RawData!amount) | =SUMIF(RawData!region,"Valencia",RawData!units) | =Revenue/Units | 1800 | =Revenue-Target | =Revenue/Target |
+row_total[bold][bg:#f3f4f6] | ## TOTAL | =SUM(Revenue) | =SUM(Units) | =SUM(Revenue)/SUM(Units) | =SUM(Target) | =SUM(Variance) | =SUM(Revenue)/SUM(Target) |
+
+@sheet Agents
+
+-Agent-Revenue[€][2d]-Units[0d]-Avg_ticket[€][2d]-
+row_ana | Ana | =SUMIF(RawData!agent,"Ana",RawData!amount) | =SUMIF(RawData!agent,"Ana",RawData!units) | =Revenue/Units |
+row_luis | Luis | =SUMIF(RawData!agent,"Luis",RawData!amount) | =SUMIF(RawData!agent,"Luis",RawData!units) | =Revenue/Units |
+row_sara | Sara | =SUMIF(RawData!agent,"Sara",RawData!amount) | =SUMIF(RawData!agent,"Sara",RawData!units) | =Revenue/Units |
+row_pedro | Pedro | =SUMIF(RawData!agent,"Pedro",RawData!amount) | =SUMIF(RawData!agent,"Pedro",RawData!units) | =Revenue/Units |

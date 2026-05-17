@@ -1,205 +1,438 @@
-# Cello BYLAWS (v1.0)
+# Cello Bylaws v1.0
 
-Practical syntax rules for `.cel`, ordered by importance.
+Cello is a plain-text spreadsheet format. It is designed to be readable in a text editor, friendly to version control, easy for agents to generate, and renderable as spreadsheet-like HTML.
 
-## 1) Core file structure
+This document is the practical guide to writing `.cel` files. It explains the common path first, then the exact rules that keep the format predictable.
 
-1. A `.cel` file can contain one or more sheets.
-2. Every sheet starts with `@sheet`.
-3. If no `@sheet` is present, the whole file is treated as one anonymous native Cello sheet.
+## A complete example
 
-Example:
+```cel
+@sheet Sales [csv]
+product,amount,units
+Apple,6.00,5
+Pear,2.70,3
+Orange,6.00,4
+
+@sheet Summary
+
+-KPI-Amount[€][2d]-Units[0d]-Average[€][2d]-
+| Sales | =SUM(Sales!amount[*]) | =SUM(Sales!units[*]) | =Amount/Units |
+```
+
+This file has two sheets:
+
+1. `Sales`, imported as CSV.
+2. `Summary`, written in native Cello syntax.
+
+The summary sheet uses named columns, formulas, and number formatting. The source remains plain text, while the rendered output behaves like a small spreadsheet.
+
+## 1. Workbooks and sheets
+
+A `.cel` file contains one or more sheets. A sheet starts with `@sheet`.
 
 ```cel
 @sheet Summary
-| KPI | Value |
+| Metric | Value |
 ```
 
-## 2) Sheet declaration and format
+Syntax:
 
-1. Syntax: `@sheet Name [format]`
-2. `Name` is case-sensitive.
-3. `[format]` is optional; default is native Cello.
-4. Optional external source line syntax (must be right after `@sheet`): `-> /ruta/al/archivo`
-5. External source content is parsed using the declared sheet format.
+```cel
+@sheet Name [format]
+```
+
+Rules:
+
+1. `Name` is case-sensitive.
+2. `[format]` is optional. If omitted, the sheet uses native Cello syntax.
+3. Everything after a sheet declaration belongs to that sheet until the next `@sheet`.
+4. If a file has no `@sheet`, it is treated as a single anonymous native Cello sheet.
 
 Examples:
 
 ```cel
-@sheet Data [csv]
-@sheet Export [\t]
 @sheet Report
-@sheet Data [csv]
--> ./exports/data.csv
+@sheet Sales [csv]
+@sheet Export [tsv]
+@sheet RawData [json]
 ```
 
-## 3) What counts as a row
+## 2. Input formats
 
-1. A data row starts by `|`.
-2. Trailing `|` is optional (recommended to keep for readability).
-3. A blank line does not consume row number and is not rendered.
+Cello sheets can be written directly, or loaded from common data formats.
 
-Example:
+| Format | Example | Notes |
+|---|---|---|
+| Native Cello | `@sheet Report` | Full Cello syntax: formulas, modifiers, merges, headers |
+| CSV | `@sheet Sales [csv]` | Comma-separated values |
+| TSV | `@sheet Export [tsv]` or `@sheet Export [\t]` | Tab-separated values |
+| Excel-style | `@sheet Sales [excel]` or `@sheet Sales [;]` | Semicolon-separated values |
+| Custom delimiter | `@sheet Data [,]` | Any single-character delimiter |
+| Markdown table | `@sheet Data [markdown]` | First row becomes headers; separator row is ignored |
+| JSON | `@sheet Data [json]` | Flat arrays of objects |
+
+Delimited sheets use their first row as column headers by default.
+
+```cel
+@sheet Sales [csv]
+product,price,quantity
+Apple,1.2,5
+Pear,0.9,3
+```
+
+Use `:noheader` when the first row is data.
+
+```cel
+@sheet Raw [csv:noheader]
+Apple,1.2,5
+Pear,0.9,3
+```
+
+In `noheader` sheets, columns are still available by coordinate references such as `A1`, `B1`, and `C1`.
+
+## 3. External sources
+
+A sheet can load its content from another file. The source line must appear immediately after the sheet declaration and before any row content.
+
+```cel
+@sheet Sales [csv]
+-> ./exports/sales.csv
+
+@sheet Summary
+-Metric-Value-
+| Revenue | =SUM(Sales!amount[*]) |
+```
+
+Rules:
+
+1. The declared sheet format controls how the external file is parsed.
+2. Relative paths are resolved from the parser base directory.
+3. If loading fails, Cello records a diagnostic and continues parsing the rest of the workbook.
+
+## 4. Native rows and cells
+
+Native Cello rows are written with pipe-separated cells.
+
+```cel
+| Product | Price | Quantity |
+| Apple   | 1.20  | 5        |
+| Pear    | 0.90  | 3        |
+```
+
+Rules:
+
+1. A native data row contains cells separated by `|`.
+2. Write native rows in the form `| cell | cell |` for predictable parsing and readable diffs.
+3. Blank lines do not consume row numbers and are not rendered.
+4. Multiple spaces inside cells may be used for alignment in source files.
 
 ```cel
 | A | B |
 
-| C | D |   // this is row 2 despite the blank line
+| C | D |
 ```
 
-## 4) Column header rows (`-column-`)
+In this example, `C` and `D` are on row 2. The blank line is ignored.
 
-1. A line like `-Col1-Col2-...-` defines column names.
-2. It applies from the next data row until another header row.
-3. It enables named references in formulas.
+## 5. Column headers
 
-Example:
+A header row assigns names to columns. Named columns make formulas easier to read than coordinate references.
 
 ```cel
--Product-Price-Quantity-
-| Apple | 1.2 | 5 |
-| Pear  | 0.9 | 3 |
+-Product-Price-Quantity-Total-
+| Apple | 1.20 | 5 | =Price*Quantity |
+| Pear  | 0.90 | 3 | =Price*Quantity |
 ```
 
-## 5) Row name references
+Rules:
 
-1. Text before the first `|` is a row name.
-2. Row names are never rendered.
-3. They are usable in formulas and can carry modifiers.
-
-Example:
+1. Header rows use hyphen-wrapped names: `-Product-Price-Quantity-`.
+2. Headers apply from the next data row downward.
+3. A later header row replaces the active column names from that point on.
+4. Header rows render as table headers.
+5. Header modifiers apply to every cell in that column.
 
 ```cel
-row_total[bold] | TOTAL | =SUM(Amount) |
+-Product-Price[€][2d]-Quantity[0d]-Total[€][2d]-
+| Apple | 1.20 | 5 | =Price*Quantity |
 ```
 
-## 6) Formulas
+Column letters are always available as well. The first column is `A`, then `B`, `C`, and so on.
 
-1. Any cell starting with `=` is a formula.
-2. Named and coordinate references are both valid.
-3. Cross-sheet references use `!`.
-4. `!!` can be used as alias for the first sheet in the workbook.
-5. On the same sheet, a bare named column is row-aware: scalar formulas use the current row cell, aggregate formulas use rows above the formula row, and `[*]` forces the full data range.
+## 6. Row-level formatting
 
-Examples:
+Rows can carry formatting modifiers before the first pipe. These modifiers apply to every cell in that row.
+
+```cel
+[bold][bg:#f5f5f5] | Total | =SUM(Amount) |
+```
+
+This is formatting only. Only modifiers should appear before the first pipe in public `.cel` files; row references are not part of the public Cello format.
+
+Modifier precedence is:
+
+```text
+cell > row > column
+```
+
+That means a cell modifier overrides a row modifier, and a row modifier overrides a column modifier.
+
+## 7. Data types
+
+Cello infers basic data types automatically.
+
+| Type | Rule | Example |
+|---|---|---|
+| Number | Numeric value | `42`, `3.14` |
+| Date | ISO date | `2026-01-15` |
+| Boolean | Uppercase literal | `TRUE`, `FALSE` |
+| Text | Anything else | `North`, `pending`, `A-001` |
+
+Use double quotes to force text when a value looks like another type.
+
+```cel
+| "00123" | "TRUE" | "2026-01-15" |
+```
+
+The quotes are type markers. They prevent automatic number, boolean, or date inference.
+
+## 8. Formulas
+
+Any cell starting with `=` is a formula.
 
 ```cel
 | =Price*Quantity |
 | =SUM(Total) |
-| =Sales!B4 |
-| =SUM(Sales!Total) |
-| =SUM(!!Amount) |
-| =Revenue/Units |
-| =SUM(Revenue) |
-| =SUM(Revenue[*]) |
+| =B2*C2 |
 ```
 
-## 7) Named column ranges
+Formulas support both coordinate references and named column references.
 
-1. Full column: `SUM(Price)`
-2. Row slice: `SUM(Price[2:5])`
-3. Explicit full data span: `SUM(Price[*])`
+| Syntax | Meaning |
+|---|---|
+| `=B2*C2` | Coordinate reference |
+| `=Price*Quantity` | Named column reference on the current row |
+| `=SUM(Total)` | Sum values above the formula row in the `Total` column |
+| `=SUM(Total[*])` | Sum the full `Total` column |
+| `=SUM(Total[2:5])` | Sum rows 2 through 5 in the `Total` column |
+| `=Sales!B4` | Coordinate reference on another sheet |
+| `=SUM(Sales!Total[*])` | Named column reference on another sheet |
+| `=SUM(!!Amount)` | Reference the first sheet in the workbook |
 
-Example:
+Same-sheet named references are context-aware:
+
+1. In scalar formulas, a bare column name refers to the current row.
+2. In aggregate formulas, a bare column name refers to rows above the formula row.
+3. Use `[*]` to force the full data range.
 
 ```cel
-| =SUM(Amount[2:10]) |
+-Product-Revenue-Cost-Profit-
+| A | 1200 | 800 | =Revenue-Cost |
+| B | 1800 | 900 | =Revenue-Cost |
+| Total | =SUM(Revenue) | =SUM(Cost) | =SUM(Profit) |
 ```
 
-## 8) Merges
+The total row does not include itself when using `SUM(Revenue)`.
 
-1. `<` merges horizontally with the cell on the left.
-2. `^` merges vertically with the cell above.
+## 9. Named ranges
+
+Named ranges are based on column headers.
+
+```cel
+-Month-Revenue-
+| Jan | 1200 |
+| Feb | 1800 |
+| Mar | 1500 |
+| Total | =SUM(Revenue) |
+```
+
+Range forms:
+
+| Syntax | Meaning |
+|---|---|
+| `Revenue` | Current row in scalar context, previous rows in aggregate context |
+| `Revenue[*]` | Full data span of the column |
+| `Revenue[2:5]` | Rows 2 through 5 |
+| `Sales!Revenue` | Named column on another sheet |
+| `Sales!Revenue[*]` | Full named column on another sheet |
+
+Use named ranges when formulas should remain readable after columns move.
+
+## 10. Merges
+
+Cello supports horizontal and vertical merges.
+
+```cel
+| ## Quarterly Report | < | < | 2026 |
+| Region | City | Owner | Revenue |
+| North  | Madrid | Ana | 1200 |
+| ^      | Bilbao | Luis | 900 |
+```
+
+Rules:
+
+1. `<` merges with the visible cell on the left.
+2. `^` merges with the visible cell above.
 3. Merge tokens must appear alone in the cell.
+4. Merge tokens do not carry values or modifiers of their own.
 
-Example:
+## 11. Modifiers
 
-```cel
-| ## Report | < | < | 2026 Sales |
-| Region A  | Madrid | John | 10 |
-| ^         | Alcala | Julie | 12 |
-```
-
-## 9) Inferred data types
-
-1. Number: `42`, `3.14`
-2. Date: `YYYY-MM-DD`
-3. Boolean: `TRUE`/`FALSE`
-4. Text: anything else
-5. Force text with double quotes.
-
-Example:
+Modifiers are attached directly to headers, row prefixes, or cell values.
 
 ```cel
-| "123" |   // text, not number
-| "TRUE" |  // text, not boolean
+-Metric-Revenue[€][2d]-Margin[%][1d]-
+[bold] | Total | =SUM(Revenue) | =AVG(Margin) |
+| Critical[bg:red][#fff] | 1200 | 0.42 |
 ```
 
-## 10) Modifiers `[]`
+Scopes:
 
-1. Modifiers are attached directly to values: `value[mod][mod]`.
-2. Scope:
-   - Column header: whole column
-   - Row name: whole row
-   - Cell value: that single cell
-3. Precedence: cell > row > column.
-4. Column headers may use `[default:=Formula]` to fill empty cells in that column; explicit cell values/formulas take precedence.
+| Location | Example | Scope |
+|---|---|---|
+| Column header | `-Revenue[€][2d]-` | Every cell in that column |
+| Row modifiers | `[bold] | Total | ... |` | Every cell in that row |
+| Cell value | `Late[bg:red][#fff]` | That cell only |
 
-Example:
+Supported modifiers:
+
+| Modifier | Meaning |
+|---|---|
+| `[€]` | Display number with euro prefix |
+| `[$]` | Display number with dollar prefix |
+| `[£]` | Display number with pound prefix |
+| `[%]` | Display number as a percentage |
+| `[0d]`, `[1d]`, `[2d]` | Decimal places |
+| `[bold]` | Bold text |
+| `[italic]` | Italic text |
+| `[#rrggbb]` | Text color |
+| `[bg:#rrggbb]` | Background color |
+| `[colorname]` | CSS named text color |
+| `[bg:colorname]` | CSS named background color |
+| `[#bg:#rrggbb:#rrggbb]` | Background and text color shorthand |
+| `[hidden]` | Parsed as hidden metadata for tooling |
+
+Named CSS colors such as `red`, `blue`, `green`, `orange`, and `gold` are accepted.
+
+## 12. Column default formulas
+
+A column header can define a default formula for empty cells in that column.
 
 ```cel
--Price[€][2d]-Stock[0d][bg:#fff9c4]-Total[default:=Price*Stock]-
-row_total[bold] | TOTAL | =SUM(Price) |
-| critical[bg:red][#fff] | 12 |
+-Product-Price[€][2d]-Quantity[0d]-Total[default:=Price*Quantity][€][2d]-
+| Apple | 1.20 | 5 | |
+| Pear  | 0.90 | 3 | |
+| Override | 10 | 2 | 99 |
 ```
 
-## 11) Inline formatting in cells
+Rules:
 
-1. `*text*` bold
-2. `_text_` italic
-3. `~~text~~` strikethrough
-4. `# text` and `## text` enlarge full-cell text.
+1. Defaults are declared with `[default:=Formula]`.
+2. The leading `=` is optional inside the modifier.
+3. Defaults only apply to empty cells.
+4. Explicit cell values and formulas always win.
+5. `default` is a column-level behavior; do not use it as row or cell formatting.
 
-Example:
+Both forms are valid:
 
 ```cel
-| *Urgent* |
-| ## TOTAL |
+-Total[default:=Price*Quantity]-
+-Total[default:Price*Quantity]-
 ```
 
-## 12) Comments
+## 13. Inline formatting
 
-1. Comments are only valid outside rows.
-2. Syntax: `// comment`
+Cell text supports a small Markdown-like formatting set.
+
+| Syntax | Result |
+|---|---|
+| `*text*` | Bold |
+| `_text_` | Italic |
+| `~~text~~` | Strikethrough |
+| `# text` | Heading-style cell |
+| `## text` | Larger heading-style cell |
+
+Examples:
+
+```cel
+| *Priority* |
+| _Estimated_ |
+| ~~Deprecated~~ |
+| ## Total |
+```
+
+`#` and `##` apply to the whole cell.
+
+## 14. Comments
+
+Comments use `//` and are valid outside rows.
+
+```cel
+// Data exported from CRM
+@sheet Sales [csv]
+product,amount
+Enterprise,1200
+SMB,800
+```
+
+Rules:
+
+1. A comment line starts with `//`.
+2. Comments are not rendered.
 3. Comments inside cell content are not supported.
 
-Example:
+## 15. Reserved tokens
 
-```cel
-// data exported from CRM
-@sheet Data [csv]
-```
+These tokens have special meaning in Cello.
 
-## 13) Reserved tokens (unambiguous)
+| Token | Meaning |
+|---|---|
+| `@sheet` | Sheet declaration |
+| `[format]` | Sheet format or modifier block |
+| `->` | External source line |
+| `|` | Cell separator in native rows |
+| `-Name-` | Header row syntax |
+| `=` | Formula prefix |
+| `!` | Cross-sheet reference separator |
+| `!!` | First-sheet alias |
+| `[n:m]` | Named column row slice |
+| `[*]` | Full named column span |
+| `<` | Horizontal merge token |
+| `^` | Vertical merge token |
+| `//` | Comment line |
+| `"..."` | Force text type |
 
-- `@sheet`
-- `|`
-- `=`
-- `<`
-- `^`
-- `-name-`
-- `//`
-- `"..."`
-- `!`
-- `->`
-- `[n:m]`
-- `[...]`
+## 16. Error handling and resilience
 
-## 14) Resilience rule (critical)
+Cello is resilient by default. Local issues should not prevent the rest of the workbook from rendering.
 
-Cello should never fail as a whole because of local errors:
+Rules:
 
-1. Evaluated formula error -> show cell error code.
-2. Non-parseable formula -> render raw formula text.
-3. Unknown cell syntax -> treat as plain text.
-4. Broken block/sheet structure -> degrade that block and continue parsing.
+1. Formula evaluation errors render as cell-level error values.
+2. Non-parseable formulas fall back to their raw formula text.
+3. Unknown cell syntax is treated as plain text when possible.
+4. Invalid or unsupported sheet content records diagnostics and parsing continues.
+5. Broken external sources record diagnostics and the remaining workbook still renders.
+
+This behavior is intentional. A `.cel` file should be useful even when part of it is incomplete, generated, or temporarily invalid.
+
+## Quick reference
+
+| Task | Syntax |
+|---|---|
+| Start a native sheet | `@sheet Summary` |
+| Start a CSV sheet | `@sheet Sales [csv]` |
+| Load an external CSV | `@sheet Sales [csv]` then `-> ./sales.csv` |
+| Define headers | `-Product-Price-Quantity-` |
+| Write a row | `| Apple | 1.20 | 5 |` |
+| Format a row | `[bold] | Total | =SUM(Amount) |` |
+| Format a column | `-Amount[€][2d]-` |
+| Format a cell | `Late[bg:red][#fff]` |
+| Write a formula | `=Price*Quantity` |
+| Sum previous rows | `=SUM(Amount)` |
+| Sum a full column | `=SUM(Amount[*])` |
+| Reference another sheet | `=SUM(Sales!Amount[*])` |
+| Merge right | `<` |
+| Merge down | `^` |
+| Force text | `"00123"` |
+| Add a comment | `// source: CRM export` |

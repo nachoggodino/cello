@@ -1,4 +1,3 @@
-import { deserialize, serialize } from "node:v8";
 import type { Modifier, SheetFormat, WorkbookAst } from "./types.js";
 
 export function columnLetter(index: number): string {
@@ -16,7 +15,7 @@ export function deepClone<T>(value: T): T {
   if (typeof structuredClone === "function") {
     return structuredClone(value);
   }
-  return deserialize(serialize(value));
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 export function escapeHtml(value: string): string {
