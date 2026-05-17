@@ -1,7 +1,7 @@
 @sheet Rebind
--Item-Qty-
+@header | Item | Qty |
 | Pen | 2 |
 | Book | 3 |
--Amount-Total-
+@header | Amount | Total |
 | 4 | =SUM(Amount[5:5]) |
 | 6 | =SUM(Amount[5:6]) |

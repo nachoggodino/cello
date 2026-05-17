@@ -24,7 +24,7 @@ Status legend:
 - Code: `src/parser/parse.ts` (`tryHandleExternalSource`)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/external-source.*`
 
-4. Rows, blank-line handling, row names
+4. Rows, blank-line handling, row-level modifiers
 - Status: `implemented`
 - Code: `src/parser/parse.ts` (`splitNativeRow`, blank line handling)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/comments-blanklines.*`
@@ -50,9 +50,9 @@ Status legend:
 - Tests: `tests/unit/evaluator/formula.unit.test.ts`
 
 8. Row-name dot refs (`Sheet!row_name.Column`)
-- Status: `missing`
-- Code: no translation layer for row-name tokens
-- Tests: no support tests
+- Status: `out of scope`
+- Code: row-name prefixes are not part of the AST or formula translation layer
+- Tests: parser regression covers unsupported row prefixes
 
 9. Merges (`<`, `^`)
 - Status: `partial`

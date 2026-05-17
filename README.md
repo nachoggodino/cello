@@ -45,7 +45,7 @@ Apple,1.2,5
 Pear,0.9,3
 
 @sheet KPI
--Metric-Value-
+@header | Metric | Value |
 | Revenue | =Sales!B2*Sales!C2 + Sales!B3*Sales!C3 |
 ```
 
@@ -131,7 +131,7 @@ Native Cello sheets use pipe-delimited rows:
 ```cel
 @sheet Report
 
--Region-Revenue[€][2d]-Units[0d]-
+@header | Region | Revenue[€][2d] | Units[0d] |
 | Madrid | 4280 | 15 |
 | Barcelona | 2080 | 7 |
 | Valencia | 760 | 2 |
@@ -150,9 +150,9 @@ Rendered preview:
 Useful syntax:
 
 - `@sheet Name [format]` starts a sheet.
-- `-Column-Names-` declares named columns.
+- `@header | Column | Names |` declares named columns.
 - `| cell | cell |` declares rows.
-- `row_name | ... |` creates a non-rendered row reference name.
+- `[bold] | ... |` applies row-level modifiers.
 - `=A1+B1`, `=SUM(Revenue)`, and `=Sales!Amount` create formulas.
 - `!!Amount` references a named column on the first sheet.
 - `<` merges with the cell on the left; `^` merges with the cell above.

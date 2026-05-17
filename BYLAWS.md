@@ -15,7 +15,7 @@ Orange,6.00,4
 
 @sheet Summary
 
--KPI-Amount[€][2d]-Units[0d]-Average[€][2d]-
+@header | KPI | Amount[€][2d] | Units[0d] | Average[€][2d] |
 | Sales | =SUM(Sales!amount[*]) | =SUM(Sales!units[*]) | =Amount/Units |
 ```
 
@@ -99,7 +99,7 @@ A sheet can load its content from another file. The source line must appear imme
 -> ./exports/sales.csv
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Revenue | =SUM(Sales!amount[*]) |
 ```
 
@@ -139,21 +139,21 @@ In this example, `C` and `D` are on row 2. The blank line is ignored.
 A header row assigns names to columns. Named columns make formulas easier to read than coordinate references.
 
 ```cel
--Product-Price-Quantity-Total-
+@header | Product | Price | Quantity | Total |
 | Apple | 1.20 | 5 | =Price*Quantity |
 | Pear  | 0.90 | 3 | =Price*Quantity |
 ```
 
 Rules:
 
-1. Header rows use hyphen-wrapped names: `-Product-Price-Quantity-`.
+1. Header rows use `@header` followed by a pipe-separated row: `@header | Product | Price | Quantity |`.
 2. Headers apply from the next data row downward.
 3. A later header row replaces the active column names from that point on.
 4. Header rows render as table headers.
 5. Header modifiers apply to every cell in that column.
 
 ```cel
--Product-Price[€][2d]-Quantity[0d]-Total[€][2d]-
+@header | Product | Price[€][2d] | Quantity[0d] | Total[€][2d] |
 | Apple | 1.20 | 5 | =Price*Quantity |
 ```
 
@@ -226,7 +226,7 @@ Same-sheet named references are context-aware:
 3. Use `[*]` to force the full data range.
 
 ```cel
--Product-Revenue-Cost-Profit-
+@header | Product | Revenue | Cost | Profit |
 | A | 1200 | 800 | =Revenue-Cost |
 | B | 1800 | 900 | =Revenue-Cost |
 | Total | =SUM(Revenue) | =SUM(Cost) | =SUM(Profit) |
@@ -239,7 +239,7 @@ The total row does not include itself when using `SUM(Revenue)`.
 Named ranges are based on column headers.
 
 ```cel
--Month-Revenue-
+@header | Month | Revenue |
 | Jan | 1200 |
 | Feb | 1800 |
 | Mar | 1500 |
@@ -281,7 +281,7 @@ Rules:
 Modifiers are attached directly to headers, row prefixes, or cell values.
 
 ```cel
--Metric-Revenue[€][2d]-Margin[%][1d]-
+@header | Metric | Revenue[€][2d] | Margin[%][1d] |
 [bold] | Total | =SUM(Revenue) | =AVG(Margin) |
 | Critical[bg:red][#fff] | 1200 | 0.42 |
 ```
@@ -290,7 +290,7 @@ Scopes:
 
 | Location | Example | Scope |
 |---|---|---|
-| Column header | `-Revenue[€][2d]-` | Every cell in that column |
+| Column header | `@header | Revenue[€][2d] |` | Every cell in that column |
 | Row modifiers | `[bold] | Total | ... |` | Every cell in that row |
 | Cell value | `Late[bg:red][#fff]` | That cell only |
 
@@ -319,7 +319,7 @@ Named CSS colors such as `red`, `blue`, `green`, `orange`, and `gold` are accept
 A column header can define a default formula for empty cells in that column.
 
 ```cel
--Product-Price[€][2d]-Quantity[0d]-Total[default:=Price*Quantity][€][2d]-
+@header | Product | Price[€][2d] | Quantity[0d] | Total[default:=Price*Quantity][€][2d] |
 | Apple | 1.20 | 5 | |
 | Pear  | 0.90 | 3 | |
 | Override | 10 | 2 | 99 |
@@ -336,8 +336,8 @@ Rules:
 Both forms are valid:
 
 ```cel
--Total[default:=Price*Quantity]-
--Total[default:Price*Quantity]-
+@header | Total[default:=Price*Quantity] |
+@header | Total[default:Price*Quantity] |
 ```
 
 ## 13. Inline formatting
@@ -391,7 +391,7 @@ These tokens have special meaning in Cello.
 | `[format]` | Sheet format or modifier block |
 | `->` | External source line |
 | `|` | Cell separator in native rows |
-| `-Name-` | Header row syntax |
+| `@header` | Header row marker |
 | `=` | Formula prefix |
 | `!` | Cross-sheet reference separator |
 | `!!` | First-sheet alias |
@@ -423,10 +423,10 @@ This behavior is intentional. A `.cel` file should be useful even when part of i
 | Start a native sheet | `@sheet Summary` |
 | Start a CSV sheet | `@sheet Sales [csv]` |
 | Load an external CSV | `@sheet Sales [csv]` then `-> ./sales.csv` |
-| Define headers | `-Product-Price-Quantity-` |
+| Define headers | `@header | Product | Price | Quantity |` |
 | Write a row | `| Apple | 1.20 | 5 |` |
 | Format a row | `[bold] | Total | =SUM(Amount) |` |
-| Format a column | `-Amount[€][2d]-` |
+| Format a column | `@header | Amount[€][2d] |` |
 | Format a cell | `Late[bg:red][#fff]` |
 | Write a formula | `=Price*Quantity` |
 | Sum previous rows | `=SUM(Amount)` |

@@ -34,7 +34,6 @@ export interface RowNode {
   index: number;
   kind: RowKind;
   sourceLine: number;
-  name?: string;
   modifiers: Modifier[];
   cells: CellNode[];
 }
@@ -73,6 +72,7 @@ export interface ParseOptions {
   strict?: boolean;
   anonymousSheetName?: string;
   baseDir?: string;
+  readExternalSource?: (path: string, context: { baseDir: string; resolvedPath: string }) => string;
 }
 
 export interface EvaluateOptions {
@@ -83,6 +83,8 @@ export interface RenderOptions {
   strict?: boolean;
   title?: string;
   baseDir?: string;
+  readExternalSource?: ParseOptions["readExternalSource"];
   evaluate?: boolean;
   format?: "document" | "fragment";
+  interactive?: boolean;
 }

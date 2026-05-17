@@ -4,12 +4,12 @@
 2026-01-03,90,3
 
 @sheet Summary
--Label-Value-
+@header | Label | Value |
 | First amount | =Data!B1 |
 | First two amount | =Data!B1+Data!B2 |
 | Total qty | =Data!C1+Data!C2+Data!C3 |
 
 @sheet Board
--Label-Value-
+@header | Label | Value |
 | Carry | =Summary!B2+Summary!B3 |
 | Qty copy | =Summary!B4 |

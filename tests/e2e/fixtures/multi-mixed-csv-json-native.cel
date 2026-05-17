@@ -12,12 +12,12 @@ East,240
 ]
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Sales | =SUM(Raw!sales) |
 | Target | =SUM(Targets!target) |
 | Gap | =B2-B3 |
 
 @sheet Board
--Metric-Value-
+@header | Metric | Value |
 | Gap copy | =Summary!B4 |
 | Sales copy | =Summary!B2 |

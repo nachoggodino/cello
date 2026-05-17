@@ -1,5 +1,5 @@
-import { evaluate, parse, render } from "@cello/core";
-import type { Diagnostic, WorkbookAst } from "@cello/core";
+import { evaluate, parse, render } from "../../src/index.js";
+import type { Diagnostic, WorkbookAst } from "../../src/index.js";
 
 export interface PreviewResult {
   html: string;
@@ -8,10 +8,15 @@ export interface PreviewResult {
 }
 
 export async function renderPreview(source: string): Promise<PreviewResult> {
-  const parsed = parse(source);
+  const parsed = parse(source, {
+    readExternalSource(path) {
+      throw new Error(`External file sources are not available in the browser playground: ${path}`);
+    }
+  });
   const evaluated = await evaluate(parsed);
   const html = await render(evaluated, {
     evaluate: false,
+    interactive: false,
     title: "Cello Playground Preview"
   });
 
@@ -20,8 +25,4 @@ export async function renderPreview(source: string): Promise<PreviewResult> {
     diagnostics: evaluated.diagnostics,
     workbook: evaluated
   };
-}
-
-export async function warmPreviewEngine(): Promise<void> {
-  await renderPreview("@sheet Warmup\n-A-B-C-\n| 1 | 2 | =A+B |");
 }

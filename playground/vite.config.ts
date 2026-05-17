@@ -14,6 +14,23 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    emptyOutDir: true
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          codemirror: [
+            "@codemirror/autocomplete",
+            "@codemirror/commands",
+            "@codemirror/language",
+            "@codemirror/search",
+            "@codemirror/state",
+            "@codemirror/view",
+            "@lezer/highlight"
+          ],
+          spreadsheet: ["hyperformula"]
+        }
+      }
+    }
   }
 });

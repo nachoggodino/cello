@@ -1,6 +1,6 @@
 // raw import
 @sheet Data
--Metric-Value-
+@header | Metric | Value |
 | A | 10 |
 
 // gap comment
@@ -8,12 +8,12 @@
 | C | 5 |
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Total | =SUM(Data!Value) |
 | Max | =MAX(Data!Value) |
 | Min | =MIN(Data!Value) |
 
 @sheet Audit
--Metric-Value-
+@header | Metric | Value |
 | Spread | =Summary!B3-Summary!B4 |
 | Recheck | =Summary!B2 |

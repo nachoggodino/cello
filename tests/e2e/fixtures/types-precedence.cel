@@ -1,4 +1,4 @@
 @sheet Types
--Base[color:purple]-Styled[bg:#e5e7eb][color:#111111]-Mix-
-row_scope[italic][color:blue] | 42 | 2026-02-01 | TRUE |
+@header | Base[color:purple] | Styled[bg:#e5e7eb][color:#111111] | Mix |
+[italic][color:blue] | 42 | 2026-02-01 | TRUE |
 | "TRUE"[color:red] | plain[bg:black][color:white] | cell[color:orange] |

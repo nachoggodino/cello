@@ -15,7 +15,7 @@
 
 ## What does not work yet
 
-- Row-name dot refs not translated:
+- Row-name dot refs are not supported:
   - `Sheet!row_name.Column`
 - Translation intentionally regex-based/narrow; complex token patterns can require explicit A1 refs.
 - Direct file-style formula addressing is not supported.
@@ -29,7 +29,5 @@
 
 ## Suggested next steps
 
-1. Add row-name index (`row name -> row index`) per sheet.
-2. Translate row-name dot syntax to A1.
-3. Add strict translation option for unresolved refs.
-4. Expand tests for mixed expressions and nested formula patterns.
+1. Add strict translation option for unresolved refs.
+2. Expand tests for mixed expressions and nested formula patterns.

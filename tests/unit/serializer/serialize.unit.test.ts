@@ -39,7 +39,7 @@ describe("serialize (unit-focused behavior)", () => {
       ]
     );
     const out = serialize(ast);
-    expect(out).toContain("-Price[€][2d]-");
+    expect(out).toContain("@header | Price[€][2d] |");
     expect(out).toContain("\n| 10 |");
   });
 

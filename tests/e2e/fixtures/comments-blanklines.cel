@@ -1,6 +1,6 @@
 // lead comment
 @sheet Notes
--Title-Value-Ref-
+@header | Title | Value | Ref |
 // row one
 | Start | 1 | =B2 |
 

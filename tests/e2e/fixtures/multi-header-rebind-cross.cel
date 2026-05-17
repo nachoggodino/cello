@@ -1,17 +1,17 @@
 @sheet Data
--Product-Amount-
+@header | Product | Amount |
 | A | 5 |
 | B | 7 |
--Service-Hours-Rate-
+@header | Service | Hours | Rate |
 | Audit | 2 | 40 |
 | Support | 3 | 30 |
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Product total | =Data!B2+Data!B3 |
 | Service rate total | =Data!C5+Data!C6 |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2+Summary!B3 |
 | Hours | =Data!B5+Data!B6 |

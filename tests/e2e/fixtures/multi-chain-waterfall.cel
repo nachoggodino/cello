@@ -1,22 +1,22 @@
 @sheet Data
--Revenue-Cost-
+@header | Revenue | Cost |
 | 300 | 120 |
 | 260 | 110 |
 | 440 | 200 |
 
 @sheet Stage1
--Metric-Value-
+@header | Metric | Value |
 | Revenue | =SUM(!!Revenue) |
 | Cost | =SUM(!!Cost) |
 | Gross | =B2-B3 |
 
 @sheet Stage2
--Metric-Value-
+@header | Metric | Value |
 | MarginPct | =Stage1!B4/Stage1!B2 |
 | Gate | =IF(B2>0.5,"GO","HOLD") |
 
 @sheet Board
--Label-Value-
+@header | Label | Value |
 | *Gross* | =Stage1!B4 |
 | _Margin_ | =Stage2!B2 |
 | ~~Gate~~ | =Stage2!B3 |

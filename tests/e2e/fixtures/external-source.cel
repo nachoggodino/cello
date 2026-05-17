@@ -2,7 +2,7 @@
 -> ./tests/e2e/fixtures/external-sales.csv
 
 @sheet Summary
--Label-Value-
+@header | Label | Value |
 | Total | =SUM(Imported!amount) |
 | Slice | =SUM(Imported!amount[2:3]) |
 | FirstSheetAlias | =SUM(!!amount) |

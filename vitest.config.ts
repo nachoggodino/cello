@@ -1,8 +1,14 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@cello/core": fileURLToPath(new URL("./src/index.ts", import.meta.url))
+    }
+  },
   test: {
-    include: ["tests/unit/**/*.test.ts", "tests/it/**/*.test.ts", "tests/e2e/**/*.test.ts"],
+    include: ["tests/unit/**/*.test.ts", "tests/it/**/*.test.ts", "tests/e2e/**/*.test.ts", "playground/src/**/*.test.ts"],
     environment: "node",
     coverage: {
       provider: "v8",

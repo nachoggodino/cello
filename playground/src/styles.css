@@ -208,11 +208,27 @@ button:disabled {
   flex: 1;
 }
 
+.editorLoading {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  place-items: center;
+  color: #f7ead9;
+  background: rgba(37, 24, 17, 0.94);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .divider {
   width: 12px;
   cursor: col-resize;
   position: relative;
   flex: 0 0 12px;
+}
+
+.divider:focus-visible {
+  outline: 2px solid #f0a64b;
+  outline-offset: 2px;
 }
 
 .divider::before {
@@ -314,10 +330,10 @@ button:disabled {
 }
 
 .diagnostics {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 12px;
-  min-height: 42px;
+  max-height: 136px;
+  min-height: 46px;
   overflow: hidden;
   border-radius: 8px;
   padding: 9px 12px;
@@ -325,15 +341,38 @@ button:disabled {
   font-size: 13px;
 }
 
-.diagnostics strong {
+.diagnosticSummary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.diagnosticSummary strong {
   flex: 0 0 auto;
   color: #3a2115;
 }
 
-.diagnostics div {
+.diagnosticSummary span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.diagnosticList {
+  display: grid;
+  gap: 5px;
+  min-height: 0;
+  max-height: 76px;
+  margin: 0;
+  overflow: auto;
+  padding: 0 0 0 18px;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.diagnosticList li {
+  white-space: normal;
 }
 
 .diagnostics.hasWarnings {
@@ -404,12 +443,17 @@ button:disabled {
   }
 
   .diagnostics {
+    gap: 4px;
+  }
+
+  .diagnosticSummary {
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;
   }
 
-  .diagnostics div {
+  .diagnosticSummary span {
     width: 100%;
+    white-space: normal;
   }
 }

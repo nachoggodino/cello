@@ -2,11 +2,11 @@
 -> ./tests/e2e/fixtures/multi-external-firstsheet.csv
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Total amount | =SUM(Imported!amount) |
 | Total qty | =SUM(Imported!qty) |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2+Summary!B3 |
 | Qty copy | =Summary!B3 |

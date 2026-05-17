@@ -1,5 +1,5 @@
 @sheet Errors
--Value-Result-
+@header | Value | Result |
 | 1 | =1/0 |
 nonsense line here
 | 2 | =SUM(Missing) |

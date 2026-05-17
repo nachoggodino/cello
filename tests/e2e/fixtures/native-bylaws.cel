@@ -1,9 +1,9 @@
 // workbook with native cello features
 @sheet Data
--Region-Amount[bg:#fff9c4]-Flag-
-row_north[italic] | *North* | 10 | TRUE |
+@header | Region | Amount[bg:#fff9c4] | Flag |
+[italic] | *North* | 10 | TRUE |
 | South | 15 | FALSE |
-row_total[bold] | ## TOTAL | =SUM(Amount[2:3]) | =SUM(!!Amount[2:3]) |
+[bold] | ## TOTAL | =SUM(Amount[2:3]) | =SUM(!!Amount[2:3]) |
 
 @sheet Report
 | # Revenue | =Data!B2 | =Data!B3 |

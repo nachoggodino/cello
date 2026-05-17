@@ -14,7 +14,7 @@ const cases = [
     covers: ["1.core-structure", "6.cross-sheet-formulas", "7.named-column-ranges", "10.modifiers"],
     contains: [">Data<", ">Summary<", ">Regions<", "<td >650</td>", "<td >400</td>", ">420</td>", ">230</td>"],
     cel: `@sheet Data
--Date-Region-Amount-Units-
+@header | Date | Region | Amount | Units |
 | 2026-01-01 | Madrid | 120 | 2 |
 | 2026-01-02 | Barcelona | 80 | 1 |
 | 2026-01-03 | Madrid | 200 | 4 |
@@ -22,16 +22,16 @@ const cases = [
 | 2026-01-05 | Madrid | 100 | 2 |
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | ## Revenue | < |
 | Total amount | =SUM(!!Amount) |
 | First window | =SUM(!!Amount[2:4]) |
 | Total units | =SUM(!!Units) |
 
 @sheet Regions
--Region-Revenue[€][2d]-Units[0d]-
-row_madrid[bold] | Madrid | =SUMIF(Data!Region,"Madrid",Data!Amount) | =SUMIF(Data!Region,"Madrid",Data!Units) |
-row_barcelona[italic] | Barcelona | =SUMIF(Data!Region,"Barcelona",Data!Amount) | =SUMIF(Data!Region,"Barcelona",Data!Units) |`
+@header | Region | Revenue[€][2d] | Units[0d] |
+[bold] | Madrid | =SUMIF(Data!Region,"Madrid",Data!Amount) | =SUMIF(Data!Region,"Madrid",Data!Units) |
+[italic] | Barcelona | =SUMIF(Data!Region,"Barcelona",Data!Amount) | =SUMIF(Data!Region,"Barcelona",Data!Units) |`
   },
   {
     name: "multi-chain-waterfall",
@@ -39,24 +39,24 @@ row_barcelona[italic] | Barcelona | =SUMIF(Data!Region,"Barcelona",Data!Amount) 
     covers: ["1.core-structure", "6.cross-sheet-formulas", "11.inline-formatting"],
     contains: [">Data<", ">Stage1<", ">Stage2<", ">Board<", "<td >1000</td>", "<td >570</td>", "<td >0.57</td>", "<td >GO</td>"],
     cel: `@sheet Data
--Revenue-Cost-
+@header | Revenue | Cost |
 | 300 | 120 |
 | 260 | 110 |
 | 440 | 200 |
 
 @sheet Stage1
--Metric-Value-
+@header | Metric | Value |
 | Revenue | =SUM(!!Revenue) |
 | Cost | =SUM(!!Cost) |
 | Gross | =B2-B3 |
 
 @sheet Stage2
--Metric-Value-
+@header | Metric | Value |
 | MarginPct | =Stage1!B4/Stage1!B2 |
 | Gate | =IF(B2>0.5,"GO","HOLD") |
 
 @sheet Board
--Label-Value-
+@header | Label | Value |
 | *Gross* | =Stage1!B4 |
 | _Margin_ | =Stage2!B2 |
 | ~~Gate~~ | =Stage2!B3 |`
@@ -64,23 +64,22 @@ row_barcelona[italic] | Barcelona | =SUMIF(Data!Region,"Barcelona",Data!Amount) 
   {
     name: "multi-row-mod-style",
     title: "Multi Row Mod Style",
-    covers: ["5.row-name-references", "6.cross-sheet-formulas", "10.modifier-scope"],
+    covers: ["5.row-modifiers", "6.cross-sheet-formulas", "10.modifier-scope"],
     contains: [">Summary<", 'style="font-weight:700"', 'style="font-style:italic"', 'style="background:#fef3c7"', ">20</td>", ">6</td>", ">26</td>"],
-    notContains: ["row_sales", "row_units", "row_total"],
     cel: `@sheet Data
--Amount-Qty-
+@header | Amount | Qty |
 | 5 | 2 |
 | 9 | 1 |
 | 6 | 3 |
 
 @sheet Summary
--Metric-Value-
-row_sales[bold] | Total sales | =SUM(!!Amount) |
-row_units[italic] | Total units | =SUM(!!Qty) |
-row_total[bg:#fef3c7] | Carry | =B2+B3 |
+@header | Metric | Value |
+[bold] | Total sales | =SUM(!!Amount) |
+[italic] | Total units | =SUM(!!Qty) |
+[bg:#fef3c7] | Carry | =B2+B3 |
 
 @sheet Review
--Check-Value-
+@header | Check | Value |
 | Final | =Summary!B4 |
 | Delta | =Summary!B2-Summary!B3 |`
   },
@@ -90,20 +89,20 @@ row_total[bg:#fef3c7] | Carry | =B2+B3 |
     covers: ["6.cross-sheet-formulas", "8.merges", "11.inline-formatting"],
     contains: [">Dashboard<", 'colspan="3"', "<td >15</td>", "<td >38</td>", "<td >2.5333333333</td>", "<td >53</td>"],
     cel: `@sheet Data
--Team-Jobs-Hours-
+@header | Team | Jobs | Hours |
 | A | 4 | 8 |
 | B | 5 | 14 |
 | C | 6 | 16 |
 
 @sheet Dashboard
--Label-Value-Note-
+@header | Label | Value | Note |
 | ## Ops Dashboard | < | < |
 | Total jobs | =SUM(!!Jobs) | ok |
 | Total hours | =SUM(!!Hours) | ok |
 | Avg hours | =SUM(!!Hours)/SUM(!!Jobs) | ok |
 
 @sheet Notes
--Metric-Value-
+@header | Metric | Value |
 | Board total | =Dashboard!B3+Dashboard!B4 |
 | Avg copy | =Dashboard!B5 |`
   },
@@ -115,7 +114,7 @@ row_total[bg:#fef3c7] | Carry | =B2+B3 |
     notContains: ["raw import", "gap comment"],
     cel: `// raw import
 @sheet Data
--Metric-Value-
+@header | Metric | Value |
 | A | 10 |
 
 // gap comment
@@ -123,13 +122,13 @@ row_total[bg:#fef3c7] | Carry | =B2+B3 |
 | C | 5 |
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Total | =SUM(Data!Value) |
 | Max | =MAX(Data!Value) |
 | Min | =MIN(Data!Value) |
 
 @sheet Audit
--Metric-Value-
+@header | Metric | Value |
 | Spread | =Summary!B3-Summary!B4 |
 | Recheck | =Summary!B2 |`
   },
@@ -139,19 +138,19 @@ row_total[bg:#fef3c7] | Carry | =B2+B3 |
     covers: ["6.cross-sheet-formulas", "9.inferred-types", "11.inline-formatting"],
     contains: [">Data<", "<td >true</td>", "<td >false</td>", "<td >2026-01-01</td>", "<td >HIGH</td>", "<td >60</td>"],
     cel: `@sheet Data
--Label-Amount-Live-Start-Note-
+@header | Label | Amount | Live | Start | Note |
 | Alpha | 10 | TRUE | 2026-01-01 | "TRUE" |
 | Beta | 20 | FALSE | 2026-01-02 | "123" |
 | Gamma | 30 | TRUE | 2026-01-03 | plain |
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Total amount | =SUM(!!Amount) |
 | Gate | =IF(B2>50,"HIGH","OK") |
 | First start | =Data!D2 |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2 |
 | Date copy | =Summary!B4 |`
   },
@@ -161,20 +160,20 @@ row_total[bg:#fef3c7] | Carry | =B2+B3 |
     covers: ["4.header-rows", "6.cross-sheet-formulas", "7.named-column-ranges"],
     contains: [">Data<", "<th >Product</th>", "<th >Service</th>", "<th >Rate</th>", "<td >12</td>", "<td >70</td>", "<td >82</td>"],
     cel: `@sheet Data
--Product-Amount-
+@header | Product | Amount |
 | A | 5 |
 | B | 7 |
--Service-Hours-Rate-
+@header | Service | Hours | Rate |
 | Audit | 2 | 40 |
 | Support | 3 | 30 |
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Product total | =Data!B2+Data!B3 |
 | Service rate total | =Data!C5+Data!C6 |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2+Summary!B3 |
 | Hours | =Data!B5+Data!B6 |`
   },
@@ -184,18 +183,18 @@ row_total[bg:#fef3c7] | Carry | =B2+B3 |
     covers: ["6.cross-sheet-formulas", "14.resilience-rule"],
     contains: [">Calc<", "<td >10</td>", "<td >#DIV/0!</td>", "<td >=1+</td>", "<td >#REF!</td>"],
     cel: `@sheet Data
--Base-Zero-
+@header | Base | Zero |
 | 10 | 0 |
 
 @sheet Calc
--Label-Value-
+@header | Label | Value |
 | Safe | =SUM(!!Base) |
 | Div0 | =Data!A2/Data!B2 |
 | RawBad | =1+ |
 | Unknown | =Ghost!A1 |
 
 @sheet Bridge
--Label-Value-
+@header | Label | Value |
 | Copy safe | =Calc!B2 |
 | Copy err | =Calc!B3 |`
   },
@@ -212,13 +211,13 @@ North,300,5
 South,130,1
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | North sales | =SUMIF(Data!region,"North",Data!amount) |
 | South sales | =SUMIF(Data!region,"South",Data!amount) |
 | Total units | =SUM(Data!units) |
 
 @sheet Board
--Metric-Value-
+@header | Metric | Value |
 | Combined | =Summary!B2+Summary!B3 |
 | Units copy | =Summary!B4 |`
   },
@@ -233,13 +232,13 @@ South,130,1
 2026-01-03,90,3
 
 @sheet Summary
--Label-Value-
+@header | Label | Value |
 | First amount | =Data!B1 |
 | First two amount | =Data!B1+Data!B2 |
 | Total qty | =Data!C1+Data!C2+Data!C3 |
 
 @sheet Board
--Label-Value-
+@header | Label | Value |
 | Carry | =Summary!B2+Summary!B3 |
 | Qty copy | =Summary!B4 |`
   },
@@ -255,13 +254,13 @@ Red\t7\t8
 Green\t5\t5
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Tickets | =SUM(Data!tickets) |
 | Hours | =SUM(Data!hours) |
 | Max hours | =MAX(Data!hours) |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Load | =Summary!B2+Summary!B3 |
 | Ceiling | =Summary!B4 |`
   },
@@ -277,13 +276,13 @@ Tools;120;100
 Ops;210;220
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Plan | =SUM(Data!plan) |
 | Actual | =SUM(Data!actual) |
 | Diff | =B3-B2 |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Status | =IF(Summary!B3>Summary!B2,"OVER","OK") |
 | Diff copy | =Summary!B4 |`
   },
@@ -301,13 +300,13 @@ Ops;210;220
 | Pedro | 6 | 1 |
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Score total | =SUM(Data!score) |
 | Top score | =MAX(Data!score) |
 | With bonus | =SUM(Data!score)+SUM(Data!bonus) |
 
 @sheet Awards
--Metric-Value-
+@header | Metric | Value |
 | Winner line | =Summary!B3 |
 | Bonus line | =Summary!B4-Summary!B2 |`
   },
@@ -323,13 +322,13 @@ Ops;210;220
 ]
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Stock | =SUM(Data!stock) |
 | Reserved | =SUM(Data!reserved) |
 | Available | =B2-B3 |
 
 @sheet Orders
--Metric-Value-
+@header | Metric | Value |
 | Double available | =Summary!B4*2 |
 | Copy stock | =Summary!B2 |`
   },
@@ -346,13 +345,13 @@ Ops;210;220
 ]
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Hours | =SUM(Data!hours) |
 | Peak | =MAX(Data!hours) |
 | First day | =Data!A2 |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2 |
 | Peak copy | =Summary!B3 |`
   },
@@ -375,13 +374,13 @@ East,240
 ]
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Sales | =SUM(Raw!sales) |
 | Target | =SUM(Targets!target) |
 | Gap | =B2-B3 |
 
 @sheet Board
--Metric-Value-
+@header | Metric | Value |
 | Gap copy | =Summary!B4 |
 | Sales copy | =Summary!B2 |`
   },
@@ -403,13 +402,13 @@ East,240
 ]
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Latency gap | =Metrics!B2-Bench!A2 |
 | Uptime gap | =Metrics!B3-Bench!B2 |
 | Status | =IF(B2>0,"Watch","OK") |
 
 @sheet Notes
--Metric-Value-
+@header | Metric | Value |
 | Copy | =Summary!B4 |
 | Gap | =Summary!B2 |`
   },
@@ -419,22 +418,22 @@ East,240
     covers: ["6.cross-sheet-formulas", "6.first-sheet-alias", "7.named-column-ranges"],
     contains: [">CalcA<", ">CalcB<", ">Final<", "<td >12</td>", "<td >6</td>", "<td >18</td>", "<td >20</td>"],
     cel: `@sheet Data
--Amount-Qty-
+@header | Amount | Qty |
 | 3 | 1 |
 | 4 | 2 |
 | 5 | 3 |
 
 @sheet CalcA
--Metric-Value-
+@header | Metric | Value |
 | Sum amount | =SUM(!!Amount) |
 
 @sheet CalcB
--Metric-Value-
+@header | Metric | Value |
 | Sum qty | =SUM(!!Qty) |
 | Ratio | =SUM(!!Amount)/SUM(!!Qty) |
 
 @sheet Final
--Metric-Value-
+@header | Metric | Value |
 | Combined | =CalcA!B2+CalcB!B2 |
 | Ratio x10 | =CalcB!B3*10 |`
   },
@@ -444,7 +443,7 @@ East,240
     covers: ["6.cross-sheet-formulas", "6.first-sheet-alias", "7.named-column-ranges"],
     contains: [">Window<", "<td >60</td>", "<td >9</td>", "<td >69</td>"],
     cel: `@sheet Data
--Amount-Units-
+@header | Amount | Units |
 | 10 | 1 |
 | 20 | 2 |
 | 30 | 3 |
@@ -452,12 +451,12 @@ East,240
 | 50 | 5 |
 
 @sheet Window
--Metric-Value-
+@header | Metric | Value |
 | Amount slice | =SUM(!!Amount[2:4]) |
 | Unit slice | =SUM(!!Units[3:5]) |
 
 @sheet Final
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Window!B2+Window!B3 |
 | Amount copy | =Window!B2 |`
   },
@@ -466,19 +465,18 @@ East,240
     title: "Multi Modifier Precedence Cross",
     covers: ["6.cross-sheet-formulas", "10.modifier-scope-precedence", "11.inline-formatting"],
     contains: [">Summary<", 'style="background:#e5e7eb;color:#111111;font-style:italic;color:#008000"', 'style="color:purple;font-weight:700;background:#fef3c7"', 'style="background:#e5e7eb;color:#111111;font-weight:700;background:#fef3c7;background:black;color:#fff"', "<td >20</td>"],
-    notContains: ["row_total", "row_flag"],
     cel: `@sheet Data
--Amount-
+@header | Amount |
 | 8 |
 | 12 |
 
 @sheet Summary
--Metric[color:purple]-Value[bg:#e5e7eb][#111111]-
-row_total[italic][#008000] | Total | =SUM(!!Amount) |
-row_flag[bold][bg:#fef3c7] | Flag | high[bg:black][#fff] |
+@header | Metric[color:purple] | Value[bg:#e5e7eb][#111111] |
+[italic][#008000] | Total | =SUM(!!Amount) |
+[bold][bg:#fef3c7] | Flag | high[bg:black][#fff] |
 
 @sheet Review
--Label-Value-
+@header | Label | Value |
 | Mirror | =Summary!B2 |
 | Copy | =Summary!B2 |`
   },
@@ -491,12 +489,12 @@ row_flag[bold][bg:#fef3c7] | Flag | high[bg:black][#fff] |
 -> ./tests/e2e/fixtures/multi-external-firstsheet.csv
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Total amount | =SUM(Imported!amount) |
 | Total qty | =SUM(Imported!qty) |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2+Summary!B3 |
 | Qty copy | =Summary!B3 |`
   },
@@ -512,12 +510,12 @@ Sevilla;4;3
 Bilbao;6;4
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Amount | =SUM(Data!amount) |
 | Qty | =SUM(Data!qty) |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2+Summary!B3 |
 | Amount copy | =Summary!B2 |`
   }
@@ -563,10 +561,9 @@ export const renderFixtureCases: RenderFixtureCase[] = [
   },
   {
     name: "row-name-modifiers",
-    title: "Row Name Modifiers",
-    covers: ["5.row-name-references", "10.modifier-scope"],
+    title: "Row Modifiers",
+    covers: ["5.row-modifiers", "10.modifier-scope"],
     contains: ['style="font-style:italic"', 'style="background:#fef3c7"', 'style="font-weight:700"', ">12</td>"],
-    notContains: ["row_alpha", "row_beta", "row_total"]
   },
   {
     name: "formula-matrix",

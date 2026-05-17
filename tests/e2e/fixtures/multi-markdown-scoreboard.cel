@@ -7,12 +7,12 @@
 | Pedro | 6 | 1 |
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Score total | =SUM(Data!score) |
 | Top score | =MAX(Data!score) |
 | With bonus | =SUM(Data!score)+SUM(Data!bonus) |
 
 @sheet Awards
--Metric-Value-
+@header | Metric | Value |
 | Winner line | =Summary!B3 |
 | Bonus line | =Summary!B4-Summary!B2 |

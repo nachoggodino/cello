@@ -1,10 +1,10 @@
 @sheet Data
--Amount-Qty-
+@header | Amount | Qty |
 | 2 | 3 |
 | 4 | 5 |
 
 @sheet Calc
--Name-Value-
+@header | Name | Value |
 | CrossA1 | =Data!A2 |
 | CrossNamed | =SUM(Data!Amount) |
 | LocalAlias | =SUM(!!Amount) |

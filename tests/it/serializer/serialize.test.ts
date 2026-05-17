@@ -3,14 +3,14 @@ import { parse } from "../../../src/parser/parse.js";
 import { serialize } from "../../../src/serializer/serialize.js";
 
 describe("serialize", () => {
-  it("serializes native rows, row names and merge tokens", () => {
-    const text = "@sheet Main\n-Label-Value-\nrow1[bold] | A | 1 |\n| B | < |\n| ^ | 2 |";
+  it("serializes native rows, row modifiers and merge tokens", () => {
+    const text = "@sheet Main\n@header | Label | Value |\n[bold] | A | 1 |\n| B | < |\n| ^ | 2 |";
     const ast = parse(text);
     const out = serialize(ast);
 
     expect(out).toContain("@sheet Main");
-    expect(out).toContain("-Label-Value-");
-    expect(out).toContain("row1[bold] | A | 1 |");
+    expect(out).toContain("@header | Label | Value |");
+    expect(out).toContain("[bold] | A | 1 |");
     expect(out).toContain("| B | < |");
     expect(out).toContain("| ^ | 2 |");
   });

@@ -6,12 +6,12 @@
 ]
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Hours | =SUM(Data!hours) |
 | Peak | =MAX(Data!hours) |
 | First day | =Data!A2 |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2 |
 | Peak copy | =Summary!B3 |

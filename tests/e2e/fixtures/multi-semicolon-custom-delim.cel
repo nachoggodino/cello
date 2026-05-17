@@ -5,11 +5,11 @@ Sevilla;4;3
 Bilbao;6;4
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Amount | =SUM(Data!amount) |
 | Qty | =SUM(Data!qty) |
 
 @sheet Review
--Metric-Value-
+@header | Metric | Value |
 | Carry | =Summary!B2+Summary!B3 |
 | Amount copy | =Summary!B2 |

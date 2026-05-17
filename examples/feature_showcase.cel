@@ -1,18 +1,18 @@
 // Feature showcase: merges, modifiers, markdown import, json import, formulas
 
 @sheet Board
--Section-Owner-Status-
+@header | Section | Owner | Status |
 | ## Sprint Board | < | < |
 | API | Nacho | *In progress* |
 | UI | Carla | ~~Blocked~~ |
 | Data | Mario | _Review_ |
 
 @sheet Budget
--Item-Plan[€][2d]-Actual[€][2d]-Diff[€][2d]-Flag-
-row_hosting | Hosting | 300 | 340 | =Actual-Plan | over[bg:#fee2e2][#991b1b] |
-row_tools   | Tools   | 120 | 90  | =Actual-Plan | ok[bg:#dcfce7][#166534] |
-row_ops     | Ops     | 210 | 210 | =Actual-Plan | ok[bg:#dcfce7][#166534] |
-row_total[bold] | TOTAL | =SUM(Plan) | =SUM(Actual) | =SUM(Diff) | < |
+@header | Item | Plan[€][2d] | Actual[€][2d] | Diff[€][2d] | Flag |
+| Hosting | 300 | 340 | =Actual-Plan | over[bg:#fee2e2][#991b1b] |
+| Tools   | 120 | 90  | =Actual-Plan | ok[bg:#dcfce7][#166534] |
+| Ops     | 210 | 210 | =Actual-Plan | ok[bg:#dcfce7][#166534] |
+[bold] | TOTAL | =SUM(Plan) | =SUM(Actual) | =SUM(Diff) | < |
 
 @sheet ImportedMd [markdown]
 | label | score |
@@ -29,7 +29,7 @@ row_total[bold] | TOTAL | =SUM(Plan) | =SUM(Actual) | =SUM(Diff) | < |
 ]
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Budget diff total | =SUM(Budget!Diff) |
 | Avg imported score | =AVG(ImportedMd!score) |
 | Total bugs | =SUM(ImportedJson!bugs) |

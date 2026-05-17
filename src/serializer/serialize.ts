@@ -25,15 +25,16 @@ function stringifyRow(row: WorkbookAst["sheets"][number]["rows"][number]): strin
 }
 
 function stringifyHeaderRow(row: WorkbookAst["sheets"][number]["rows"][number]): string {
-  return `-${row.cells
+  const cells = row.cells
     .filter((c) => c.kind !== "merge-left" && c.kind !== "merge-up")
     .map((c) => `${stringifyCellBase(c)}${stringifyModifiers(c.modifiers)}`)
-    .join("-")}-`;
+    .join(" | ");
+  return `@header | ${cells} |`;
 }
 
 function stringifyDataRow(row: WorkbookAst["sheets"][number]["rows"][number]): string {
   const cells = row.cells.map((cell) => stringifyCell(cell)).join(" | ");
-  const rowPrefix = row.name ? `${row.name}${stringifyModifiers(row.modifiers)} ` : "";
+  const rowPrefix = row.modifiers.length > 0 ? `${stringifyModifiers(row.modifiers)} ` : "";
   return `${rowPrefix}| ${cells} |`;
 }
 

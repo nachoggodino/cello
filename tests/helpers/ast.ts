@@ -48,7 +48,6 @@ export function dataRow(index: number, cells: CellNode[], options: Partial<Omit<
     index,
     kind: "data",
     sourceLine: options.sourceLine ?? index,
-    ...(options.name ? { name: options.name } : {}),
     modifiers: options.modifiers ?? [],
     cells
   };

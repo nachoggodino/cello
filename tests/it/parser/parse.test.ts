@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { parse } from "../../../src/parser/parse.js";
 
 describe("parse", () => {
-  it("parses native sheets, headers, row names, modifiers and formulas", () => {
+  it("parses native sheets, headers, row modifiers and formulas", () => {
     const text = `
 // comment
 @sheet Main
--Product-Price[€][2d]-Total-
-row_apple[bold] | Apple | 1.2 | =B2*2 |
+@header | Product | Price[€][2d] | Total |
+[bold] | Apple | 1.2 | =B2*2 |
 `.trim();
 
     const ast = parse(text);
@@ -22,7 +22,6 @@ row_apple[bold] | Apple | 1.2 | =B2*2 |
     ]);
 
     const dataRow = sheet.rows[1];
-    expect(dataRow.name).toBe("row_apple");
     expect(dataRow.modifiers[0]).toMatchObject({ key: "bold" });
     expect(dataRow.cells[2]).toMatchObject({ kind: "formula", formula: "=B2*2" });
   });
@@ -30,7 +29,7 @@ row_apple[bold] | Apple | 1.2 | =B2*2 |
   it("handles horizontal and vertical merges", () => {
     const text = `
 @sheet Merge
--Label-Value-Extra-
+@header | Label | Value | Extra |
 | Region A | 10 | < |
 | ^ | 12 | 3 |
 `.trim();
@@ -125,4 +124,3 @@ unstructured text
     expect(ast.diagnostics.some((d) => d.message.includes("Skipped non-row line"))).toBe(true);
   });
 });
-

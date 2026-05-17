@@ -14,17 +14,20 @@ interface NumericDisplayFormat {
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
   const parseOptions = {
     ...(options.strict === undefined ? {} : { strict: options.strict }),
-    ...(options.baseDir === undefined ? {} : { baseDir: options.baseDir })
+    ...(options.baseDir === undefined ? {} : { baseDir: options.baseDir }),
+    ...(options.readExternalSource === undefined ? {} : { readExternalSource: options.readExternalSource })
   };
   const parsed = typeof input === "string" ? parse(input, parseOptions) : input;
   const shouldEvaluate = options.evaluate !== false && workbookHasFormulas(parsed);
   const evaluated = shouldEvaluate ? await evaluate(parsed, parseOptions) : parsed;
   const workbookHtml = renderWorkbook(renderTabs(evaluated), renderSheets(evaluated));
 
-  return options.format === "fragment" ? renderFragment(workbookHtml) : renderDocument(options.title ?? "Cello Workbook", workbookHtml);
+  return options.format === "fragment"
+    ? renderFragment(workbookHtml, options.interactive !== false)
+    : renderDocument(options.title ?? "Cello Workbook", workbookHtml, options.interactive !== false);
 }
 
-function renderDocument(title: string, workbookHtml: string): string {
+function renderDocument(title: string, workbookHtml: string, interactive: boolean): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -35,15 +38,15 @@ function renderDocument(title: string, workbookHtml: string): string {
 </head>
 <body>
   ${workbookHtml}
-  ${renderScript()}
+  ${interactive ? renderScript() : ""}
 </body>
 </html>`;
 }
 
-function renderFragment(workbookHtml: string): string {
+function renderFragment(workbookHtml: string, interactive: boolean): string {
   return `${renderStyles()}
   ${workbookHtml}
-  ${renderScript()}`;
+  ${interactive ? renderScript() : ""}`;
 }
 
 function renderStyles(): string {

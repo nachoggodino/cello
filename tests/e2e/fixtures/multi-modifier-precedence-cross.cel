@@ -1,14 +1,14 @@
 @sheet Data
--Amount-
+@header | Amount |
 | 8 |
 | 12 |
 
 @sheet Summary
--Metric[color:purple]-Value[bg:#e5e7eb][#111111]-
-row_total[italic][#008000] | Total | =SUM(!!Amount) |
-row_flag[bold][bg:#fef3c7] | Flag | high[bg:black][#fff] |
+@header | Metric[color:purple] | Value[bg:#e5e7eb][#111111] |
+[italic][#008000] | Total | =SUM(!!Amount) |
+[bold][bg:#fef3c7] | Flag | high[bg:black][#fff] |
 
 @sheet Review
--Label-Value-
+@header | Label | Value |
 | Mirror | =Summary!B2 |
 | Copy | =Summary!B2 |

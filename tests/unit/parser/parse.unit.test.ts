@@ -14,23 +14,30 @@ describe("parse (unit-focused edge cases)", () => {
   });
 
   it("marks hidden column from header modifier", () => {
-    const ast = parse("@sheet S\n-Visible-Hidden[hidden]-\n| x | y |");
+    const ast = parse("@sheet S\n@header | Visible | Hidden[hidden] |\n| x | y |");
     const sheet = ast.sheets[0];
     expect(sheet.columns[0]).toMatchObject({ name: "Visible", hidden: false });
     expect(sheet.columns[1]).toMatchObject({ name: "Hidden", hidden: true });
   });
 
-  it("parses row names with multiple modifiers", () => {
-    const ast = parse("@sheet S\nrow_1[bold][bg:#eee] | A | 1 |");
+  it("parses row-level modifiers before the first pipe", () => {
+    const ast = parse("@sheet S\n[bold][bg:#eee] | A | 1 |");
     const row = ast.sheets[0].rows[0];
-    expect(row.name).toBe("row_1");
     expect(row.modifiers).toHaveLength(2);
     expect(row.modifiers[0].key).toBe("bold");
     expect(row.modifiers[1]).toMatchObject({ key: "bg", value: "#eee" });
   });
 
+  it("does not treat text before the first pipe as a row reference", () => {
+    const ast = parse("@sheet S\nrow_1[bold] | A | 1 |");
+    const row = ast.sheets[0].rows[0];
+    expect(row.modifiers).toHaveLength(0);
+    expect(row.cells[0].value).toBe("A");
+    expect(ast.diagnostics[0]?.message).toContain("Row references are not supported");
+  });
+
   it("fills empty column cells from column default formulas", () => {
-    const ast = parse("@sheet S\n-Qty-Price-Total[default:=Qty*Price]-\n| 2 | 3 |\n| 4 | 5 | 99 |");
+    const ast = parse("@sheet S\n@header | Qty | Price | Total[default:=Qty*Price] |\n| 2 | 3 |\n| 4 | 5 | 99 |");
     const sheet = ast.sheets[0];
     const firstDataRow = sheet.rows[1];
     const secondDataRow = sheet.rows[2];
@@ -41,7 +48,7 @@ describe("parse (unit-focused edge cases)", () => {
   });
 
   it("does not treat row or cell default modifiers as generated formulas", () => {
-    const ast = parse("@sheet S\n-Qty-Price-Total-\nrow_1[default:=Qty*Price] | 2 | 3 |\n| 4 | 5 | [default:=Qty*Price] |");
+    const ast = parse("@sheet S\n@header | Qty | Price | Total |\n[default:=Qty*Price] | 2 | 3 |\n| 4 | 5 | [default:=Qty*Price] |");
     const sheet = ast.sheets[0];
 
     expect(sheet.rows[1].cells).toHaveLength(2);
@@ -98,5 +105,19 @@ describe("parse (unit-focused edge cases)", () => {
     expect(ast.sheets[0].rows[0].kind).toBe("header");
     expect(ast.sheets[0].rows[1].cells[0].value).toBe("Ana");
     expect(ast.sheets[0].rows[2].cells[1].value).toBe(7);
+  });
+
+  it("supports an explicit external source loader", () => {
+    const ast = parse("@sheet Data [csv]\n-> ./data.csv", {
+      baseDir: "/workbook",
+      readExternalSource: (path, context) => {
+        expect(path).toBe("./data.csv");
+        expect(context).toEqual({ baseDir: "/workbook", resolvedPath: "/workbook/data.csv" });
+        return "name,amount\nAna,12";
+      }
+    });
+
+    expect(ast.diagnostics).toHaveLength(0);
+    expect(ast.sheets[0].rows[1].cells[0].value).toBe("Ana");
   });
 });

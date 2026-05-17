@@ -49,8 +49,8 @@ describe("render", () => {
 
   it("renders numeric display modifiers from columns, rows and cells", async () => {
     const html = await render(
-      "@sheet S\n-Item-Price[€][2d]-Margin[%][1d]-Units[0d]-\n" +
-        "row_discount[0d] | Discount | 1.2 | 0.125 | 3.8 |\n" +
+      "@sheet S\n@header | Item | Price[€][2d] | Margin[%][1d] | Units[0d] |\n" +
+        "[0d] | Discount | 1.2 | 0.125 | 3.8 |\n" +
         "| Regular | 2[£][0d] | 0.5[2d] | 4.2 |"
     );
 
@@ -62,14 +62,14 @@ describe("render", () => {
   });
 
   it("renders evaluated column default formulas", async () => {
-    const html = await render("@sheet S\n-Qty-Price-Total[default:=Qty*Price][€][2d]-\n| 2 | 3 |\n| 4 | 5 | 99 |");
+    const html = await render("@sheet S\n@header | Qty | Price | Total[default:=Qty*Price][€][2d] |\n| 2 | 3 |\n| 4 | 5 | 99 |");
 
     expect(html).toContain("<td >€6.00</td>");
     expect(html).toContain("<td >€99.00</td>");
   });
 
   it("renders spreadsheet coordinate chrome around sheets", async () => {
-    const html = await render("@sheet S\n-Name-Amount-\n| Ada | 5 |");
+    const html = await render("@sheet S\n@header | Name | Amount |\n| Ada | 5 |");
     expect(html).toContain('<thead><tr><th class="cello-corner-index"></th><th class="cello-column-index">A</th><th class="cello-column-index">B</th></tr></thead>');
     expect(html).toContain('<tr><th class="cello-row-index" scope="row">1</th><th >Name</th><th >Amount</th></tr>');
     expect(html).toContain('<tr><th class="cello-row-index" scope="row">2</th><td >Ada</td><td >5</td></tr>');
@@ -91,5 +91,12 @@ describe("render", () => {
     const html = await render("@sheet S\n| 1 | 2 | =A1+B1 |", { evaluate: false });
     expect(html).toContain("<td >=A1+B1</td>");
     expect(html).not.toContain("<td >3</td>");
+  });
+
+  it("can render a non-interactive document without scripts", async () => {
+    const html = await render("@sheet One\n| A |\n@sheet Two\n| B |", { interactive: false });
+
+    expect(html).toContain('<div class="cello-tabs">');
+    expect(html).not.toContain("<script>");
   });
 });

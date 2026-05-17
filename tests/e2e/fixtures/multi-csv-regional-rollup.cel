@@ -6,12 +6,12 @@ North,300,5
 South,130,1
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | North sales | =SUMIF(Data!region,"North",Data!amount) |
 | South sales | =SUMIF(Data!region,"South",Data!amount) |
 | Total units | =SUM(Data!units) |
 
 @sheet Board
--Metric-Value-
+@header | Metric | Value |
 | Combined | =Summary!B2+Summary!B3 |
 | Units copy | =Summary!B4 |

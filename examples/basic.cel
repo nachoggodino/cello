@@ -4,5 +4,5 @@ Apple,1.2,5
 Pear,0.9,3
 
 @sheet KPI
--Metric-Value-
+@header | Metric | Value |
 | Revenue | =Sales!B2*Sales!C2 + Sales!B3*Sales!C3 |

@@ -11,7 +11,7 @@
 
 - `src/parser/parse.ts`
   - Parses workbook/sheets/rows/cells
-  - Handles `@sheet`, headers, row names, merges, external sheet source (`-> path`), formats (`csv/tsv/excel/markdown/json`)
+  - Handles `@sheet`, `@header`, rows, row modifiers, merges, external sheet source (`-> path`), formats (`csv/tsv/excel/markdown/json`)
   - Emits parser diagnostics
 
 - `src/evaluator/evaluate.ts`
@@ -39,5 +39,5 @@
 ## Design notes
 
 - BYLAWS-first behavior is normative for syntax decisions.
-- Named-reference translation is intentionally narrow: named columns and `!!` alias supported; row-name dot references are not.
+- Named-reference translation is intentionally narrow: named columns and `!!` alias supported.
 - Parsing is permissive by design; unknown constructs tend to degrade to text/diagnostics.

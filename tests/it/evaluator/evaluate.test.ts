@@ -20,27 +20,27 @@ describe("evaluate", () => {
   });
 
   it("supports named column ranges on current sheet", async () => {
-    const ast = parse("@sheet S\n-Price-Qty-Total-\n| 2 | 3 | =SUM(Price) |\n| 4 | 5 | =SUM(Price[2:3]) |");
+    const ast = parse("@sheet S\n@header | Price | Qty | Total |\n| 2 | 3 | =SUM(Price) |\n| 4 | 5 | =SUM(Price[2:3]) |");
     const out = await evaluate(ast);
     expect(out.sheets[0].rows[1].cells[2].computed).toBe(6);
     expect(out.sheets[0].rows[2].cells[2].computed).toBe(6);
   });
 
   it("supports named column ranges across sheets", async () => {
-    const ast = parse("@sheet Data\n-Amount-\n| 5 |\n| 7 |\n@sheet Report\n| =SUM(Data!Amount) |");
+    const ast = parse("@sheet Data\n@header | Amount |\n| 5 |\n| 7 |\n@sheet Report\n| =SUM(Data!Amount) |");
     const out = await evaluate(ast);
     expect(out.sheets[1].rows[0].cells[0].computed).toBe(12);
   });
 
   it("supports !! as alias for first sheet references", async () => {
-    const ast = parse("@sheet Data\n-Amount-\n| 9 |\n| 1 |\n@sheet KPIs\n| =SUM(!!Amount) |");
+    const ast = parse("@sheet Data\n@header | Amount |\n| 9 |\n| 1 |\n@sheet KPIs\n| =SUM(!!Amount) |");
     const out = await evaluate(ast);
     expect(out.sheets[1].rows[0].cells[0].computed).toBe(10);
   });
 
   it("supports same-sheet totals without self-referential cycles", async () => {
     const ast = parse(
-      "@sheet Regions\n-Region-Revenue-Units-Avg-\n| Madrid | 4280 | 15 | =Revenue/Units |\n| Barcelona | 2080 | 7 | =Revenue/Units |\n| Valencia | 760 | 2 | =Revenue/Units |\n| TOTAL | =SUM(Revenue) | =SUM(Units) | =SUM(Revenue)/SUM(Units) |"
+      "@sheet Regions\n@header | Region | Revenue | Units | Avg |\n| Madrid | 4280 | 15 | =Revenue/Units |\n| Barcelona | 2080 | 7 | =Revenue/Units |\n| Valencia | 760 | 2 | =Revenue/Units |\n| TOTAL | =SUM(Revenue) | =SUM(Units) | =SUM(Revenue)/SUM(Units) |"
     );
     const out = await evaluate(ast);
     expect(out.sheets[0].rows[1].cells[3].computed).toBeCloseTo(285.33333333, 8);
@@ -50,14 +50,14 @@ describe("evaluate", () => {
   });
 
   it("supports [*] to force full-column ranges", async () => {
-    const ast = parse("@sheet S\n-Amount-Total-\n| 5 | =SUM(Amount[*]) |\n| 7 | =SUM(Amount[*]) |");
+    const ast = parse("@sheet S\n@header | Amount | Total |\n| 5 | =SUM(Amount[*]) |\n| 7 | =SUM(Amount[*]) |");
     const out = await evaluate(ast);
     expect(out.sheets[0].rows[1].cells[1].computed).toBe(12);
     expect(out.sheets[0].rows[2].cells[1].computed).toBe(12);
   });
 
   it("evaluates column default formulas for empty cells", async () => {
-    const ast = parse("@sheet S\n-Qty-Price-Total[default:=Qty*Price]-\n| 2 | 3 |\n| 4 | 5 | 99 |");
+    const ast = parse("@sheet S\n@header | Qty | Price | Total[default:=Qty*Price] |\n| 2 | 3 |\n| 4 | 5 | 99 |");
     const out = await evaluate(ast);
     expect(out.sheets[0].rows[1].cells[2]).toMatchObject({ kind: "formula", formula: "=Qty*Price", computed: 6 });
     expect(out.sheets[0].rows[2].cells[2]).toMatchObject({ kind: "value", value: 99 });
@@ -73,4 +73,3 @@ describe("evaluate", () => {
     expect(ast.sheets[0].rows[0].cells[2].computed).toBeUndefined();
   });
 });
-

@@ -18,7 +18,7 @@ The reference implementation is the GPLv3 npm package `@nachoggodino/cello`. For
 4. [Rows](#4-rows)
 5. [Columns](#5-columns)
 6. [Column Header Rows](#6-column-header-rows)
-7. [Row Names](#7-row-names)
+7. [Row-Level Formatting](#7-row-level-formatting)
 8. [Data Types](#8-data-types)
 9. [Formulas](#9-formulas)
 10. [Merges](#10-merges)
@@ -83,7 +83,7 @@ No format modifier needed. Full Cello syntax with formulas, modifiers, merges, e
 ```
 @sheet Resumen
 
--Métrica-Valor[€][2d]-
+@header | Métrica | Valor[€][2d] |
 | Total ventas | =SUM(Datos!importe) |
 ```
 
@@ -187,10 +187,10 @@ The separator row (`|---|---|`) is ignored. First row is treated as headers. Thi
 
 ## 6. Column Header Rows
 
-A line where content is wrapped in hyphens defines **column names** for all rows below until the next header row:
+A line that starts with `@header` defines **column names** for all rows below until the next header row:
 
 ```
--Producto-Precio-Cantidad-Total-
+@header | Producto | Precio | Cantidad | Total |
 ```
 
 - Column names apply from the next data row downward.
@@ -200,33 +200,33 @@ A line where content is wrapped in hyphens defines **column names** for all rows
 - Modifiers `[]` on a column header **apply to all cells in that column**.
 
 ```
--Producto-Precio[€][2d]-Stock[0d][bg:#fff9c4]-Activo-
+@header | Producto | Precio[€][2d] | Stock[0d][bg:#fff9c4] | Activo |
 ```
 
 `[hidden]` is currently parsed into column metadata (`column.hidden`) and can be used by tooling; current renderer does not hide header/cells yet.
 
 ```
--Producto-Precio[hidden]-Total-
+@header | Producto | Precio[hidden] | Total |
 ```
 
 ---
 
-## 7. Row Names
+## 7. Row-Level Formatting
 
-Text placed **before the first `|`** on a row is a reference name. It is **never rendered**.
-
-```
-fila_manzanas | Manzanas | 1.20 | 50 | =Precio*Cantidad |
-fila_peras    | Peras    | 0.90 | 30 | =Precio*Cantidad |
-```
-
-- Row names are parsed and preserved in AST/serialization.
-- Row-name formula references (for example `Sheet!row_name.Column`) are not translated yet.
-- Rows without names are referenceable only by number.
-- Modifiers `[]` on a row name **apply to all cells in that row**.
+Modifier blocks placed **before the first `|`** apply to every cell in that row. Arbitrary text before the first pipe is not part of the public Cello format.
 
 ```
-fila_total[bold][bg:#f5f5f5] | TOTAL | < | < | =SUM(Total) |
+| Manzanas | 1.20 | 50 | =Precio*Cantidad |
+| Peras    | 0.90 | 30 | =Precio*Cantidad |
+```
+
+- Row modifiers are parsed and preserved in AST/serialization.
+- Row-name formula references (for example `Sheet!row_name.Column`) are not supported.
+- Rows are referenceable by number.
+- Only modifier blocks should appear before the first pipe.
+
+```
+[bold][bg:#f5f5f5] | TOTAL | < | < | =SUM(Total) |
 ```
 
 ---
@@ -358,7 +358,7 @@ celda[bold][bg:red]
 
 | Where applied | Scope |
 |---------------|-------|
-| Column header `-Col[mod]-` | All cells in that column |
+| Column header `@header | Col[mod] |` | All cells in that column |
 | Row name `ref[mod]` | All cells in that row |
 | Individual cell `value[mod]` | That cell only |
 
@@ -373,7 +373,7 @@ Individual cell modifiers **override** column and row modifiers on conflict. Row
 `default` is a column-only modifier. It is only read from column headers and is ignored as row or cell formatting. The formula may include the leading `=` or omit it; both `[default:=Qty*Price]` and `[default:Qty*Price]` create `=Qty*Price` formula cells. Explicit row values and formulas always win over the column default.
 
 ```
--Qty-Price-Total[default:=Qty*Price][€][2d]-
+@header | Qty | Price | Total[default:=Qty*Price][€][2d] |
 | 2 | 3 |        ← Total becomes =Qty*Price and renders as €6.00
 | 4 | 5 | 99     ← explicit Total value is preserved
 ```
@@ -413,9 +413,9 @@ Named colors are standard CSS color names (`red`, `blue`, `green`, `orange`, `go
 ### 12.5 Combined example
 
 ```
--Producto-Precio[€][2d]-Margen[%][1d][bg:#e8f5e9]-
+@header | Producto | Precio[€][2d] | Margen[%][1d][bg:#e8f5e9] |
 
-fila_total[bold][bg:#f0f0f0] | ## TOTAL | < | =SUM(Precio) | =SUM(Margen) |
+[bold][bg:#f0f0f0] | ## TOTAL | < | =SUM(Precio) | =SUM(Margen) |
 
 | valor crítico[bg:red][#fff] | < | dato |
 ```
@@ -466,7 +466,7 @@ render(celContent)                    // returns HTML, diagnostics on AST/eval p
 | `=`        | Formula prefix (start of cell value) |
 | `<`        | Horizontal merge continuation |
 | `^`        | Vertical merge continuation |
-| `-name-`   | Column header row |
+| `@header`  | Column header row marker |
 | `//`       | Comment (outside rows only) |
 | `"..."`    | Force text type |
 | `!`        | Cross-sheet reference separator |
@@ -492,15 +492,15 @@ Marta,25,Barcelona,95
 @sheet Por_Edad
 
 // KPIs grouped by age
--edad[0d]-total[€][2d]-contador[0d]-ticket_medio[€][2d]-
+@header | edad[0d] | total[€][2d] | contador[0d] | ticket_medio[€][2d] |
 | 25 | =SUMIF(Datos!edad,25,Datos!importe)  | =COUNTIF(Datos!edad,25) | =total/contador |
 | 32 | =SUMIF(Datos!edad,32,Datos!importe)  | =COUNTIF(Datos!edad,32) | =total/contador |
 
-fila_global[bold][bg:#f0f0f0] | ## TOTAL | =SUM(total) | =SUM(contador) | =SUM(total)/SUM(contador) |
+[bold][bg:#f0f0f0] | ## TOTAL | =SUM(total) | =SUM(contador) | =SUM(total)/SUM(contador) |
 
 @sheet Resumen
 
--Métrica-Valor-
+@header | Métrica | Valor |
 | Total revenue    | =SUM(Por_Edad!total)      |
 | Total clientes   | =SUM(Por_Edad!contador)   |
 | Ticket medio     | =AVG(Por_Edad!ticket_medio) |
@@ -541,7 +541,7 @@ let consumedDelimitedHeaderBySheet = new Set()
 For each line, the parser checks in order:
 1. Is it a comment (`//`)? → skip
 2. Is it a `@sheet` declaration? → open new sheet, reset state
-3. Is it a header row (`-...-`)? → update `currentHeaders`
+3. Is it a header row (`@header | ... |`)? → update `currentHeaders`
 4. Is it a data row (`|`)? → parse as Cello row
 5. Is it a blank line? → ignore (does not consume row number)
 6. Otherwise → handle by active sheet format rules (native/delimited/markdown/json)
@@ -607,7 +607,7 @@ AST → serializer → .cel text
 Rules:
 - Emits normalized Cello row text (`| ... |`) rather than preserving original spacing/alignment
 - Reconstructs header rows from column metadata
-- Outputs row names only where they exist in the AST
+- Outputs row modifiers before data rows where they exist in the AST
 - Preserves modifier order from parsed AST (`modifiers` array order)
 
 ### 17.6 Ecosystem components

@@ -5,12 +5,12 @@
 ]
 
 @sheet Summary
--Metric-Value-
+@header | Metric | Value |
 | Stock | =SUM(Data!stock) |
 | Reserved | =SUM(Data!reserved) |
 | Available | =B2-B3 |
 
 @sheet Orders
--Metric-Value-
+@header | Metric | Value |
 | Double available | =Summary!B4*2 |
 | Copy stock | =Summary!B2 |

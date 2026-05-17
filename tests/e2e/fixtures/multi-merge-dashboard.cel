@@ -1,17 +1,17 @@
 @sheet Data
--Team-Jobs-Hours-
+@header | Team | Jobs | Hours |
 | A | 4 | 8 |
 | B | 5 | 14 |
 | C | 6 | 16 |
 
 @sheet Dashboard
--Label-Value-Note-
+@header | Label | Value | Note |
 | ## Ops Dashboard | < | < |
 | Total jobs | =SUM(!!Jobs) | ok |
 | Total hours | =SUM(!!Hours) | ok |
 | Avg hours | =SUM(!!Hours)/SUM(!!Jobs) | ok |
 
 @sheet Notes
--Metric-Value-
+@header | Metric | Value |
 | Board total | =Dashboard!B3+Dashboard!B4 |
 | Avg copy | =Dashboard!B5 |

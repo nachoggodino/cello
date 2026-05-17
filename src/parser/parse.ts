@@ -103,8 +103,7 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       continue;
     }
 
-    if (sheet.format.kind === "cello" && isHeaderRow(trimmed)) {
-      applyHeaders(runtime.state, sheet, parseHeadersFromLine(trimmed), lineNumber);
+    if (sheet.format.kind === "cello" && tryHandleHeaderDirective(runtime, sheet, rawLine, trimmed, lineNumber)) {
       continue;
     }
 
@@ -128,7 +127,7 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
       continue;
     }
 
-    handleNativeLine(runtime.state, sheet, rawLine, lineNumber);
+    handleNativeLine(runtime, sheet, rawLine, lineNumber);
   }
 
   finalizeJsonSheets(runtime);
@@ -203,9 +202,10 @@ function tryHandleExternalSource(
   }
 
   const rawPath = (externalSourceMatch[1] ?? "").trim();
-  const filePath = resolve(runtime.options.baseDir ?? getDefaultBaseDir(), rawPath);
+  const baseDir = runtime.options.baseDir ?? getDefaultBaseDir();
+  const filePath = resolve(baseDir, rawPath);
   try {
-    const externalText = readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+    const externalText = readExternalSource(runtime.options, rawPath, baseDir, filePath).replace(/\r\n/g, "\n");
     const externalLines = externalText.split("\n");
     runtime.injectedLines = externalLines.concat(runtime.injectedLines);
   } catch (err) {
@@ -222,6 +222,12 @@ function tryHandleExternalSource(
 
 function getDefaultBaseDir(): string {
   return typeof process !== "undefined" && typeof process.cwd === "function" ? process.cwd() : ".";
+}
+
+function readExternalSource(options: ParseOptions, rawPath: string, baseDir: string, resolvedPath: string): string {
+  return options.readExternalSource
+    ? options.readExternalSource(rawPath, { baseDir, resolvedPath })
+    : readFileSync(resolvedPath, "utf8");
 }
 
 function bufferJsonLine(state: MutableParseState, sheetName: string, rawLine: string): void {
@@ -294,14 +300,35 @@ function createSheet(name: string, rawFormat?: string): SheetNode {
   };
 }
 
-function isHeaderRow(trimmed: string): boolean {
-  return trimmed.startsWith("-") && trimmed.endsWith("-") && trimmed.includes("-");
+function tryHandleHeaderDirective(
+  runtime: ParseRuntime,
+  sheet: SheetNode,
+  rawLine: string,
+  trimmed: string,
+  lineNumber: number
+): boolean {
+  if (!/^@header(?:\s|$)/.test(trimmed)) {
+    return false;
+  }
+
+  const markerStart = rawLine.indexOf("@header");
+  const body = rawLine.slice(markerStart + "@header".length).trim();
+  if (!body.includes("|")) {
+    runtime.pushDiagnostic({
+      level: "warning",
+      line: lineNumber,
+      sheet: sheet.name,
+      message: "@header must be followed by a pipe-separated row."
+    });
+    return true;
+  }
+
+  applyHeaders(runtime.state, sheet, parseHeadersFromLine(body), lineNumber);
+  return true;
 }
 
-function parseHeadersFromLine(trimmed: string): HeaderDef[] {
-  const inner = trimmed.slice(1, -1);
-  const tokens = inner.split("-");
-  return tokens.map((token) => {
+function parseHeadersFromLine(line: string): HeaderDef[] {
+  return splitNativeCells(line).map((token) => {
     const parsed = parseTrailingModifiers(token.trim());
     return { name: parsed.base, modifiers: parsed.modifiers };
   });
@@ -324,34 +351,49 @@ function pushHeaderRow(sheet: SheetNode, headers: HeaderDef[], lineNumber: numbe
   });
 }
 
-function splitNativeRow(line: string): { rowName?: string; rowNameModifiers: Modifier[]; cells: string[] } {
-  const firstPipe = line.indexOf("|");
-  if (firstPipe === -1) {
-    return { rowNameModifiers: [], cells: [line] };
-  }
-
-  const rowNamePart = line.slice(0, firstPipe).trim();
-  const body = line.slice(firstPipe);
-  const tokens = body.split("|").map((t) => t.trim());
-  const cleaned = trimPipeEdgeTokens(tokens);
-  if (rowNamePart.length === 0) {
-    return { rowNameModifiers: [], cells: cleaned };
-  }
-
-  const parsed = parseTrailingModifiers(rowNamePart);
-  return { rowName: parsed.base, rowNameModifiers: parsed.modifiers, cells: cleaned };
+function splitNativeCells(line: string): string[] {
+  const tokens = line.split("|").map((t) => t.trim());
+  return trimPipeEdgeTokens(tokens);
 }
 
-function handleNativeLine(state: MutableParseState, sheet: SheetNode, rawLine: string, lineNumber: number): void {
-  const { rowName, rowNameModifiers, cells } = splitNativeRow(rawLine);
-  state.previousRowByColumn = appendDataRow(
+function splitNativeRow(line: string): { rowModifiers: Modifier[]; unsupportedPrefix?: string; cells: string[] } {
+  const firstPipe = line.indexOf("|");
+  if (firstPipe === -1) {
+    return { rowModifiers: [], cells: [line] };
+  }
+
+  const rowPrefix = line.slice(0, firstPipe).trim();
+  const body = line.slice(firstPipe);
+  const cells = splitNativeCells(body);
+  if (rowPrefix.length === 0) {
+    return { rowModifiers: [], cells };
+  }
+
+  const parsed = parseTrailingModifiers(rowPrefix);
+  if (parsed.base.length === 0) {
+    return { rowModifiers: parsed.modifiers, cells };
+  }
+
+  return { rowModifiers: [], unsupportedPrefix: rowPrefix, cells };
+}
+
+function handleNativeLine(runtime: ParseRuntime, sheet: SheetNode, rawLine: string, lineNumber: number): void {
+  const { rowModifiers, unsupportedPrefix, cells } = splitNativeRow(rawLine);
+  if (unsupportedPrefix) {
+    runtime.pushDiagnostic({
+      level: "warning",
+      line: lineNumber,
+      sheet: sheet.name,
+      message: `Ignored unsupported row prefix "${unsupportedPrefix}". Row references are not supported.`
+    });
+  }
+  runtime.state.previousRowByColumn = appendDataRow(
     sheet,
     cells,
     lineNumber,
-    state.previousRowByColumn,
-    state.currentHeaders,
-    rowName,
-    rowNameModifiers
+    runtime.state.previousRowByColumn,
+    runtime.state.currentHeaders,
+    rowModifiers
   );
 }
 
@@ -392,7 +434,6 @@ function parseDataCells(
   context: {
     rowIndex: number;
     lineNumber: number;
-    rowName?: string;
     rowModifiers: Modifier[];
     previousRowByColumn: Map<number, CellNode>;
     currentHeaders: HeaderDef[];
@@ -453,7 +494,7 @@ function parseDataCells(
     currentByColumn.set(col, cell);
   }
 
-  return createDataRow(context.rowIndex, context.lineNumber, parsedCells, context.rowModifiers, context.rowName);
+  return createDataRow(context.rowIndex, context.lineNumber, parsedCells, context.rowModifiers);
 }
 
 function appendDataRow(
@@ -462,13 +503,11 @@ function appendDataRow(
   lineNumber: number,
   previousRowByColumn: Map<number, CellNode>,
   currentHeaders: HeaderDef[],
-  rowName?: string,
   rowModifiers: Modifier[] = []
 ): Map<number, CellNode> {
   const row = parseDataCells(cells, {
     rowIndex: sheet.rows.length + 1,
     lineNumber,
-    ...(rowName ? { rowName } : {}),
     rowModifiers,
     previousRowByColumn,
     currentHeaders
@@ -567,14 +606,12 @@ function createDataRow(
   index: number,
   sourceLine: number,
   cells: CellNode[],
-  modifiers: Modifier[],
-  rowName?: string
+  modifiers: Modifier[]
 ): RowNode {
   return {
     index,
     kind: "data",
     sourceLine,
-    ...(rowName ? { name: rowName } : {}),
     modifiers,
     cells
   };
