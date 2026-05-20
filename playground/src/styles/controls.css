@@ -1,0 +1,244 @@
+select,
+button,
+a.glassButton {
+  height: var(--control-height);
+  padding-inline: var(--space-8);
+  border: var(--border-default);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  background: var(--glass-control);
+  backdrop-filter: var(--blur-control);
+}
+
+button,
+a.glassButton {
+  cursor: pointer;
+  font-size: var(--font-size-control);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+button:hover,
+button.active,
+a.glassButton:hover {
+  border-color: var(--orange-border);
+  color: var(--orange-dark);
+  background: var(--glass-strong);
+}
+
+button:focus-visible,
+select:focus-visible,
+a.glassButton:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.glassButton,
+.iconTextButton {
+  display: inline-flex;
+  align-items: center;
+}
+
+.glassButton {
+  justify-content: center;
+}
+
+.iconTextButton {
+  gap: var(--space-7);
+}
+
+.primaryAction {
+  border-color: var(--orange-border);
+  color: var(--white-warm);
+  background: var(--orange);
+}
+
+.primaryAction:hover {
+  color: var(--white-warm);
+  background: var(--orange-dark);
+}
+
+.exportAction {
+  color: var(--white-warm);
+  background: var(--ink);
+}
+
+.success {
+  border-color: var(--green-border);
+  color: var(--white-warm);
+  background: var(--green);
+}
+
+.iconButton {
+  display: inline-grid;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  padding: 0;
+  place-items: center;
+}
+
+.iconButton svg,
+.iconTextButton svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  height: var(--topbar-control-height);
+  border-bottom: var(--border-transparent);
+  color: var(--ink);
+  font-size: var(--font-size-topbar-control);
+  font-weight: var(--font-weight-heavy);
+  letter-spacing: var(--letter-spacing-label);
+  text-decoration: none;
+}
+
+.navLink:hover {
+  color: var(--orange-dark);
+  border-bottom-color: var(--orange-border);
+}
+
+.topbarSyntaxToggle {
+  height: var(--topbar-control-height);
+  margin-left: 0;
+  padding-inline: var(--space-10);
+  font-size: var(--font-size-topbar-control);
+}
+
+.topbarSyntaxToggle svg {
+  width: var(--icon-size-large);
+  height: var(--icon-size-large);
+}
+
+.mobileSwitch {
+  display: none;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--border-default);
+  border-radius: var(--radius-mobile-switch);
+  background: var(--glass-mobile);
+  backdrop-filter: var(--blur-control);
+}
+
+.mobileSwitch button {
+  flex: 1;
+  border-color: transparent;
+  background: transparent;
+}
+
+.mobileSwitch button.active {
+  color: var(--white-warm);
+  background: var(--orange);
+}
+
+.exampleSelect {
+  position: relative;
+  min-width: var(--example-select-width);
+  color: var(--muted);
+}
+
+.exampleSelectButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-9);
+  width: 100%;
+  min-width: var(--example-select-width);
+  height: var(--control-height);
+  padding-inline: var(--space-9) var(--space-8);
+  border-color: var(--line);
+  color: var(--ink);
+  background: var(--example-control-bg);
+  font-weight: 500;
+}
+
+.exampleSelectButton.open,
+.exampleSelectButton:hover {
+  border-color: var(--orange-border);
+  color: var(--ink);
+  background: var(--white-warm);
+}
+
+.exampleSelectButton span {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exampleSelectButton svg {
+  width: var(--example-select-icon-size);
+  height: var(--example-select-icon-size);
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.exampleMenu {
+  position: absolute;
+  top: calc(100% + var(--space-4));
+  left: 0;
+  z-index: 20;
+  display: grid;
+  width: var(--example-menu-width);
+  overflow: hidden;
+  border: var(--border-accent);
+  border-radius: var(--radius-control);
+  background: var(--example-menu-bg);
+  box-shadow: var(--shadow-menu);
+}
+
+.exampleMenu button {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  height: auto;
+  padding: var(--example-menu-item-block-padding) var(--space-9);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  backdrop-filter: none;
+}
+
+.exampleMenu button:hover,
+.exampleMenu button:focus-visible {
+  color: var(--orange-dark);
+  background: var(--orange-soft);
+}
+
+.exampleMenu button.selected {
+  color: var(--white-warm);
+  background: var(--orange);
+}
+
+.exampleMenu button small {
+  color: var(--muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-strong);
+}
+
+.exampleMenu button.selected small {
+  color: var(--example-selected-meta);
+}
+
+.bylawsButton {
+  color: var(--orange-dark);
+  background: var(--button-highlight-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button,
+  a.glassButton {
+    transition:
+      background var(--transition-fast),
+      border-color var(--transition-fast),
+      color var(--transition-fast);
+  }
+}

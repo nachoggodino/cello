@@ -1,0 +1,347 @@
+.paneHeader {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: minmax(var(--pane-title-column-min), auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-9);
+  min-height: var(--pane-header-min-height);
+  padding: var(--space-8) var(--space-11);
+  border-bottom: var(--border-default);
+  background: var(--glass-header);
+  backdrop-filter: var(--blur-control);
+}
+
+.previewHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.paneTitle {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.paneTitle strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--font-size-panel-title);
+  font-weight: var(--font-weight-title);
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourceFileName {
+  font-family: var(--font-code);
+  font-size: var(--font-size-control);
+  font-weight: 600;
+}
+
+.paneTitle span,
+.syntaxHeader span,
+.syntaxContent h3 {
+  font-weight: var(--font-weight-heavy);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.paneTitle span {
+  color: var(--faint);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-tight);
+}
+
+.previewHeader .paneTitle strong {
+  font-size: var(--font-size-preview-title);
+}
+
+.paneActions,
+.syntaxHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+}
+
+.paneActions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.paneActionsStart {
+  justify-content: flex-start;
+}
+
+.editorMount {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  flex: 1;
+  background:
+    linear-gradient(135deg, var(--orange-soft), transparent 42%),
+    var(--code-bg-strong);
+  backdrop-filter: var(--blur-editor);
+}
+
+.editorLoading {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  place-items: center;
+  color: var(--code-text);
+  background: var(--code-bg-strong);
+  font-size: var(--font-size-control);
+  font-weight: var(--font-weight-strong);
+}
+
+.previewFrameWrap {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  padding: var(--space-12);
+  background: var(--preview-bg);
+}
+
+.previewFrameWrap iframe {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: var(--border-default);
+  border-radius: var(--radius-compact);
+  background: var(--preview-frame-bg);
+}
+
+.previewOverlay {
+  position: absolute;
+  top: var(--space-15);
+  right: var(--space-15);
+  z-index: 2;
+  padding: var(--space-6) var(--space-8);
+  border: var(--border-accent);
+  border-radius: var(--radius-compact);
+  color: var(--orange-dark);
+  background: var(--glass-overlay);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-strong);
+  pointer-events: none;
+  backdrop-filter: var(--blur-preview-state);
+}
+
+.syntaxPanel {
+  display: flex;
+  width: var(--syntax-width);
+  min-width: var(--syntax-width);
+  min-height: 0;
+  flex: 0 0 var(--syntax-width);
+  margin-right: calc(var(--syntax-width) * -1);
+  overflow: hidden;
+  border-left: var(--border-transparent);
+  background: var(--glass-control);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  clip-path: inset(0 0 0 100%);
+  transform: translateX(var(--space-12));
+  transition:
+    margin-right var(--transition-panel),
+    clip-path var(--transition-panel),
+    opacity var(--transition-opacity),
+    transform var(--transition-panel),
+    visibility 0ms linear var(--transition-visibility-delay),
+    border-color var(--transition-panel);
+  backdrop-filter: var(--blur-syntax);
+}
+
+.syntaxPanel.open {
+  width: var(--syntax-width);
+  flex-basis: var(--syntax-width);
+  margin-right: 0;
+  border-left-color: var(--line);
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  clip-path: inset(0);
+  transform: translateX(0);
+  transition:
+    margin-right var(--transition-panel),
+    clip-path var(--transition-panel),
+    opacity var(--transition-opacity),
+    transform var(--transition-panel),
+    visibility 0ms,
+    border-color var(--transition-panel);
+}
+
+.syntaxContent {
+  display: grid;
+  align-content: start;
+  gap: var(--space-12);
+  width: var(--syntax-width);
+  min-width: var(--syntax-width);
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-11);
+}
+
+.syntaxHeader {
+  position: sticky;
+  top: calc(var(--space-11) * -1);
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-9);
+  margin: calc(var(--space-11) * -1) calc(var(--space-11) * -1) 0;
+  padding: var(--space-11);
+  border-bottom: var(--border-default);
+  background: var(--syntax-header-bg);
+  backdrop-filter: var(--blur-sticky);
+}
+
+.syntaxHeader span {
+  color: var(--faint);
+  font-size: var(--font-size-label);
+}
+
+.syntaxHeader h2 {
+  color: var(--ink);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-title);
+  line-height: var(--line-height-title);
+}
+
+.syntaxHeader p {
+  max-width: var(--syntax-description-max-width);
+  margin-top: var(--space-5);
+  color: var(--muted);
+  font-size: var(--font-size-control);
+  font-weight: 500;
+  line-height: var(--line-height-copy);
+}
+
+.syntaxBlock {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.syntaxBlockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.syntaxContent h3 {
+  color: var(--muted);
+  font-size: var(--font-size-eyebrow);
+}
+
+.syntaxContent pre {
+  overflow: auto;
+  margin: 0;
+  padding: var(--space-9);
+  border: var(--border-dark);
+  border-radius: var(--radius-compact);
+  color: var(--code-text);
+  background: var(--code-bg);
+  font-family: var(--font-code);
+  font-size: var(--font-size-small);
+  line-height: 1.6;
+}
+
+.syntaxTokenKeyword,
+.syntaxTokenOperator,
+.syntaxTokenHeading {
+  font-weight: var(--font-weight-strong);
+}
+
+.syntaxTokenKeyword {
+  color: var(--syntax-keyword);
+}
+
+.syntaxTokenComment {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.syntaxTokenNumber {
+  color: var(--syntax-number);
+}
+
+.syntaxTokenAtom {
+  color: var(--syntax-atom);
+}
+
+.syntaxTokenOperator {
+  color: var(--syntax-operator);
+}
+
+.syntaxTokenHeading {
+  color: var(--syntax-heading);
+}
+
+.syntaxTokenAttribute {
+  color: var(--syntax-attribute);
+}
+
+.syntaxTokenFormula {
+  color: var(--syntax-instruction);
+}
+
+.diagnostics {
+  display: grid;
+  gap: var(--space-8);
+  min-height: var(--diagnostics-min-height);
+  max-height: var(--diagnostics-max-height);
+  overflow: hidden;
+  padding: var(--space-8) var(--space-11) var(--space-9);
+  border-top: var(--border-dark);
+  color: var(--diagnostic-text);
+  background: var(--diagnostic-bg);
+  font-family: var(--font-code);
+  font-size: var(--font-size-control);
+}
+
+.diagnosticSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-9);
+  min-width: 0;
+}
+
+.diagnosticSummary strong {
+  flex: 0 0 auto;
+  color: var(--white-warm);
+}
+
+.diagnosticSummary span {
+  overflow: hidden;
+  color: var(--orange-pale);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnosticList {
+  display: grid;
+  gap: var(--space-4);
+  min-height: 0;
+  max-height: var(--diagnostic-list-max-height);
+  margin: 0;
+  overflow: auto;
+  padding: 0 0 0 var(--space-12);
+  color: var(--diagnostic-list);
+  font-family: var(--font-code);
+  font-size: var(--font-size-small);
+}
+
+.diagnosticList li {
+  white-space: normal;
+}
+
+.diagnostics.hasWarnings {
+  background: var(--diagnostic-warning-bg);
+}
+
+.diagnostics.hasErrors {
+  background: var(--diagnostic-error-bg);
+}

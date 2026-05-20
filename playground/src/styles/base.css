@@ -1,0 +1,45 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: var(--app-min-width);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 14% 14%, var(--orange-wash), transparent 32%),
+    radial-gradient(circle at 86% 12%, var(--blue-wash), transparent 30%),
+    radial-gradient(circle at 70% 92%, var(--green-wash), transparent 30%),
+    linear-gradient(135deg, var(--page) 0%, var(--page-highlight) 48%, var(--page-2) 100%);
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  background:
+    linear-gradient(var(--surface-grid-line) var(--grid-line-width), transparent var(--grid-line-width)),
+    linear-gradient(90deg, var(--surface-grid-line-strong) var(--grid-line-width), transparent var(--grid-line-width));
+  background-size: var(--grid-cell-size) var(--grid-cell-size);
+  mask-image: linear-gradient(180deg, var(--surface-mask), transparent 78%);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button,
+select {
+  font: inherit;
+}

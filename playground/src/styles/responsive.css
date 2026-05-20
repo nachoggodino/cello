@@ -1,0 +1,169 @@
+@media (max-width: 1100px) {
+  .paneHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .editorPane .paneTitle {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 860px) {
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+  }
+
+  body {
+    overflow-y: auto;
+  }
+
+  .appShell {
+    min-height: 100dvh;
+    height: auto;
+    gap: var(--space-8);
+    overflow: visible;
+    padding: var(--space-8) var(--space-11) var(--space-11);
+  }
+
+  .topbar {
+    align-items: center;
+    min-height: var(--topbar-mobile-min-height);
+  }
+
+  .brand {
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--space-10);
+    width: 100%;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .brandLogo {
+    width: var(--brand-logo-mobile-width);
+    height: var(--brand-logo-mobile-height);
+  }
+
+  .brand > p {
+    max-width: var(--brand-copy-mobile-width);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-label);
+    line-height: 1.08;
+    white-space: normal;
+    transform: none;
+  }
+
+  .topbarNav {
+    display: none;
+  }
+
+  .mobileSwitch {
+    display: flex;
+  }
+
+  .workspace {
+    display: block;
+  }
+
+  .pane,
+  .syntaxPanel {
+    display: none;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    margin-right: 0;
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    clip-path: none;
+    transform: none;
+  }
+
+  .pane.mobileVisible,
+  .syntaxPanel.mobileVisible {
+    display: flex;
+  }
+
+  .paneHeader {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    min-height: auto;
+  }
+
+  .paneActions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .exampleSelect,
+  .exampleSelectButton,
+  .exampleMenu {
+    width: 100%;
+  }
+
+  .exampleSelect,
+  .exampleSelectButton {
+    min-width: 0;
+  }
+
+  .syntaxPanel.mobileVisible {
+    width: 100%;
+    flex-basis: auto;
+    overflow: auto;
+    border-left: 0;
+  }
+
+  .syntaxContent {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .syntaxHeaderActions,
+  .divider {
+    display: none;
+  }
+
+  .workbench {
+    border-radius: var(--radius-frame);
+  }
+
+  .editorPane {
+    border-right: 0;
+  }
+
+  .previewFrameWrap {
+    padding: var(--space-8);
+  }
+
+  .previewFrameWrap iframe {
+    border-radius: var(--radius-compact);
+  }
+
+  .previewHeader .paneTitle strong {
+    font-size: var(--preview-title-mobile-size);
+  }
+
+  .diagnostics {
+    gap: var(--space-3);
+  }
+
+  .diagnosticSummary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .diagnosticSummary span {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .siteFooter {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+}
