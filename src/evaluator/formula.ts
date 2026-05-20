@@ -32,15 +32,15 @@ export function translateFormulaForEngine(
   diagnostics: Diagnostic[],
   currentRow?: number
 ): string {
-  let translated = formula;
+  let translated = normalizeFunctionAliases(formula);
 
   translated = translated.replace(
     /!!([A-Za-z_][A-Za-z0-9_]*(?:\[(?:\d+:\d+|\*)\])?|[A-Za-z]+\d+)/g,
     (_m, token: string) => {
-    if (!index.firstSheetName) {
-      return `!!${token}`;
-    }
-    return `${index.firstSheetName}!${token}`;
+      if (!index.firstSheetName) {
+        return `!!${token}`;
+      }
+      return `${index.firstSheetName}!${token}`;
     }
   );
 
@@ -110,6 +110,10 @@ export function translateFormulaForEngine(
   );
 
   return translated;
+}
+
+function normalizeFunctionAliases(formula: string): string {
+  return formula.replace(/\bAVG\s*\(/gi, "AVERAGE(");
 }
 
 function toFullColumnRange(
@@ -193,4 +197,3 @@ function isKeyword(token: string): boolean {
 function isA1Ref(token: string): boolean {
   return /^\$?[A-Za-z]{1,3}\$?\d+$/.test(token);
 }
-

@@ -28,6 +28,13 @@ describe("formula translation", () => {
     expect(translated).toBe("=SUM(A2:A3)");
   });
 
+  it("normalizes AVG aliases before handing formulas to the engine", () => {
+    const ast = createWorkbook([{ name: "S", columns: ["Amount"], dataRows: [[5], [7]] }]);
+    const index = buildWorkbookRefIndex(ast);
+    const translated = translateFormulaForEngine("=AVG(Amount)", "S", index, ast.diagnostics, 4);
+    expect(translated).toBe("=AVERAGE(A2:A3)");
+  });
+
   it("translates current-sheet bare named refs to the current row in scalar context", () => {
     const ast = createWorkbook([{ name: "S", columns: ["Revenue", "Units"], dataRows: [[5, 2], [7, 1], [9, 3]] }]);
     const index = buildWorkbookRefIndex(ast);

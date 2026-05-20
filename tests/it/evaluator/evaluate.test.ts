@@ -26,6 +26,12 @@ describe("evaluate", () => {
     expect(out.sheets[0].rows[2].cells[2].computed).toBe(6);
   });
 
+  it("supports AVG as an alias for AVERAGE", async () => {
+    const ast = parse("@sheet S\n@header | Amount | Average |\n| 5 | |\n| 7 | |\n| Total | =AVG(Amount) |");
+    const out = await evaluate(ast);
+    expect(out.sheets[0].rows[3].cells[1].computed).toBe(6);
+  });
+
   it("supports named column ranges across sheets", async () => {
     const ast = parse("@sheet Data\n@header | Amount |\n| 5 |\n| 7 |\n@sheet Report\n| =SUM(Data!Amount) |");
     const out = await evaluate(ast);

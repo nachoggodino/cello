@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { format as formatCello } from "@cello/core";
 import type { Diagnostic } from "@cello/core";
+import logoUrl from "../../cello-logo.svg?url";
 import { examples, getExample } from "./examples";
-import { LogoMark, ToolbarIcon } from "./icons";
+import { ToolbarIcon } from "./icons";
 import { bylawsUrl, previewDownloadFileName } from "./playgroundConfig";
 import { loadStoredState, saveStoredState } from "./playgroundState";
 import { syntaxExamples } from "./syntaxReference";
@@ -160,13 +162,8 @@ function Topbar({ syntaxOpen, onToggleSyntax }: { syntaxOpen: boolean; onToggleS
   return (
     <header className="topbar">
       <div className="brand">
-        <div className="brandMark" aria-hidden="true">
-          <LogoMark />
-        </div>
-        <div className="brandCopy">
-          <h1>cello</h1>
-          <p>plain text and LLM friendly spreadsheets</p>
-        </div>
+        <div className="brandLogo" aria-label="cello" style={{ "--logo-url": `url("${logoUrl}")` } as CSSProperties} />
+        <p>plain text and LLM friendly spreadsheets</p>
       </div>
       <nav className="topbarNav" aria-label="Playground navigation">
         <a className="navLink" href={bylawsUrl} target="_blank" rel="noreferrer">BYLAWS</a>
@@ -225,6 +222,13 @@ function EditorPane({
   onSourceChange: (value: string) => void;
 }) {
   const sourceLabel = ".cel source";
+  const [exampleMenuOpen, setExampleMenuOpen] = useState(false);
+  const selectedExample = getExample(selectedExampleId);
+
+  const chooseExampleFromMenu = (exampleId: string) => {
+    onChooseExample(exampleId);
+    setExampleMenuOpen(false);
+  };
 
   return (
     <section id="panel-editor" role="tabpanel" aria-labelledby="tab-editor" className={`pane editorPane ${mobileVisible ? "mobileVisible" : ""}`} style={{ flexBasis: `${editorBasis}%` }}>
@@ -234,16 +238,40 @@ function EditorPane({
           <strong className="sourceFileName">{selectedExampleFileName}</strong>
         </div>
         <div className="paneActions paneActionsStart">
-          <label className="exampleSelect" aria-label="Choose example">
-            <ToolbarIcon name="chevron" />
-            <select aria-label="Choose example" value={selectedExampleId} onChange={(event) => onChooseExample(event.target.value)}>
+          <div className="exampleSelect" onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setExampleMenuOpen(false);
+            }
+          }}>
+            <button
+              type="button"
+              className={`exampleSelectButton ${exampleMenuOpen ? "open" : ""}`}
+              aria-haspopup="listbox"
+              aria-expanded={exampleMenuOpen}
+              aria-label="Choose example"
+              onClick={() => setExampleMenuOpen((open) => !open)}
+            >
+              <span>{selectedExample.name}</span>
+              <ToolbarIcon name="chevron" />
+            </button>
+            {exampleMenuOpen && (
+              <div className="exampleMenu" role="listbox" aria-label="Choose example">
               {examples.map((example) => (
-                <option key={example.id} value={example.id}>
-                  {example.name}
-                </option>
+                <button
+                  key={example.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selectedExampleId === example.id}
+                  className={selectedExampleId === example.id ? "selected" : ""}
+                  onClick={() => chooseExampleFromMenu(example.id)}
+                >
+                  <span>{example.name}</span>
+                  <small>{example.fileName}</small>
+                </button>
               ))}
-            </select>
-          </label>
+              </div>
+            )}
+          </div>
         </div>
         <div className="paneActions">
           <button type="button" className="glassButton iconTextButton primaryAction" onClick={onFormat}>
@@ -350,9 +378,67 @@ function SyntaxBlock({ title, code, onCopy, copiedTarget }: { title: string; cod
         <h3>{title}</h3>
         <CopyButton label={label} copiedTarget={copiedTarget} onCopy={() => onCopy(code, label)} />
       </div>
-      <pre>{code}</pre>
+      <pre>{highlightCelloSyntax(code)}</pre>
     </section>
   );
+}
+
+function highlightCelloSyntax(code: string): ReactNode[] {
+  return code.split("\n").flatMap((line, lineIndex, lines) => {
+    const nodes = highlightCelloLine(line, lineIndex);
+    return lineIndex < lines.length - 1 ? [...nodes, "\n"] : nodes;
+  });
+}
+
+function highlightCelloLine(line: string, lineIndex: number): ReactNode[] {
+  const tokenPattern =
+    /(\/\/.*$|@sheet\b|@header\b|@defaults\b|->|##?[^|]*|=[^|]*|\[[^\]]+\]|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?|[|<>^])/gi;
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenPattern.exec(line)) !== null) {
+    const value = match[0];
+    if (match.index > cursor) {
+      nodes.push(line.slice(cursor, match.index));
+    }
+    nodes.push(
+      <span key={`${lineIndex}-${match.index}`} className={`syntaxToken ${getSyntaxTokenClass(value)}`}>
+        {value}
+      </span>
+    );
+    cursor = match.index + value.length;
+  }
+
+  if (cursor < line.length) {
+    nodes.push(line.slice(cursor));
+  }
+  return nodes;
+}
+
+function getSyntaxTokenClass(value: string): string {
+  if (value.startsWith("//")) {
+    return "syntaxTokenComment";
+  }
+  if (value.startsWith("@")) {
+    return "syntaxTokenKeyword";
+  }
+  if (value.startsWith("[")) {
+    return "syntaxTokenAttribute";
+  }
+  if (value.startsWith("=")) {
+    return "syntaxTokenFormula";
+  }
+  if (value.startsWith("#")) {
+    return "syntaxTokenHeading";
+  }
+  if (value === "->" || value === "<" || value === "^" || value === "|") {
+    return "syntaxTokenOperator";
+  }
+  if (/^(?:true|false|null)$/i.test(value)) {
+    return "syntaxTokenAtom";
+  }
+  return "syntaxTokenNumber";
 }
 
 function DiagnosticsBar({ actionMessage, diagnostics, hasErrors, issueCount }: { actionMessage: string; diagnostics: Diagnostic[]; hasErrors: boolean; issueCount: number }) {
