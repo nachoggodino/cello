@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { format as formatCello } from "@cello/core";
 import type { Diagnostic } from "@cello/core";
-import logoUrl from "../../cello-logo.svg?url";
+import logoUrl from "./assets/cello-logo.svg?url";
 import { examples, getExample } from "./examples";
 import { ToolbarIcon } from "./icons";
 import { bylawsUrl, previewDownloadFileName } from "./playgroundConfig";
