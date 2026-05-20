@@ -9,9 +9,14 @@ const celloParser: StreamParser<null> = {
     if (stream.sol() && stream.match(/\s*\/\/.*/)) {
       return "comment";
     }
-    if (stream.sol() && stream.match(/\s*@sheet\b/)) {
-      stream.skipToEnd();
+    if (stream.sol() && stream.match(/\s*@(sheet|header|defaults)\b/)) {
       return "keyword";
+    }
+    if (stream.sol() && stream.match(/\s*->/)) {
+      return "operator";
+    }
+    if (stream.match(/"(?:[^"\\]|\\.)*"/)) {
+      return "string";
     }
     if (stream.match(/\[[^\]]+\]/)) {
       return "attribute";
@@ -19,22 +24,31 @@ const celloParser: StreamParser<null> = {
     if (stream.match(/\|/)) {
       return "separator";
     }
-    if (stream.match(/<|\^/)) {
+    if (stream.match(/<=|>=|<>|[+\-*/^&=<>(),:]|!/)) {
       return "operator";
     }
-    if (stream.match(/=\s*[A-Za-z0-9_!.$()[\]:,+\-*/" ]+/)) {
+    if (stream.match(/\b[A-Z][A-Z0-9_]*(?=\s*\()/)) {
       return "processingInstruction";
     }
     if (stream.match(/##?\s+[^|]+/)) {
       return "heading";
     }
-    if (stream.match(/\b(?:true|false|null)\b/i)) {
+    if (stream.match(/\b\d{4}-\d{2}-\d{2}\b/)) {
       return "atom";
     }
-    if (stream.match(/-?\d+(?:\.\d+)?\b/)) {
+    if (stream.match(/\b(?:TRUE|FALSE|true|false|null)\b/)) {
+      return "atom";
+    }
+    if (stream.match(/-?(?:\d+\.\d+|\d+|\.\d+)\b/)) {
       return "number";
     }
-    if (stream.match(/\b[A-Za-z_][\w.-]*(?=\s*\|)/)) {
+    if (stream.match(/\b[A-Z]+[1-9][0-9]*\b/)) {
+      return "number";
+    }
+    if (stream.match(/(?:!!|[A-Za-z_][\w.-]*!)/)) {
+      return "variableName";
+    }
+    if (stream.match(/\b[A-Za-z_][\w.-]*\b/)) {
       return "variableName";
     }
     stream.next();
@@ -47,6 +61,7 @@ export const celloLanguage = StreamLanguage.define(celloParser);
 export const celloHighlightStyle = HighlightStyle.define([
   { tag: t.keyword, color: "var(--syntax-keyword)", fontWeight: "700" },
   { tag: t.comment, color: "var(--syntax-comment)", fontStyle: "italic" },
+  { tag: t.string, color: "var(--syntax-variable)" },
   { tag: t.number, color: "var(--syntax-number)" },
   { tag: t.bool, color: "var(--syntax-atom)" },
   { tag: t.atom, color: "var(--syntax-atom)" },

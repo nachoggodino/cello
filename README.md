@@ -165,6 +165,8 @@ Useful syntax:
 
 The canonical syntax rules live in [BYLAWS.md](BYLAWS.md). The public specification lives in [docs/SPEC.md](docs/SPEC.md).
 
+Editor integrations can reuse the TextMate grammar and VS Code language configuration documented in [docs/SYNTAX_HIGHLIGHTING.md](docs/SYNTAX_HIGHLIGHTING.md).
+
 ## Package Contents
 
 The npm package publishes only the built library/CLI output and user-facing metadata:
@@ -172,6 +174,7 @@ The npm package publishes only the built library/CLI output and user-facing meta
 - `dist/`
 - `docs/`
 - `examples/`
+- `syntaxes/`
 - `BYLAWS.md`
 - `README.md`
 - `CHANGELOG.md`
