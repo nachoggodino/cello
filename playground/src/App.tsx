@@ -5,7 +5,7 @@ import type { Diagnostic } from "@cello/core";
 import logoUrl from "./assets/cello-logo.svg?url";
 import { examples, getExample } from "./examples";
 import { ToolbarIcon } from "./icons";
-import { bylawsUrl, previewDownloadFileName } from "./playgroundConfig";
+import { bylawsUrl, githubUrl, previewDownloadFileName } from "./playgroundConfig";
 import { loadStoredState, saveStoredState } from "./playgroundState";
 import { syntaxExamples } from "./syntaxReference";
 import { useClipboardStatus } from "./useClipboardStatus";
@@ -167,6 +167,7 @@ function Topbar({ syntaxOpen, onToggleSyntax }: { syntaxOpen: boolean; onToggleS
       </div>
       <nav className="topbarNav" aria-label="Playground navigation">
         <a className="navLink" href={bylawsUrl} target="_blank" rel="noreferrer">BYLAWS</a>
+        <a className="navLink" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
         <button type="button" className={`glassButton iconTextButton topbarSyntaxToggle ${syntaxOpen ? "active" : ""}`} onClick={onToggleSyntax}>
           <ToolbarIcon name="book" />
           <span>Syntax</span>

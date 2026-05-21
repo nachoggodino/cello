@@ -1,4 +1,28 @@
-# Cello Bylaws v1.0
+<div align="center">
+  <img src="playground/src/assets/cello-logo.svg" alt="cello" width="180" />
+  <h1>Cello Bylaws v1.0</h1>
+  <p><strong>Plain-text spreadsheets for humans, agents, diffs, and HTML previews.</strong></p>
+  <p>
+    <img alt="Format: .cel" src="https://img.shields.io/badge/format-.cel-e7662f?style=flat-square" />
+    <img alt="Syntax: BYLAWS first" src="https://img.shields.io/badge/syntax-BYLAWS--first-496f91?style=flat-square" />
+    <img alt="Renderer: HTML" src="https://img.shields.io/badge/render-HTML-5a7d54?style=flat-square" />
+    <img alt="Version: v1.0" src="https://img.shields.io/badge/version-v1.0-6f5f95?style=flat-square" />
+  </p>
+</div>
+
+---
+
+## At a glance
+
+| Layer | What you write | Why it matters |
+|---|---|---|
+| Workbook | `@sheet Summary` | Split one `.cel` file into named spreadsheet tabs |
+| Data | `csv`, `tsv`, `markdown`, `json`, native rows | Keep source data readable and easy to import |
+| Structure | `@header`, `@defaults`, merges | Make tables stable when they grow or move |
+| Logic | `=Price*Quantity`, `=SUM(Total[*])` | Use spreadsheet formulas without hiding the source |
+| Presentation | `[€]`, `[2d]`, `[tone:ok]`, `[bg:#...]` | Add meaning and color while preserving plain text |
+
+> **Design rule:** a `.cel` file should still make sense in a text editor, in a pull request diff, and after rendering to HTML.
 
 Cello is a plain-text spreadsheet format. It is designed to be readable in a text editor, friendly to version control, easy for agents to generate, and renderable as spreadsheet-like HTML.
 
