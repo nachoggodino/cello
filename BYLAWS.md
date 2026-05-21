@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="playground/src/assets/cello-logo.svg" alt="cello" width="180" />
+  <img src="playground/public/cello-logo-simple.svg" alt="cello" width="180" />
   <h1>Cello Bylaws v1.0</h1>
   <p><strong>Plain-text spreadsheets for humans, agents, diffs, and HTML previews.</strong></p>
   <p>
@@ -12,45 +12,25 @@
 
 ---
 
-## At a glance
+Cello is a plain-text spreadsheet format. It defines how spreadsheets are written as text, not which app edits them or who is allowed to use them.
 
-| Layer | What you write | Why it matters |
-|---|---|---|
-| Workbook | `@sheet Summary` | Split one `.cel` file into named spreadsheet tabs |
-| Data | `csv`, `tsv`, `markdown`, `json`, native rows | Keep source data readable and easy to import |
-| Structure | `@header`, `@defaults`, merges | Make tables stable when they grow or move |
-| Logic | `=Price*Quantity`, `=SUM(Total[*])` | Use spreadsheet formulas without hiding the source |
-| Presentation | `[€]`, `[2d]`, `[tone:ok]`, `[bg:#...]` | Add meaning and color while preserving plain text |
+This document is the canonical rulebook for `.cel` files. It states the core bylaws first, then the syntax and behavior rules that follow from them.
 
-> **Design rule:** a `.cel` file should still make sense in a text editor, in a pull request diff, and after rendering to HTML.
+## 0. 📜 First bylaws
 
-Cello is a plain-text spreadsheet format. It is designed to be readable in a text editor, friendly to version control, easy for agents to generate, and renderable as spreadsheet-like HTML.
+### A. Cello is free
 
-This document is the practical guide to writing `.cel` files. It explains the common path first, then the exact rules that keep the format predictable.
+Cello is open source. It will never be paid-only, metered, limited, or locked behind usage caps. Anyone can use it, implement it, render it, and extend tooling around it without permission or quota.
 
-## A complete example
+### B. Cello is a format
 
-```cel
-@sheet Sales [csv]
-product,amount,units
-Apple,6.00,5
-Pear,2.70,3
-Orange,6.00,4
+Cello is not an app, not an editor, and not a hosted product. It is a convention for writing spreadsheets as text so different tools can parse, render, validate, diff, and generate the same source.
 
-@sheet Summary
+### C. Cello is light
 
-@header | KPI | Amount[€][2d] | Units[0d] | Average[€][2d] |
-| Sales | =SUM(Sales!amount[*]) | =SUM(Sales!units[*]) | =Amount/Units |
-```
+Cello exists to be lighter than the alternatives. A `.cel` file should be quick to open, quick to render, easy to diff, easy to generate, and cheap to move through both human and machine workflows.
 
-This file has two sheets:
-
-1. `Sales`, imported as CSV.
-2. `Summary`, written in native Cello syntax.
-
-The summary sheet uses named columns, formulas, and number formatting. The source remains plain text, while the rendered output behaves like a small spreadsheet.
-
-## 1. Workbooks and sheets
+## 1. 📄 Workbooks and sheets
 
 A `.cel` file contains one or more sheets. A sheet starts with `@sheet`.
 
@@ -81,7 +61,7 @@ Examples:
 @sheet RawData [json]
 ```
 
-## 2. Input formats
+## 2. 🧾 Input formats
 
 Cello sheets can be written directly, or loaded from common data formats.
 
@@ -114,7 +94,7 @@ Pear,0.9,3
 
 In `noheader` sheets, columns are still available by coordinate references such as `A1`, `B1`, and `C1`.
 
-## 3. External sources
+## 3. 🔗 External sources
 
 A sheet can load its content from another file. The source line must appear immediately after the sheet declaration and before any row content.
 
@@ -133,7 +113,7 @@ Rules:
 2. Relative paths are resolved from the parser base directory.
 3. If loading fails, Cello records a diagnostic and continues parsing the rest of the workbook.
 
-## 4. Native rows and cells
+## 4. 🧱 Native rows and cells
 
 Native Cello rows are written with pipe-separated cells.
 
@@ -158,7 +138,7 @@ Rules:
 
 In this example, `C` and `D` are on row 2. The blank line is ignored.
 
-## 5. Column headers
+## 5. 🏷️ Column headers
 
 A header row assigns names to columns. Named columns make formulas easier to read than coordinate references.
 
@@ -183,7 +163,7 @@ Rules:
 
 Column letters are always available as well. The first column is `A`, then `B`, `C`, and so on.
 
-## 6. Row-level formatting
+## 6. 🎚️ Row-level formatting
 
 Rows can carry formatting modifiers before the first pipe. These modifiers apply to every cell in that row.
 
@@ -201,7 +181,7 @@ cell > row > column
 
 That means a cell modifier overrides a row modifier, and a row modifier overrides a column modifier.
 
-## 7. Data types
+## 7. 🔤 Data types
 
 Cello infers basic data types automatically.
 
@@ -220,7 +200,7 @@ Use double quotes to force text when a value looks like another type.
 
 The quotes are type markers. They prevent automatic number, boolean, or date inference.
 
-## 8. Formulas
+## 8. 🧮 Formulas
 
 Any cell starting with `=` is a formula.
 
@@ -258,7 +238,7 @@ Same-sheet named references are context-aware:
 
 The total row does not include itself when using `SUM(Revenue)`.
 
-## 9. Named ranges
+## 9. 📐 Named ranges
 
 Named ranges are based on column headers.
 
@@ -282,7 +262,7 @@ Range forms:
 
 Use named ranges when formulas should remain readable after columns move.
 
-## 10. Merges
+## 10. ↔️ Merges
 
 Cello supports horizontal and vertical merges.
 
@@ -300,7 +280,7 @@ Rules:
 3. Merge tokens must appear alone in the cell.
 4. Merge tokens do not carry values or modifiers of their own.
 
-## 11. Modifiers
+## 11. 🎨 Modifiers
 
 Modifiers are attached directly to headers, row prefixes, or cell values.
 
@@ -340,7 +320,7 @@ Supported modifiers:
 Named CSS colors such as `red`, `blue`, `green`, `orange`, and `gold` are accepted.
 Tone presets map to renderer-defined CSS classes so embedding clients can override their colors with custom CSS.
 
-## 12. Column default formulas
+## 12. 🧩 Column default formulas
 
 A column can define a default formula for empty cells in that column with a non-rendered `@defaults` row.
 
@@ -368,7 +348,7 @@ Header, row, and cell-level default modifiers are ignored:
 | [default:=Price*Quantity] |
 ```
 
-## 13. Inline formatting
+## 13. ✍️ Inline formatting
 
 Cell text supports a small Markdown-like formatting set.
 
@@ -391,7 +371,7 @@ Examples:
 
 `#` and `##` apply to the whole cell.
 
-## 14. Comments
+## 14. 💬 Comments
 
 Comments use `//` and are valid outside rows.
 
@@ -409,7 +389,7 @@ Rules:
 2. Comments are not rendered.
 3. Comments inside cell content are not supported.
 
-## 15. Reserved tokens
+## 15. 🔒 Reserved tokens
 
 These tokens have special meaning in Cello.
 
@@ -430,7 +410,7 @@ These tokens have special meaning in Cello.
 | `//` | Comment line |
 | `"..."` | Force text type |
 
-## 16. Error handling and resilience
+## 16. 🛟 Error handling and resilience
 
 Cello is resilient by default. Local issues should not prevent the rest of the workbook from rendering.
 
@@ -444,7 +424,7 @@ Rules:
 
 This behavior is intentional. A `.cel` file should be useful even when part of it is incomplete, generated, or temporarily invalid.
 
-## Quick reference
+## 📚 Quick reference
 
 | Task | Syntax |
 |---|---|
