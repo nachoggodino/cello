@@ -72,6 +72,12 @@
   justify-content: flex-start;
 }
 
+.editorUtilityActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-7);
+}
+
 .editorMount {
   position: relative;
   z-index: 1;

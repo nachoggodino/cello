@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { format as formatCello } from "@cello/core";
 import type { Diagnostic } from "@cello/core";
@@ -92,7 +92,7 @@ export function App() {
 
       <MobileSwitch activePanel={mobilePanel} onChange={setMobilePanel} />
 
-      <main className="workbench">
+      <main className={`workbench ${mobilePanel === "preview" ? "mobilePreviewActive" : ""}`}>
         <div className={`workspace ${syntaxOpen ? "syntaxVisible" : ""}`}>
           <EditorPane
             copiedTarget={copiedTarget}
@@ -273,15 +273,17 @@ function EditorPane({
             )}
           </div>
         </div>
-        <div className="paneActions">
+        <div className="paneActions editorActions">
           <button type="button" className="glassButton iconTextButton primaryAction" onClick={onFormat}>
             <ToolbarIcon name="format" />
             <span>Format</span>
           </button>
-          <button type="button" className="glassButton iconButton" aria-label="Reset example" title="Reset example" onClick={onReset}>
-            <ToolbarIcon name="reset" />
-          </button>
-          <CopyButton label={sourceLabel} copiedTarget={copiedTarget} onCopy={() => onCopy(source, sourceLabel)} />
+          <div className="editorUtilityActions">
+            <button type="button" className="glassButton iconButton" aria-label="Reset example" title="Reset example" onClick={onReset}>
+              <ToolbarIcon name="reset" />
+            </button>
+            <CopyButton label={sourceLabel} copiedTarget={copiedTarget} onCopy={() => onCopy(source, sourceLabel)} />
+          </div>
         </div>
       </div>
       <Suspense fallback={<div className="editorLoading">Loading editor...</div>}>
@@ -309,6 +311,36 @@ function PreviewPane({
   onDownload: () => void;
 }) {
   const previewTitle = renderState === "rendering" ? "Rendering" : renderState === "failed" ? "Last good render" : "Live render";
+  const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const resizePreviewFrame = useCallback(() => {
+    const frame = previewFrameRef.current;
+    if (!frame) {
+      return;
+    }
+
+    const frameDocument = frame.contentDocument;
+    if (!mobileVisible || !window.matchMedia("(max-width: 860px)").matches) {
+      frame.style.height = "";
+      if (frameDocument) {
+        frameDocument.documentElement.style.overflowY = "";
+        frameDocument.body.style.overflowY = "";
+      }
+      return;
+    }
+
+    if (!frameDocument) {
+      return;
+    }
+
+    const { body, documentElement } = frameDocument;
+    documentElement.style.overflowY = "hidden";
+    body.style.overflowY = "hidden";
+    frame.style.height = `${Math.ceil(Math.max(body.scrollHeight, body.offsetHeight, documentElement.scrollHeight, documentElement.offsetHeight, documentElement.clientHeight))}px`;
+  }, [mobileVisible]);
+
+  useEffect(() => {
+    resizePreviewFrame();
+  }, [lastGoodHtml, mobileVisible, previewHtml, resizePreviewFrame]);
 
   return (
     <div className="previewRegion">
@@ -327,7 +359,7 @@ function PreviewPane({
         </div>
         <div className="previewFrameWrap">
           {renderState === "rendering" && <div className="previewOverlay">Rendering...</div>}
-          <iframe title="Rendered Cello workbook" srcDoc={previewHtml || lastGoodHtml} sandbox="allow-scripts allow-same-origin" />
+          <iframe ref={previewFrameRef} title="Rendered Cello workbook" srcDoc={previewHtml || lastGoodHtml} sandbox="allow-scripts allow-same-origin" onLoad={resizePreviewFrame} />
         </div>
       </section>
     </div>

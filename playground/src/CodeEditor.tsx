@@ -53,7 +53,6 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
           celloLanguage,
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           celloSyntaxHighlighting(),
-          EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               onChangeRef.current(update.state.doc.toString());

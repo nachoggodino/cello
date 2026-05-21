@@ -130,16 +130,37 @@
     border-radius: var(--radius-frame);
   }
 
+  .workbench.mobilePreviewActive,
+  .workbench.mobilePreviewActive .workspace,
+  .workbench.mobilePreviewActive .previewRegion,
+  .workbench.mobilePreviewActive .previewPane {
+    overflow: visible;
+  }
+
   .editorPane {
     border-right: 0;
   }
 
+  .editorActions {
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+
+  .editorUtilityActions {
+    margin-left: auto;
+  }
+
   .previewFrameWrap {
+    align-items: start;
+    min-height: calc(100dvh - 220px);
+    overflow: visible;
     padding: var(--space-8);
   }
 
   .previewFrameWrap iframe {
+    min-height: calc(100dvh - 220px);
     border-radius: var(--radius-compact);
+    overflow: hidden;
   }
 
   .previewHeader .paneTitle strong {
