@@ -1,4 +1,5 @@
 export const bylawsUrl = "https://github.com/nachoggodino/cello/blob/main/BYLAWS.md";
+export const githubUrl = "https://github.com/nachoggodino/cello";
 
 export const splitPane = {
   min: 32,
