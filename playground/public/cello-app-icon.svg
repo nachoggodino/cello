@@ -4,8 +4,8 @@
 <svg version="1.0" xmlns="http://www.w3.org/2000/svg"
  width="1005.000000pt" height="1005.000000pt" viewBox="0 0 1005.000000 1005.000000"
  preserveAspectRatio="xMidYMid meet">
-<rect x="42" y="42" width="921" height="921" rx="190" fill="#e7662f" />
-<g transform="translate(26 20)">
+<rect x="0" y="0" width="1005" height="1005" fill="#e7662f" />
+<g transform="translate(150 122) scale(0.75)">
 <g transform="translate(0.000000,1005.000000) scale(0.100000,-0.100000)"
 fill="#fffaf4" stroke="none">
 <path d="M6047 9244 c-95 -17 -236 -69 -311 -114 -340 -207 -527 -622 -473
