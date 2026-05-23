@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="playground/public/cello-logo-simple.svg" alt="cello" width="180" />
+  <img src="playground/public/cello-logo-bylaws.svg" alt="cello" width="180" />
   <h1>Cello Bylaws v1.0</h1>
   <p><strong>Plain-text spreadsheets for humans, agents, diffs, and HTML previews.</strong></p>
   <p>
