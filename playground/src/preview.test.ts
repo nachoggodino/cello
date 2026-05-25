@@ -6,7 +6,7 @@ describe("renderPreview", () => {
     const result = await renderPreview("@sheet S\n| A | B |\n| 1 | 2 |");
 
     expect(result.html).toContain("<!doctype html>");
-    expect(result.html).toContain("Cello Playground Preview");
+    expect(result.html).toContain("<title>Cello</title>");
     expect(result.html).toContain("<script>");
     expect(result.html).toContain("addEventListener");
     expect(result.diagnostics).toHaveLength(0);

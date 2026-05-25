@@ -132,6 +132,9 @@ function renderScript(): string {
       sheets.forEach((sheet) => sheet.classList.toggle("active", sheet.getAttribute("data-sheet") === nextId));
       if (nextId) {
         writeStoredSheet(nextId);
+        try {
+          window.parent?.postMessage({ type: "cello:active-sheet", sheet: nextId }, "*");
+        } catch {}
       }
     }
     tabs.forEach((tab) => {

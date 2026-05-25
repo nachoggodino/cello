@@ -17,7 +17,7 @@ export async function renderPreview(source: string): Promise<PreviewResult> {
   const html = await render(evaluated, {
     evaluate: false,
     interactive: true,
-    title: "Cello Playground Preview"
+    title: "Cello"
   });
 
   return {

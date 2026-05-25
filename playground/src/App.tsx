@@ -7,14 +7,17 @@ import { examples, getExample } from "./examples";
 import { ToolbarIcon } from "./icons";
 import { bylawsUrl, githubUrl, previewDownloadFileName } from "./playgroundConfig";
 import { loadStoredState, saveStoredState } from "./playgroundState";
+import { buildActiveSheetClipboardPayload, buildActiveSheetClipboardPayloadFromHtml } from "./previewClipboard";
 import { syntaxExamples } from "./syntaxReference";
 import { useClipboardStatus } from "./useClipboardStatus";
 import { usePreviewRender } from "./usePreviewRender";
 import { useResizableSplit } from "./useResizableSplit";
+import { VisualEditorPage } from "./VisualEditorPage";
 
 const CodeEditor = lazy(async () => ({ default: (await import("./CodeEditor")).CodeEditor }));
 
 type MobilePanel = "editor" | "preview" | "syntax";
+type PlaygroundPage = "source" | "visual";
 
 const mobilePanels: Array<{ id: MobilePanel; label: string }> = [
   { id: "editor", label: "Editor" },
@@ -24,12 +27,14 @@ const mobilePanels: Array<{ id: MobilePanel; label: string }> = [
 
 export function App() {
   const initialState = useMemo(() => loadStoredState(window.localStorage), []);
+  const [page, setPage] = useState<PlaygroundPage>(() => getPageFromHash(window.location.hash));
   const [selectedExampleId, setSelectedExampleId] = useState(initialState.exampleId);
   const [source, setSource] = useState(initialState.source);
   const [syntaxOpen, setSyntaxOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("editor");
+  const [activeSheetName, setActiveSheetName] = useState<string | undefined>(undefined);
   const { diagnostics, lastGoodHtml, previewHtml, renderState } = usePreviewRender(source);
-  const { actionMessage, copiedTarget, copyText, setActionMessage } = useClipboardStatus();
+  const { actionMessage, copiedTarget, copyPayload, copyText, setActionMessage } = useClipboardStatus();
   const {
     editorBasis,
     onDividerKeyDown,
@@ -42,6 +47,26 @@ export function App() {
   useEffect(() => {
     saveStoredState(window.localStorage, { exampleId: selectedExampleId, source });
   }, [selectedExampleId, source]);
+
+  useEffect(() => {
+    const handleHashChange = () => setPage(getPageFromHash(window.location.hash));
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== "object" || data.type !== "cello:active-sheet" || typeof data.sheet !== "string") {
+        return;
+      }
+      setActiveSheetName(data.sheet);
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
 
   const selectedExample = getExample(selectedExampleId);
   const issueCount = diagnostics.length;
@@ -86,68 +111,87 @@ export function App() {
     setActionMessage("HTML download started.");
   };
 
+  const navigateToPage = (nextPage: PlaygroundPage) => {
+    setPage(nextPage);
+    window.location.hash = nextPage === "visual" ? "editor" : "playground";
+  };
+
   return (
     <div className="appShell">
-      <Topbar syntaxOpen={syntaxOpen} onToggleSyntax={() => setSyntaxOpen((open) => !open)} />
+      <Topbar currentPage={page} syntaxOpen={syntaxOpen} onNavigate={navigateToPage} onToggleSyntax={() => setSyntaxOpen((open) => !open)} />
 
-      <MobileSwitch activePanel={mobilePanel} onChange={setMobilePanel} />
-
-      <main className={`workbench ${mobilePanel === "preview" ? "mobilePreviewActive" : ""}`}>
-        <div className={`workspace ${syntaxOpen ? "syntaxVisible" : ""}`}>
-          <EditorPane
-            copiedTarget={copiedTarget}
-            editorBasis={editorBasis}
-            mobileVisible={mobilePanel === "editor"}
-            selectedExampleId={selectedExampleId}
-            selectedExampleFileName={selectedExample.fileName}
-            source={source}
-            onChooseExample={chooseExample}
-            onCopy={(value, label) => void copyText(value, label)}
-            onFormat={formatSource}
-            onReset={resetExample}
-            onSourceChange={setSource}
-          />
-
-          <div
-            className="divider"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize editor and preview panes"
-            aria-valuemin={splitPane.min}
-            aria-valuemax={splitPane.max}
-            aria-valuenow={Math.round(editorBasis)}
-            tabIndex={0}
-            onPointerDown={onDividerPointerDown}
-            onPointerMove={onDividerPointerMove}
-            onPointerUp={stopDrag}
-            onPointerCancel={stopDrag}
-            onKeyDown={onDividerKeyDown}
-          />
-
-          <PreviewPane
-            copiedTarget={copiedTarget}
-            lastGoodHtml={lastGoodHtml}
-            mobileVisible={mobilePanel === "preview"}
-            previewHtml={previewHtml}
-            renderState={renderState}
-            onCopy={(value, label) => void copyText(value, label)}
-            onDownload={downloadHtml}
-          />
-
-          <aside id="panel-syntax" role="tabpanel" aria-labelledby="tab-syntax" className={`syntaxPanel ${syntaxOpen ? "open" : ""} ${mobilePanel === "syntax" ? "mobileVisible" : ""}`}>
-            <SyntaxPanel
-              onClose={() => {
-                setSyntaxOpen(false);
-                setMobilePanel("editor");
-              }}
-              onCopy={(value, label) => void copyText(value, label)}
-              copiedTarget={copiedTarget}
-            />
-          </aside>
+      <div className="mobileControls">
+        <div className="mobilePageSwitch" role="tablist" aria-label="Playground pages">
+          <button type="button" role="tab" aria-selected={page === "source"} className={page === "source" ? "active" : ""} onClick={() => navigateToPage("source")}>Source</button>
+          <button type="button" role="tab" aria-selected={page === "visual"} className={page === "visual" ? "active" : ""} onClick={() => navigateToPage("visual")}>Visual</button>
         </div>
+        {page === "source" && <MobileSwitch activePanel={mobilePanel} onChange={setMobilePanel} />}
+      </div>
 
-        <DiagnosticsBar actionMessage={actionMessage} diagnostics={diagnostics} hasErrors={hasErrors} issueCount={issueCount} />
-      </main>
+      {page === "source" ? (
+        <>
+          <main className={`workbench ${mobilePanel === "preview" ? "mobilePreviewActive" : ""}`}>
+            <div className={`workspace ${syntaxOpen ? "syntaxVisible" : ""}`}>
+              <EditorPane
+                copiedTarget={copiedTarget}
+                editorBasis={editorBasis}
+                mobileVisible={mobilePanel === "editor"}
+                selectedExampleId={selectedExampleId}
+                selectedExampleFileName={selectedExample.fileName}
+                source={source}
+                onChooseExample={chooseExample}
+                onCopy={(value, label) => void copyText(value, label)}
+                onFormat={formatSource}
+                onReset={resetExample}
+                onSourceChange={setSource}
+              />
+
+              <div
+                className="divider"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize editor and preview panes"
+                aria-valuemin={splitPane.min}
+                aria-valuemax={splitPane.max}
+                aria-valuenow={Math.round(editorBasis)}
+                tabIndex={0}
+                onPointerDown={onDividerPointerDown}
+                onPointerMove={onDividerPointerMove}
+                onPointerUp={stopDrag}
+                onPointerCancel={stopDrag}
+                onKeyDown={onDividerKeyDown}
+              />
+
+              <PreviewPane
+                copiedTarget={copiedTarget}
+                lastGoodHtml={lastGoodHtml}
+                mobileVisible={mobilePanel === "preview"}
+                previewHtml={previewHtml}
+                renderState={renderState}
+                activeSheetName={activeSheetName}
+                onCopyPayload={(payload, label) => void copyPayload(payload, label)}
+                onDownload={downloadHtml}
+                setActionMessage={setActionMessage}
+              />
+
+              <aside id="panel-syntax" role="tabpanel" aria-labelledby="tab-syntax" className={`syntaxPanel ${syntaxOpen ? "open" : ""} ${mobilePanel === "syntax" ? "mobileVisible" : ""}`}>
+                <SyntaxPanel
+                  onClose={() => {
+                    setSyntaxOpen(false);
+                    setMobilePanel("editor");
+                  }}
+                  onCopy={(value, label) => void copyText(value, label)}
+                  copiedTarget={copiedTarget}
+                />
+              </aside>
+            </div>
+
+            <DiagnosticsBar actionMessage={actionMessage} diagnostics={diagnostics} hasErrors={hasErrors} issueCount={issueCount} />
+          </main>
+        </>
+      ) : (
+        <VisualEditorPage source={source} onSourceChange={setSource} onOpenSource={() => navigateToPage("source")} />
+      )}
 
       <footer className="siteFooter">
         <span>BYLAWS-first syntax for durable plain text spreadsheets.</span>
@@ -158,7 +202,21 @@ export function App() {
   );
 }
 
-function Topbar({ syntaxOpen, onToggleSyntax }: { syntaxOpen: boolean; onToggleSyntax: () => void }) {
+function getPageFromHash(hash: string): PlaygroundPage {
+  return hash.replace(/^#/, "") === "editor" ? "visual" : "source";
+}
+
+function Topbar({
+  currentPage,
+  syntaxOpen,
+  onNavigate,
+  onToggleSyntax
+}: {
+  currentPage: PlaygroundPage;
+  syntaxOpen: boolean;
+  onNavigate: (page: PlaygroundPage) => void;
+  onToggleSyntax: () => void;
+}) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -166,9 +224,11 @@ function Topbar({ syntaxOpen, onToggleSyntax }: { syntaxOpen: boolean; onToggleS
         <p>plain text and LLM friendly spreadsheets</p>
       </div>
       <nav className="topbarNav" aria-label="Playground navigation">
+        <button type="button" className={`glassButton topbarPageLink ${currentPage === "source" ? "active" : ""}`} onClick={() => onNavigate("source")}>Source</button>
+        <button type="button" className={`glassButton topbarPageLink ${currentPage === "visual" ? "active" : ""}`} onClick={() => onNavigate("visual")}>Visual editor</button>
         <a className="navLink" href={bylawsUrl} target="_blank" rel="noreferrer">BYLAWS</a>
         <a className="navLink" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
-        <button type="button" className={`glassButton iconTextButton topbarSyntaxToggle ${syntaxOpen ? "active" : ""}`} onClick={onToggleSyntax}>
+        <button type="button" className={`glassButton iconTextButton topbarSyntaxToggle ${syntaxOpen ? "active" : ""}`} onClick={onToggleSyntax} disabled={currentPage !== "source"}>
           <ToolbarIcon name="book" />
           <span>Syntax</span>
         </button>
@@ -300,19 +360,36 @@ function PreviewPane({
   mobileVisible,
   previewHtml,
   renderState,
-  onCopy,
-  onDownload
+  activeSheetName,
+  onCopyPayload,
+  onDownload,
+  setActionMessage
 }: {
   copiedTarget: string;
   lastGoodHtml: string;
   mobileVisible: boolean;
   previewHtml: string;
   renderState: "idle" | "rendering" | "failed";
-  onCopy: (value: string, label: string) => void;
+  activeSheetName?: string;
+  onCopyPayload: (payload: { html: string; plainText: string }, label: string) => void;
   onDownload: () => void;
+  setActionMessage: (message: string) => void;
 }) {
   const previewTitle = renderState === "rendering" ? "Rendering" : renderState === "failed" ? "Last good render" : "Live render";
   const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const copyVisibleTable = useCallback(() => {
+    const frameDocument = previewFrameRef.current?.contentDocument;
+    const payload = frameDocument ? buildActiveSheetClipboardPayload(frameDocument, activeSheetName) : null;
+    const fallbackPayload = payload ?? buildActiveSheetClipboardPayloadFromHtml(previewHtml || lastGoodHtml, activeSheetName);
+
+    if (!fallbackPayload) {
+      setActionMessage("Copy failed: preview table is not ready yet.");
+      return;
+    }
+
+    onCopyPayload(fallbackPayload, "Table");
+  }, [activeSheetName, lastGoodHtml, onCopyPayload, previewHtml, setActionMessage]);
+
   const resizePreviewFrame = useCallback(() => {
     const frame = previewFrameRef.current;
     if (!frame) {
@@ -352,7 +429,7 @@ function PreviewPane({
             <strong>Preview</strong>
           </div>
           <div className="paneActions">
-            <CopyButton label="HTML" copiedTarget={copiedTarget} disabled={!previewHtml} onCopy={() => onCopy(previewHtml, "HTML")} />
+            <CopyButton label="Table" copiedTarget={copiedTarget} disabled={!previewHtml && !lastGoodHtml} onCopy={copyVisibleTable} />
             <button type="button" className="glassButton iconButton exportAction" aria-label="Download HTML" title="Download HTML" onClick={onDownload} disabled={!previewHtml}>
               <ToolbarIcon name="download" />
             </button>
