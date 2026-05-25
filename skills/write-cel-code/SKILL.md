@@ -7,9 +7,7 @@ description: Author high-quality Cello plain-text spreadsheet files. Use when cr
 
 ## Rule Sources
 
-When this skill is installed standalone, use the bundled compact rule reference as the practical source of truth: [references/cello-authoring-reference.md](references/cello-authoring-reference.md).
-
-When working inside the Cello repository, prefer `BYLAWS.md` as the normative syntax guide. Use `docs/SPEC.md` only for additional public-spec context, and preserve implementation caveats documented in `docs/COMPLIANCE.md` and `docs/FORMULA_SUPPORT.md`. For larger changes inside the repository, inspect the current examples in `examples/` and fixtures in `tests/e2e/fixtures/`.
+When this skill is installed standalone, use the bundled compact rule reference first: [references/cello-authoring-reference.md](references/cello-authoring-reference.md). For canonical details or edge cases, load the bundled bylaws: [references/BYLAWS.md](references/BYLAWS.md). If any doubt remains, consult the full bylaws: [references/FULL_BYLAWS.md](references/FULL_BYLAWS.md).
 
 ## Authoring Workflow
 

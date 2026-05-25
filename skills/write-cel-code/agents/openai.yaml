@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Cello Code"
+  short_description: "Author robust .cel spreadsheet files"
+  default_prompt: "Use $write-cel-code to create a readable .cel workbook with formulas and formatting."

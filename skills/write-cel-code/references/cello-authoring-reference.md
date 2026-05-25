@@ -1,5 +1,7 @@
 # Cello Authoring Reference
 
+This is the compact installed reference for day-to-day `.cel` authoring. For canonical syntax details and edge cases, read [BYLAWS.md](BYLAWS.md).
+
 ## Minimal Structure
 
 ```cel
