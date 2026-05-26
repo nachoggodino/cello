@@ -1,37 +1,86 @@
-// Feature showcase: merges, modifiers, markdown import, json import, formulas
+// Feature showcase: defaults, inherited formats, colors, merges, imports, formulas, and first-sheet alias
 
-@sheet Board
-@header | Section | Owner | Status |
-| ## Sprint Board | < | < |
-| API | Nacho | *In progress* |
-| UI | Carla | ~~Blocked~~ |
-| Data | Mario | _Review_ |
-
-@sheet Budget
-@header | Item | Plan[€][2d] | Actual[€][2d] | Diff[€][2d] | Flag |
-@defaults | | | | =Actual-Plan | |
-| Hosting | 300 | 340 | | over[bg:#fee2e2][#991b1b] |
-| Tools   | 120 | 90  | | ok[bg:#dcfce7][#166534] |
-| Ops     | 210 | 210 | | ok[bg:#dcfce7][#166534] |
-[bold] | TOTAL | =SUM(Plan) | =SUM(Actual) | =SUM(Diff) | < |
-
-@sheet ImportedMd [markdown]
-| label | score |
-|------|------:|
-| quality | 9 |
-| speed | 8 |
-| scope | 7 |
-
-@sheet ImportedJson [json]
-[
-  {"team":"A","velocity":30,"bugs":2},
-  {"team":"B","velocity":24,"bugs":5},
-  {"team":"C","velocity":28,"bugs":3}
-]
+@sheet Deals
+@header | Week[0d] | Region | Product | Owner | Stage | Units[0d] | Price[€][2d] | Revenue[€][2d] | Cost[€][2d] | Margin[€][2d] | MarginPct[%][1d] | Health |
+@defaults | | | | | Closed[tone:ok] | | | =Units*Price | =Revenue*0.62 | =Revenue-Cost | =Margin/Revenue | On track[tone:ok] |
+[bold][bg:#111827][#ffffff] | ## Commercial showcase | < | < | < | < | < | < | < | < | < | < | < |
+ | 1 | North[bg:#dbeafe][#1d4ed8] | Atlas | Ana | | 18 | 140 | | | | | |
+ | 1 | South[bg:#dcfce7][#166534] | Beacon | Bea | | 11 | 210 | | | | | |
+ | 1 | East[bg:#fef3c7][#92400e] | Cinder | Chen | Proposed[tone:info] | 8 | 180 | | | | | Review[tone:info] |
+[bg:#f8fafc] | 1 | West[bg:#fae8ff][#86198f] | Delta | Diego | | 14 | 160 | | | | | |
+ | 2 | North[bg:#dbeafe][#1d4ed8] | Echo | Eva | Won[tone:ok][bold] | 21 | 130 | | | | | |
+ | 2 | South[bg:#dcfce7][#166534] | Flux | Faye | | 9 | 260 | | | | | |
+ | 2 | East[bg:#fef3c7][#92400e] | Grove | Gus | At risk[tone:warn] | 7 | 240 | | | | | Needs plan[tone:warn] |
+[bg:#f8fafc] | 2 | West[bg:#fae8ff][#86198f] | Halo | Hana | | 16 | 175 | | | | | |
+ | 3 | North[bg:#dbeafe][#1d4ed8] | Iris | Inez | | 13 | 220 | | | | | |
+ | 3 | South[bg:#dcfce7][#166534] | Juno | Jae | Blocked[tone:error] | 6 | 300 | | | | | Escalate[tone:error][bold] |
+ | 3 | East[bg:#fef3c7][#92400e] | Kilo | Kai | | 19 | 155 | | | | | |
+[bg:#f8fafc] | 3 | West[bg:#fae8ff][#86198f] | Lumen | Luz | | 12 | 280 | | | | | |
+ | 4 | North[bg:#dbeafe][#1d4ed8] | Mesa | Mia | | 22 | 145 | | | | | |
+ | 4 | South[bg:#dcfce7][#166534] | Nova | Nico | Proposed[tone:info] | 10 | 335 | | | | | Review[tone:info] |
+ | 4 | East[bg:#fef3c7][#92400e] | Orbit | Omar | Won[tone:ok][bold] | 24 | 125 | | | | | |
+[bg:#f8fafc] | 4 | West[bg:#fae8ff][#86198f] | Pulse | Pia | | 15 | 205 | | | | | |
+ | 5 | North[bg:#dbeafe][#1d4ed8] | Quartz | Quinn | | 17 | 230 | | | | | |
+ | 5 | South[bg:#dcfce7][#166534] | Relay | Rosa | | 13 | 190 | | | | | |
+ | 5 | East[bg:#fef3c7][#92400e] | Sol | Sam | At risk[tone:warn] | 9 | 315 | | | | | Needs plan[tone:warn] |
+[bg:#f8fafc] | 5 | West[bg:#fae8ff][#86198f] | Tide | Tao | | 18 | 165 | | | | | |
+ | 6 | North[bg:#dbeafe][#1d4ed8] | Umber | Uma | | 20 | 245 | | | | | |
+ | 6 | South[bg:#dcfce7][#166534] | Vale | Vic | Won[tone:ok][bold] | 25 | 135 | | | | | |
+ | 6 | East[bg:#fef3c7][#92400e] | Wave | Wes | | 12 | 275 | | | | | |
+[bg:#f8fafc] | 6 | West[bg:#fae8ff][#86198f] | Xenon | Xavi | Blocked[tone:error] | 5 | 340 | | | | | Escalate[tone:error][bold] |
+ | 7 | North[bg:#dbeafe][#1d4ed8] | Yield | Yara | | 23 | 150 | | | | | |
+ | 7 | South[bg:#dcfce7][#166534] | Zenith | Zoe | | 16 | 225 | | | | | |
+ | 7 | East[bg:#fef3c7][#92400e] | Apex | Ari | Proposed[tone:info] | 11 | 290 | | | | | Review[tone:info] |
+[bg:#f8fafc] | 7 | West[bg:#fae8ff][#86198f] | Bloom | Bo | | 19 | 185 | | | | | |
+ | 8 | North[bg:#dbeafe][#1d4ed8] | Crest | Cleo | | 15 | 310 | | | | | |
+ | 8 | South[bg:#dcfce7][#166534] | Drift | Dani | At risk[tone:warn] | 8 | 325 | | | | | Needs plan[tone:warn] |
+ | 8 | East[bg:#fef3c7][#92400e] | Ember | Emi | | 21 | 170 | | | | | |
+[bg:#f8fafc] | 8 | West[bg:#fae8ff][#86198f] | Fable | Finn | Won[tone:ok][bold] | 26 | 120 | | | | | |
+ | 9 | North[bg:#dbeafe][#1d4ed8] | Glint | Gia | | 12 | 360 | | | | | |
+ | 9 | South[bg:#dcfce7][#166534] | Haven | Hugo | | 20 | 195 | | | | | |
+ | 9 | East[bg:#fef3c7][#92400e] | Ion | Isa | | 14 | 255 | | | | | |
+[bg:#f8fafc] | 9 | West[bg:#fae8ff][#86198f] | Juniper | Jo | Proposed[tone:info] | 10 | 305 | | | | | Review[tone:info] |
+[bold][bg:#e5e7eb][#111827] | TOTAL | < | < | < | < | =SUM(Units) | < | =SUM(Revenue) | =SUM(Cost) | =SUM(Margin) | =SUM(Margin)/SUM(Revenue) | < |
 
 @sheet Summary
-@header | Metric | Value |
-| Budget diff total | =SUM(Budget!Diff) |
-| Avg imported score | =AVG(ImportedMd!score) |
-| Total bugs | =SUM(ImportedJson!bugs) |
-| Max velocity | =MAX(ImportedJson!velocity) |
+@header | Metric | Value[€][2d] | Count[0d] | Share[%][1d] | Note |
+@defaults | | - | - | - | - |
+ | Total revenue | =SUM(!!Revenue[3:38]) | =COUNTA(!!Product[3:38]) | 1 | Uses first-sheet alias |
+ | Total margin | =SUM(!!Margin[3:38]) | | =SUM(!!Margin[3:38])/SUM(!!Revenue[3:38]) | Inherits currency/percent formats |
+ | North revenue | =SUMIF(!!Region[3:38],"North",!!Revenue[3:38]) | | =Value/SUM(!!Revenue[3:38]) | |
+ | South revenue | =SUMIF(!!Region[3:38],"South",!!Revenue[3:38]) | | =Value/SUM(!!Revenue[3:38]) | |
+ | East revenue | =SUMIF(!!Region[3:38],"East",!!Revenue[3:38]) | | =Value/SUM(!!Revenue[3:38]) | |
+ | West revenue | =SUMIF(!!Region[3:38],"West",!!Revenue[3:38]) | | =Value/SUM(!!Revenue[3:38]) | |
+ | Average deal | =AVERAGE(!!Revenue[3:38]) | | =Value/SUM(!!Revenue[3:38]) | |
+ | Largest deal | =MAX(!!Revenue[3:38]) | | =Value/SUM(!!Revenue[3:38]) | |
+[bold][tone:accent] | Health checks | < | < | < | < |
+ | Rows in first sheet | | =COUNTA(!!Product[3:38]) | | Expected 36 deals |
+ | Data quality | | =COUNT(!!Revenue[3:38]) | | Revenue comes from defaults |
+
+@sheet Pipeline
+@header | Lane[tone:accent] | Week1[€][0d] | Week2[€][0d] | Week3[€][0d] | Week4[€][0d] | Owner |
+@defaults | | 0 | 0 | 0 | 0 | Shared[tone:muted] |
+[bold][bg:#312e81][#ffffff] | ## Board with merges | < | < | < | < | < |
+ | North[bg:#dbeafe][#1d4ed8] | =SUM(Deals!Revenue[2:5]) | =SUM(Deals!Revenue[6:9]) | =SUM(Deals!Revenue[10:13]) | =SUM(Deals!Revenue[14:17]) | Ana |
+ | South[bg:#dcfce7][#166534] | =SUM(Deals!Revenue[3:6]) | =SUM(Deals!Revenue[7:10]) | =SUM(Deals!Revenue[11:14]) | =SUM(Deals!Revenue[15:18]) | Bea |
+ | East[bg:#fef3c7][#92400e] | =SUM(Deals!Revenue[4:7]) | =SUM(Deals!Revenue[8:11]) | =SUM(Deals!Revenue[12:15]) | =SUM(Deals!Revenue[16:19]) | Chen |
+ | West[bg:#fae8ff][#86198f] | =SUM(Deals!Revenue[5:8]) | =SUM(Deals!Revenue[9:12]) | =SUM(Deals!Revenue[13:16]) | =SUM(Deals!Revenue[17:20]) | Diego |
+[italic][tone:info] | Carry-forward | ^ | ^ | ^ | ^ | Forecast cells use column defaults when blank |
+[bold][bg:#e0f2fe][#075985] | Visible total | =SUM(Week1) | =SUM(Week2) | =SUM(Week3) | =SUM(Week4) | < |
+
+@sheet Scorecard [markdown]
+| label | score | status |
+|------|------:|--------|
+| color coverage | 9 | strong |
+| defaults usage | 10 | strong |
+| formula density | 9 | strong |
+| merge layout | 8 | visible |
+| import coverage | 8 | mixed |
+
+@sheet Benchmarks [json]
+[
+ {"area":"parser","cases":42,"passed":42,"time_ms":18},
+ {"area":"evaluator","cases":36,"passed":35,"time_ms":44},
+ {"area":"renderer","cases":29,"passed":29,"time_ms":31},
+ {"area":"serializer","cases":24,"passed":24,"time_ms":12}
+]
