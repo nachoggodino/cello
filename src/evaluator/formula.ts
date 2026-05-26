@@ -35,7 +35,7 @@ export function translateFormulaForEngine(
   let translated = normalizeFunctionAliases(formula);
 
   translated = translated.replace(
-    /!!([A-Za-z_][A-Za-z0-9_]*(?:\[(?:\d+:\d+|\*)\])?|[A-Za-z]+\d+)/g,
+    /!!([A-Za-z_][A-Za-z0-9_]*(?:\[(?:\d+|\d+:\d+|\*)\])?|[A-Za-z]+\d+)/g,
     (_m, token: string) => {
       if (!index.firstSheetName) {
         return `!!${token}`;
@@ -45,8 +45,8 @@ export function translateFormulaForEngine(
   );
 
   translated = translated.replace(
-    /([A-Za-z_][A-Za-z0-9_]*)!([A-Za-z_][A-Za-z0-9_]*)(?:\[(?:(\d+):(\d+)|(\*))\])?/g,
-    (m, targetSheet: string, token: string, start: string, end: string, fullSpan: string) => {
+    /([A-Za-z_][A-Za-z0-9_]*)!([A-Za-z_][A-Za-z0-9_]*)(?:\[(?:(\d+)(?::(\d+))?|(\*))\])?/g,
+    (m, targetSheet: string, token: string, start: string, end: string | undefined, fullSpan: string | undefined) => {
       if (isA1Ref(token)) {
         return m;
       }
@@ -64,13 +64,16 @@ export function translateFormulaForEngine(
       if (start && end) {
         return `${targetSheet}!${columnLetter(col)}${start}:${columnLetter(col)}${end}`;
       }
+      if (start) {
+        return `${targetSheet}!${columnLetter(col)}${start}`;
+      }
       return toFullColumnRange(targetSheet, col, target, m, sheetName, diagnostics, token);
     }
   );
 
   translated = translated.replace(
-    /([A-Za-z_][A-Za-z0-9_]*)(?:\[(?:(\d+):(\d+)|(\*))\])?/g,
-    (m, token: string, start: string, end: string, fullSpan: string, offset: number, source: string) => {
+    /([A-Za-z_][A-Za-z0-9_]*)(?:\[(?:(\d+)(?::(\d+))?|(\*))\])?/g,
+    (m, token: string, start: string, end: string | undefined, fullSpan: string | undefined, offset: number, source: string) => {
       const prev = offset > 0 ? (source[offset - 1] ?? "") : "";
       const next = source[offset + m.length] ?? "";
       const prevOk = prev === "" || /[^\w.]/.test(prev);
@@ -93,6 +96,9 @@ export function translateFormulaForEngine(
       }
       if (start && end) {
         return `${columnLetter(col)}${start}:${columnLetter(col)}${end}`;
+      }
+      if (start) {
+        return `${columnLetter(col)}${start}`;
       }
 
       if (isAggregateReferenceContext(source, offset, token)) {

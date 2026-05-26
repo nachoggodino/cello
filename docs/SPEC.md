@@ -271,6 +271,7 @@ Both **named references** and **coordinate references** are valid and can be mix
 =SUM(Precio)          ← Precio rows before current formula row, current sheet
 =SUM(Precio[*])       ← full Precio data column, current sheet
 =SUM(Precio[2:5])     ← rows 2–5 of Precio column
+=Precio[2]            ← row 2 of Precio column
 =AVG(Margen)          ← Margen rows before current formula row
 ```
 
@@ -287,6 +288,7 @@ Use `!` as the separator:
 ```
 =SUM(Ventas!Total)
 =SUM(Ventas!Total[*])
+=Ventas!Total[2]
 =Ventas!B4
 =COUNTIF(Datos!edad,25)
 ```
@@ -364,19 +366,19 @@ celda[bold][bg:red]
 
 Individual cell modifiers **override** column and row modifiers on conflict. Row modifiers override column modifiers.
 
-### 12.1 Column default formulas
+### 12.1 Column defaults
 
 | Modifier | Meaning |
 |----------|---------|
-| `@defaults | ... |` | Fill empty cells in each matching column with the formula |
+| `@defaults | ... |` | Fill empty cells in each matching column with a default value or formula |
 
-`default` is a column-only behavior declared in a non-rendered `@defaults` row below the active header. Header, row, and cell-level default modifiers are ignored. The formula may include the leading `=` or omit it. Explicit row values and formulas always win over the column default.
+`default` is a column-only behavior declared in a non-rendered `@defaults` row below the active header. Header, row, and cell-level default modifiers are ignored. Defaults that start with `=` are formulas. Defaults that do not start with `=` are parsed as literal values. Explicit row values and formulas always win over the column default.
 
 ```
-@header   | Qty | Price | Total[€][2d] |
-@defaults |     |       | =Qty*Price   |
-| 2 | 3 |        ← Total becomes =Qty*Price and renders as €6.00
-| 4 | 5 | 99     ← explicit Total value is preserved
+@header   | Status    | Qty | Price | Total[€][2d] |
+@defaults | "Pending" |     |       | =Qty*Price   |
+|         | 2   | 3   |      ← Status becomes Pending; Total renders as €6.00
+| Done    | 4   | 5   | 99   ← explicit values are preserved
 ```
 
 `@defaults` rows update column metadata only. They do not render and do not consume row numbers.
@@ -391,7 +393,7 @@ Individual cell modifiers **override** column and row modifiers on conflict. Row
 | `[%]`    | Percentage format |
 | `[Nd]`   | N decimal places (e.g. `[2d]`, `[0d]`) |
 
-These modifiers are parsed, preserved in AST, and applied by the renderer to numeric cells. When used on a column header, they apply to every numeric cell in that column. Row and cell modifiers follow the normal precedence rules, so a row or cell can override column decimal/currency choices. Percent display multiplies numeric values by 100 before appending `%`.
+These modifiers are parsed, preserved in AST, and applied by the renderer to numeric cells, including evaluated formula cells such as `=SUM(Amount)[$][2d]`. When used on a column header, they apply to every numeric cell in that column. Row and cell modifiers follow the normal precedence rules, so a row or cell can override column decimal/currency choices. Percent display multiplies numeric values by 100 before appending `%`.
 
 ### 12.3 Color
 
@@ -488,6 +490,7 @@ render(celContent)                    // returns HTML, diagnostics on AST/eval p
 | `"..."`    | Force text type |
 | `!`        | Cross-sheet reference separator |
 | `->`       | External sheet source line |
+| `[n]`      | Single row in column references |
 | `[n:m]`    | Row range in column references |
 | `[...]`    | Modifier block |
 

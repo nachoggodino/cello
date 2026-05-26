@@ -110,6 +110,18 @@ describe("formula translation", () => {
     expect(translateFormulaForEngine("=IF(TRUE,FALSE,TRUE)", "S", index, ast.diagnostics, 4)).toBe("=IF(TRUE,FALSE,TRUE)");
   });
 
+  it("translates named single-row selectors", () => {
+    const ast = createWorkbook([
+      { name: "Orders", columns: ["Units"], dataRows: [[5], [7]] },
+      { name: "Report", columns: ["Units"], dataRows: [[1], [2]] }
+    ]);
+    const index = buildWorkbookRefIndex(ast);
+
+    expect(translateFormulaForEngine("=Orders!Units[2]", "Report", index, ast.diagnostics, 3)).toBe("=Orders!A2");
+    expect(translateFormulaForEngine("=Units[3]", "Report", index, ast.diagnostics, 3)).toBe("=A3");
+    expect(translateFormulaForEngine("=!!Units[3]", "Report", index, ast.diagnostics, 3)).toBe("=Orders!A3");
+  });
+
   it("keeps unresolved tokens when sheetName is not present in the index", () => {
     const ast = createWorkbook([{ name: "Data", columns: ["Amount"], dataRows: [[3]] }]);
     const index = buildWorkbookRefIndex(ast);

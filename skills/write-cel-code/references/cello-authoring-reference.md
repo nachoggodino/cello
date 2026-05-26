@@ -1,6 +1,6 @@
 # Cello Authoring Reference
 
-This is the compact installed reference for day-to-day `.cel` authoring. For canonical syntax details and edge cases, read [BYLAWS.md](BYLAWS.md).
+This is the compact installed reference for day-to-day `.cel` authoring. For canonical syntax details and edge cases, read [BYLAWS.md](BYLAWS.md). For formula selection and syntax, read [hyperformula-functions.md](hyperformula-functions.md).
 
 ## Minimal Structure
 
@@ -57,7 +57,7 @@ Headers apply from the next data row downward. A later `@header` replaces active
 
 ## Defaults
 
-Use `@defaults` for empty cells that should receive a column formula:
+Use `@defaults` for empty cells that should receive a column formula or literal fallback:
 
 ```cel
 @header   | Product | Price[€][2d] | Quantity[0d] | Total[€][2d] |
@@ -66,7 +66,7 @@ Use `@defaults` for empty cells that should receive a column formula:
 | Pear | 0.90 | 3 | |
 ```
 
-Defaults do not render and do not consume row numbers. Explicit values and explicit formulas win.
+Defaults that start with `=` are formulas. Defaults that do not start with `=` are literal values, so use `"Pending"` or `0` directly. Defaults do not render and do not consume row numbers. Explicit values and explicit formulas win.
 
 ## Types
 
@@ -87,13 +87,15 @@ Defaults do not render and do not consume row numbers. Explicit values and expli
 | `=SUM(Total)` | Sum previous rows in current sheet |
 | `=SUM(Total[*])` | Sum full named column |
 | `=SUM(Total[2:5])` | Sum row slice |
+| `=Total[2]` | Single row in named column |
 | `=Sales!B4` | Cross-sheet coordinate |
+| `=Sales!Total[2]` | Cross-sheet named row |
 | `=SUM(Sales!Total[*])` | Cross-sheet named full column |
 | `=SUM(!!Amount)` | Named column on first sheet |
 
 In scalar formulas, a bare column name means the current row. In aggregate formulas, a bare column name means previous rows above the formula row.
 
-Named-reference translation is intentionally narrow in the current implementation. If a complex formula does not resolve as intended, use explicit A1 coordinates.
+Use `COUNT` for numeric cells and `COUNTA` for non-empty text or mixed cells. See [hyperformula-functions.md](hyperformula-functions.md) for a curated function reference. Named-reference translation is intentionally narrow in the current implementation. If a complex formula does not resolve as intended, use explicit A1 coordinates.
 
 ## Modifiers
 
@@ -115,6 +117,7 @@ Scopes:
 @header | Amount[€][2d] |
 [bold] | Total | =SUM(Amount) |
 | Late[tone:error] | 1200 |
+| Total | =SUM(Amount)[$][2d] |
 ```
 
 Precedence is `cell > row > column`.

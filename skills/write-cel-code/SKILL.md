@@ -7,7 +7,7 @@ description: Author high-quality Cello plain-text spreadsheet files. Use when cr
 
 ## Rule Sources
 
-When this skill is installed standalone, use the bundled compact rule reference first: [references/cello-authoring-reference.md](references/cello-authoring-reference.md). For canonical details or edge cases, load the bundled bylaws: [references/BYLAWS.md](references/BYLAWS.md). If any doubt remains, consult the full bylaws: [references/FULL_BYLAWS.md](references/FULL_BYLAWS.md).
+When this skill is installed standalone, use the bundled compact rule reference first: [references/cello-authoring-reference.md](references/cello-authoring-reference.md). For canonical details or edge cases, load the bundled bylaws: [references/BYLAWS.md](references/BYLAWS.md). For formula choice and syntax, use the curated HyperFormula reference: [references/hyperformula-functions.md](references/hyperformula-functions.md).
 
 ## Authoring Workflow
 
@@ -18,7 +18,7 @@ When this skill is installed standalone, use the bundled compact rule reference 
 5. Declare `@header` rows before formulas so named references are available.
 6. Prefer named column formulas over coordinate formulas when the input has stable headers.
 7. Let Cello calculate values. Do not precompute arithmetic that can be expressed as a formula.
-8. Use `@defaults` for repeated column formulas that should fill empty cells.
+8. Use `@defaults` for repeated column formulas or literal fallback values that should fill empty cells.
 9. Add formatting with modifiers, keeping source values and formulas readable.
 10. Use comments only outside rows to document data provenance or assumptions.
 11. Validate the final output mentally against the bylaws, then run the project CLI if available.
@@ -36,6 +36,7 @@ Write `.cel` files that are readable in a plain text editor:
 - Use `=SUM(Column)` for previous rows in subtotal rows and `=SUM(Column[*])` for full-column references.
 - Use cross-sheet references such as `=SUM(Sales!Amount[*])` for analysis sheets.
 - Use `!!Column` only when intentionally referencing the first sheet regardless of its name.
+- Use `=Column[2]` or `=Sheet!Column[2]` for a single row in a named column.
 - Use quotes to force text for values such as `"00123"`, `"TRUE"`, or `"2026-01-15"`.
 - Keep merge tokens `<` and `^` alone in their cells.
 - Keep row modifiers before the first pipe, for example `[bold][tone:accent] | Total | =SUM(Amount) |`.
@@ -63,20 +64,33 @@ Formula selection rules:
 - Previous-row aggregations on the current sheet: `=SUM(Revenue)`.
 - Full-column aggregations: `=SUM(Revenue[*])`.
 - Explicit slices: `=SUM(Revenue[2:5])`.
+- Single-row selectors: `=Revenue[2]`, `=Sales!Revenue[2]`.
 - Cross-sheet named ranges: `=SUM(Sales!Revenue[*])`.
 - Cross-sheet coordinates: `=Sales!B4`.
 - First-sheet alias: `=SUM(!!Amount)`.
+- Count numbers with `COUNT`; count non-empty text or mixed cells with `COUNTA`.
 - If named reference translation is ambiguous or fails in a complex formula, use explicit A1 coordinates.
+
+For formula choice and syntax, use [references/hyperformula-functions.md](references/hyperformula-functions.md). For function-specific edge cases, consult current HyperFormula docs with Context7 before answering: resolve `HyperFormula`, then fetch docs for the exact function or category. Especially check docs for criteria functions (`COUNTIF`, `SUMIF`, `AVERAGEIF`), lookup functions, date/time behavior, and error semantics.
 
 ## Defaults Guidance
 
-Use `@defaults` when every empty cell in a column should receive the same formula:
+Use `@defaults` when every empty cell in a column should receive the same formula or literal value:
 
 ```cel
 @header   | Product | Price[€][2d] | Quantity[0d] | Total[€][2d] |
 @defaults |         |              |              | =Price*Quantity |
 | Apple | 1.20 | 5 | |
 | Pear | 0.90 | 3 | |
+```
+
+Formula defaults must start with `=`. Defaults that do not start with `=` are parsed as literal values:
+
+```cel
+@header   | Status    | Owner |
+@defaults | "Pending" | TBD   |
+|          | Ana   |
+| Done     | Luis  |
 ```
 
 `@defaults` rows do not render and do not consume row numbers. Explicit values and explicit formulas always win.
@@ -94,7 +108,7 @@ Use modifiers to make rendered output useful without obscuring source:
 
 Prefer semantic tones when the meaning matters: `[tone:ok]`, `[tone:warn]`, `[tone:error]`, `[tone:info]`, `[tone:muted]`, `[tone:accent]`. Prefer explicit colors only when the user specifies a palette.
 
-Modifier precedence is `cell > row > column`. Use column modifiers for units and number formatting, row modifiers for total/emphasis rows, and cell modifiers for exceptions.
+Modifier precedence is `cell > row > column`. Use column modifiers for units and number formatting, row modifiers for total/emphasis rows, and cell modifiers for exceptions. Formula result modifiers are valid, for example `=SUM(Amount)[$][2d]`.
 
 ## Review Checklist
 

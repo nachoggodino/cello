@@ -84,6 +84,16 @@ describe("render", () => {
     expect(html).not.toContain("@defaults");
   });
 
+  it("renders literal defaults and formula-cell numeric modifiers", async () => {
+    const html = await render(
+      '@sheet S\n@header | Status | Amount |\n@defaults | "Pending" | |\n| | 2 |\n| Done | 3 |\n[bold] | Total | =SUM(Amount)[$][2d] |'
+    );
+
+    expect(html).toContain("<td >Pending</td>");
+    expect(html).toContain("<td >Done</td>");
+    expect(html).toContain('<td style="font-weight:700">$5.00</td>');
+  });
+
   it("renders spreadsheet coordinate chrome around sheets", async () => {
     const html = await render("@sheet S\n@header | Name | Amount |\n| Ada | 5 |");
     expect(html).toContain('<thead><tr><th class="cello-corner-index"></th><th class="cello-column-index">A</th><th class="cello-column-index">B</th></tr></thead>');

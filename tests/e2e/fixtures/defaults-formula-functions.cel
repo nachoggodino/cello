@@ -1,0 +1,14 @@
+@sheet Orders
+@header | Customer | Units |
+@defaults | "Pending" | 1 |
+| Ada | 2 |
+| Luis | 3 |
+| | |
+
+@sheet Report
+@header | Metric | Value |
+| First units | =Orders!Units[2] |
+| First-sheet units | =!!Units[3] |
+| Customer count | =COUNTA(Orders!Customer) |
+| Numeric count | =COUNT(Orders!Customer) |
+| Unit total | =SUM(Orders!Units)[$][2d] |

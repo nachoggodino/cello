@@ -174,6 +174,7 @@ The npm package publishes only the built library/CLI output and user-facing meta
 - `dist/`
 - `docs/`
 - `examples/`
+- `skills/`
 - `syntaxes/`
 - `BYLAWS.md`
 - `README.md`

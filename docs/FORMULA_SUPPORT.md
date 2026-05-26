@@ -8,10 +8,14 @@
 - Named column translation supported before engine eval:
   - `SUM(Name)`
   - `SUM(Name[n:m])`
+  - `Name[n]`
   - `SUM(Sheet!Name)`
   - `SUM(Sheet!Name[n:m])`
-- `!!` alias supported for first workbook sheet:
+  - `Sheet!Name[n]`
   - `SUM(!!Amount)` -> `SUM(<first-sheet>!Amount)`
+- `!!` alias supported for first workbook sheet.
+- Formula result display modifiers:
+  - `SUM(Amount)[$][2d]`
 
 ## What does not work yet
 
@@ -26,6 +30,7 @@
 - Unresolvable tokens are kept unchanged.
 - Named refs with missing data rows emit warning diagnostics and remain unchanged.
 - Formula parse errors from engine degrade to original formula text in output (`computed`).
+- HyperFormula `COUNT` counts numbers. Use `COUNTA` for non-empty text or mixed-value counts.
 
 ## Suggested next steps
 

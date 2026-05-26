@@ -69,6 +69,29 @@ describe("evaluate", () => {
     expect(out.sheets[0].rows[2].cells[2]).toMatchObject({ kind: "value", value: 99 });
   });
 
+  it("preserves literal column defaults without treating text as formulas", async () => {
+    const ast = parse('@sheet S\n@header | Status | Qty |\n@defaults | "Pending" | 1 |\n| | |\n| Done | 2 |');
+    const out = await evaluate(ast);
+    expect(out.sheets[0].rows[1].cells[0]).toMatchObject({ kind: "value", value: "Pending" });
+    expect(out.sheets[0].rows[1].cells[1]).toMatchObject({ kind: "value", value: 1 });
+    expect(out.sheets[0].rows[2].cells[0]).toMatchObject({ kind: "value", value: "Done" });
+  });
+
+  it("evaluates named single-row selectors across sheets", async () => {
+    const ast = parse("@sheet Orders\n@header | Units |\n| 5 |\n| 7 |\n@sheet Report\n| =Orders!Units[2] |\n| =!!Units[3] |");
+    const out = await evaluate(ast);
+    expect(out.sheets[1].rows[0].cells[0].computed).toBe(5);
+    expect(out.sheets[1].rows[1].cells[0].computed).toBe(7);
+  });
+
+  it("uses COUNTA for string counts while COUNT keeps numeric spreadsheet semantics", async () => {
+    const ast = parse("@sheet Orders\n@header | Customer | Units |\n| Ada | 2 |\n| Luis | 3 |\n@sheet Report\n| =COUNT(Orders!Customer) | =COUNTA(Orders!Customer) | =COUNT(Orders!Units) |");
+    const out = await evaluate(ast);
+    expect(out.sheets[1].rows[0].cells[0].computed).toBe(0);
+    expect(out.sheets[1].rows[0].cells[1].computed).toBe(2);
+    expect(out.sheets[1].rows[0].cells[2].computed).toBe(2);
+  });
+
   it("does not mutate the original AST", async () => {
     const ast = parse("@sheet S\n| 1 | 2 | =A1+B1 |");
     const original = ast.sheets[0].rows[0].cells[2];

@@ -36,16 +36,35 @@ describe("parse (unit-focused edge cases)", () => {
     expect(ast.diagnostics[0]?.message).toContain("Row references are not supported");
   });
 
-  it("fills empty column cells from column default formulas", () => {
-    const ast = parse("@sheet S\n@header | Qty | Price | Total |\n@defaults | | | =Qty*Price |\n| 2 | 3 |\n| 4 | 5 | 99 |");
+  it("fills empty column cells from column default formulas and literal values", () => {
+    const ast = parse(
+      '@sheet S\n@header | Status | Qty | Price | Total |\n@defaults | "Pending" | | | =Qty*Price |\n| | 2 | 3 |\n| Done | 4 | 5 | 99 |'
+    );
     const sheet = ast.sheets[0];
     const firstDataRow = sheet.rows[1];
     const secondDataRow = sheet.rows[2];
 
     expect(sheet.rows).toHaveLength(3);
-    expect(sheet.columns[2]?.modifiers).toEqual([{ key: "default", value: "=Qty*Price", raw: "default:=Qty*Price" }]);
-    expect(firstDataRow.cells[2]).toMatchObject({ kind: "formula", formula: "=Qty*Price", col: 3 });
-    expect(secondDataRow.cells[2]).toMatchObject({ kind: "value", value: 99, col: 3 });
+    expect(sheet.columns[0]?.modifiers).toEqual([{ key: "default", value: '"Pending"', raw: 'default:"Pending"' }]);
+    expect(sheet.columns[3]?.modifiers).toEqual([{ key: "default", value: "=Qty*Price", raw: "default:=Qty*Price" }]);
+    expect(firstDataRow.cells[0]).toMatchObject({ kind: "value", value: "Pending", col: 1 });
+    expect(firstDataRow.cells[3]).toMatchObject({ kind: "formula", formula: "=Qty*Price", col: 4 });
+    expect(secondDataRow.cells[0]).toMatchObject({ kind: "value", value: "Done", col: 1 });
+    expect(secondDataRow.cells[3]).toMatchObject({ kind: "value", value: 99, col: 4 });
+  });
+
+  it("parses modifiers attached to formula cells without stripping named row selectors", () => {
+    const ast = parse("@sheet S\n| =SUM(A1:A2)[$][2d] | =Orders!Units[2] |");
+    const formatted = ast.sheets[0].rows[0].cells[0];
+    const singleRowRef = ast.sheets[0].rows[0].cells[1];
+
+    expect(formatted).toMatchObject({ kind: "formula", formula: "=SUM(A1:A2)" });
+    expect(formatted.modifiers).toEqual([
+      { key: "$", raw: "$" },
+      { key: "2d", raw: "2d" }
+    ]);
+    expect(singleRowRef).toMatchObject({ kind: "formula", formula: "=Orders!Units[2]" });
+    expect(singleRowRef.modifiers).toHaveLength(0);
   });
 
   it("does not treat header, row, or cell default modifiers as generated formulas", () => {
@@ -58,11 +77,12 @@ describe("parse (unit-focused edge cases)", () => {
     expect(sheet.rows[2].cells[2].formula).toBeUndefined();
   });
 
-  it("preserves formula cells including trailing modifier-like text", () => {
+  it("parses trailing cell modifiers on formula cells", () => {
     const ast = parse("@sheet S\n| =A1+B1[bold] |");
     const cell = ast.sheets[0].rows[0].cells[0];
     expect(cell.kind).toBe("formula");
-    expect(cell.formula).toBe("=A1+B1[bold]");
+    expect(cell.formula).toBe("=A1+B1");
+    expect(cell.modifiers).toEqual([{ key: "bold", raw: "bold" }]);
   });
 
   it("warns and skips non-row lines in native cello sheets", () => {

@@ -50,6 +50,13 @@ describe("serialize (unit-focused behavior)", () => {
     expect(out).toContain("@defaults |  |  | =Qty*Price |");
   });
 
+  it("serializes literal defaults and formula cell modifiers", () => {
+    const out = serialize(parse('@sheet S\n@header | Status | Amount |\n@defaults | "Pending" | |\n| | =SUM(A1:A1)[$][2d] |'));
+
+    expect(out).toContain('@defaults | "Pending" |  |');
+    expect(out).toContain("| Pending | =SUM(A1:A1)[$][2d] |");
+  });
+
   it("serializes booleans and numbers as plain literals", () => {
     const ast = createWorkbook(
       { kind: "cello" },

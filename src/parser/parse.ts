@@ -388,12 +388,11 @@ function applyDefaults(state: MutableParseState, sheet: SheetNode, defaults: str
   applyHeadersToColumns(sheet, nextHeaders);
 }
 
-function upsertDefaultModifier(modifiers: Modifier[], formula: string): Modifier[] {
-  const normalized = formula.startsWith("=") ? formula : `=${formula}`;
+function upsertDefaultModifier(modifiers: Modifier[], token: string): Modifier[] {
   const defaultModifier: Modifier = {
-    raw: `default:${normalized}`,
+    raw: `default:${token}`,
     key: "default",
-    value: normalized
+    value: token
   };
   return [...modifiers.filter((modifier) => modifier.key !== "default"), defaultModifier];
 }
@@ -504,7 +503,7 @@ function parseDataCells(
   for (let idx = 0; idx < maxColumn; idx += 1) {
     const col = idx + 1;
     const token = cells[idx]?.trim() ?? "";
-    const defaultFormula = getColumnDefaultFormula(context.currentHeaders[idx]);
+    const defaultToken = getColumnDefaultToken(context.currentHeaders[idx]);
 
     if (token === "<") {
       const left = currentByColumn.get(col - 1);
@@ -530,15 +529,15 @@ function parseDataCells(
       continue;
     }
 
-    if (token.length === 0 && defaultFormula) {
-      const formulaCell = createFormulaCell(context.rowIndex, col, defaultFormula);
-      parsedCells.push(formulaCell);
-      currentByColumn.set(col, formulaCell);
+    if (token.length === 0 && defaultToken) {
+      const cell = createCellFromDefault(context.rowIndex, col, defaultToken);
+      parsedCells.push(cell);
+      currentByColumn.set(col, cell);
       continue;
     }
 
     if (token.startsWith("=")) {
-      const formulaCell = createFormulaCell(context.rowIndex, col, token);
+      const formulaCell = createFormulaCellFromToken(context.rowIndex, col, token);
       parsedCells.push(formulaCell);
       currentByColumn.set(col, formulaCell);
       continue;
@@ -633,7 +632,7 @@ function toHeaderDefs(values: string[]): HeaderDef[] {
 
 function getLastDefaultColumnIndex(headers: HeaderDef[]): number {
   for (let idx = headers.length - 1; idx >= 0; idx -= 1) {
-    if (getColumnDefaultFormula(headers[idx])) {
+    if (getColumnDefaultToken(headers[idx])) {
       return idx + 1;
     }
   }
@@ -641,13 +640,9 @@ function getLastDefaultColumnIndex(headers: HeaderDef[]): number {
   return 0;
 }
 
-function getColumnDefaultFormula(header?: HeaderDef): string | undefined {
-  const formula = header?.modifiers.find((modifier) => modifier.key === "default")?.value?.trim();
-  if (!formula) {
-    return undefined;
-  }
-
-  return formula.startsWith("=") ? formula : `=${formula}`;
+function getColumnDefaultToken(header?: HeaderDef): string | undefined {
+  const token = header?.modifiers.find((modifier) => modifier.key === "default")?.value?.trim();
+  return token && token.length > 0 ? token : undefined;
 }
 
 function createColumnNode(index: number, header?: HeaderDef): ColumnNode {
@@ -696,19 +691,57 @@ function createValueCell(
   };
 }
 
-function createFormulaCell(row: number, col: number, formula: string): CellNode {
+function createCellFromDefault(row: number, col: number, token: string): CellNode {
+  if (token.startsWith("=")) {
+    return createFormulaCellFromToken(row, col, token);
+  }
+
+  const extracted = parseTrailingModifiers(token);
+  const inferred = inferType(extracted.base);
+  return createValueCell(row, col, inferred.parsed, extracted.modifiers, inferred.inferredType, token);
+}
+
+function createFormulaCellFromToken(row: number, col: number, token: string): CellNode {
+  const extracted = parseTrailingModifiers(token);
+  if (extracted.modifiers.length > 0 && extracted.modifiers.every(isCellModifier)) {
+    return createFormulaCell(row, col, extracted.base, extracted.modifiers, token);
+  }
+
+  return createFormulaCell(row, col, token, [], token);
+}
+
+function createFormulaCell(row: number, col: number, formula: string, modifiers: Modifier[] = [], raw = formula): CellNode {
   return {
     row,
     col,
-    raw: formula,
+    raw,
     kind: "formula",
     inferredType: "text",
     value: formula,
     formula,
-    modifiers: [],
+    modifiers,
     colspan: 1,
     rowspan: 1
   };
+}
+
+function isCellModifier(modifier: Modifier): boolean {
+  return (
+    modifier.key === "bold" ||
+    modifier.key === "italic" ||
+    modifier.key === "hidden" ||
+    modifier.key === "%" ||
+    modifier.key === "€" ||
+    modifier.key === "$" ||
+    modifier.key === "£" ||
+    modifier.key === "tone" ||
+    modifier.key === "bg" ||
+    modifier.key === "bgfg" ||
+    modifier.key === "color" ||
+    modifier.key.startsWith("#") ||
+    /^\d+d$/.test(modifier.key) ||
+    /^[a-z]+$/.test(modifier.key)
+  );
 }
 
 function createMergeCell(row: number, col: number, kind: "merge-left" | "merge-up"): CellNode {

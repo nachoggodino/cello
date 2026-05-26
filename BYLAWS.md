@@ -4,9 +4,9 @@
   <p><strong>Plain-text spreadsheets for humans, agents, diffs, and HTML previews.</strong></p>
   <p>
     <img alt="Format: .cel" src="https://img.shields.io/badge/format-.cel-e7662f?style=flat-square" />
-    <img alt="Syntax: BYLAWS first" src="https://img.shields.io/badge/syntax-BYLAWS--first-496f91?style=flat-square" />
+    <img alt="Syntax: BYLAWS first" src="BYLAWS.md" />
     <img alt="Renderer: HTML" src="https://img.shields.io/badge/render-HTML-5a7d54?style=flat-square" />
-    <img alt="Version: v1.0" src="https://img.shields.io/badge/version-v1.0-6f5f95?style=flat-square" />
+    <img alt="Version: v1.0" src="CHANGELOG.md" />
   </p>
 </div>
 
@@ -16,7 +16,7 @@ Cello is a plain-text spreadsheet format. It defines how spreadsheets are writte
 
 This document is the canonical rulebook for `.cel` files. It states the core bylaws first, then the syntax and behavior rules that follow from them.
 
-## 0. 📜 First bylaws
+## 📜 Definition
 
 ### A. Cello is free
 
@@ -219,7 +219,9 @@ Formulas support both coordinate references and named column references.
 | `=SUM(Total)` | Sum values above the formula row in the `Total` column |
 | `=SUM(Total[*])` | Sum the full `Total` column |
 | `=SUM(Total[2:5])` | Sum rows 2 through 5 in the `Total` column |
+| `=Total[2]` | Reference row 2 in the `Total` column |
 | `=Sales!B4` | Coordinate reference on another sheet |
+| `=Sales!Total[2]` | Named column row reference on another sheet |
 | `=SUM(Sales!Total[*])` | Named column reference on another sheet |
 | `=SUM(!!Amount)` | Reference the first sheet in the workbook |
 
@@ -257,8 +259,10 @@ Range forms:
 | `Revenue` | Current row in scalar context, previous rows in aggregate context |
 | `Revenue[*]` | Full data span of the column |
 | `Revenue[2:5]` | Rows 2 through 5 |
+| `Revenue[2]` | Row 2 in the column |
 | `Sales!Revenue` | Named column on another sheet |
 | `Sales!Revenue[*]` | Full named column on another sheet |
+| `Sales!Revenue[2]` | Row 2 in a named column on another sheet |
 
 Use named ranges when formulas should remain readable after columns move.
 
@@ -320,16 +324,16 @@ Supported modifiers:
 Named CSS colors such as `red`, `blue`, `green`, `orange`, and `gold` are accepted.
 Tone presets map to renderer-defined CSS classes so embedding clients can override their colors with custom CSS.
 
-## 12. 🧩 Column default formulas
+## 12. 🧩 Column defaults
 
-A column can define a default formula for empty cells in that column with a non-rendered `@defaults` row.
+A column can define a default value or formula for empty cells in that column with a non-rendered `@defaults` row.
 
 ```cel
-@header   | Product | Price[€][2d] | Quantity[0d] | Total[€][2d] |
-@defaults |         |              |              | =Price*Quantity |
-| Apple | 1.20 | 5 | |
-| Pear  | 0.90 | 3 | |
-| Override | 10 | 2 | 99 |
+@header   | Status    | Product  | Price[€][2d] | Quantity[0d] | Total[€][2d] |
+@defaults | "Pending" |          |              |              | =Price*Quantity |
+|          | Apple    | 1.20         | 5            |              |
+| Done     | Pear     | 0.90         | 3            |              |
+| Done     | Override | 10           | 2            | 99           |
 ```
 
 Rules:
@@ -339,7 +343,7 @@ Rules:
 3. Defaults only apply to empty cells.
 4. Explicit cell values and formulas always win.
 5. `default` is a column-level behavior; do not use it as header, row, or cell formatting.
-6. The leading `=` is optional.
+6. Defaults that start with `=` are formulas. Defaults that do not start with `=` are literal values.
 
 Header, row, and cell-level default modifiers are ignored:
 
@@ -403,6 +407,7 @@ These tokens have special meaning in Cello.
 | `=` | Formula prefix |
 | `!` | Cross-sheet reference separator |
 | `!!` | First-sheet alias |
+| `[n]` | Named column row reference |
 | `[n:m]` | Named column row slice |
 | `[*]` | Full named column span |
 | `<` | Horizontal merge token |
