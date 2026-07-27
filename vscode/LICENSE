@@ -1,0 +1,12 @@
+SPDX-License-Identifier: GPL-3.0-only
+
+Copyright (c) 2026 Cello contributors
+
+Cello is licensed under the GNU General Public License version 3 only.
+
+This package includes HyperFormula as a production dependency and configures it
+with licenseKey: "gpl-v3". HyperFormula is distributed under GPLv3 or a
+commercial license from Handsontable. This package uses the GPLv3 option.
+
+The full GPLv3 license text is available at:
+https://www.gnu.org/licenses/gpl-3.0.txt

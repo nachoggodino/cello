@@ -1,0 +1,5 @@
+*.vsix
+.env.local
+.vercel/
+.vercel
+.env*
