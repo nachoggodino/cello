@@ -102,6 +102,61 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada | 5 |\n[italic][color:#111111] | ^ | 2 |");
   });
 
+  it("renders defaults, inherited styles, formula highlighting, and tone commands", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1] |", onSourceChange);
+
+    expect(screenInput("Defaults A").value).toBe("Pending");
+    expect(document.querySelector("[aria-label='Inherited']")?.textContent).toContain("column: [italic]");
+
+    focusInput(screenInput("B2"));
+    expect(document.querySelector(".formula-equals")?.textContent).toBe("=");
+    expect(document.querySelector(".formula-column")?.textContent).toBe("Total");
+    expect(document.querySelector(".formula-range")?.textContent).toBe("[1:1]");
+
+    clickElement(document.querySelector<HTMLButtonElement>(".celloVisualToneOptions .celloVisualTone-ok"));
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1][tone:ok] |");
+
+    changeInput(screenInput("Defaults A"), "Queued");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Queued | =Qty*Price |\n| Ada | =Total[1:1][tone:ok] |");
+  });
+
+  it("toggles inline heading and strike text styles from the toolbar", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n| Ada |", onSourceChange);
+
+    focusInput(screenInput("A1"));
+    clickButton("H1");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| ## Ada |");
+
+    clickButton("H1");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada |");
+
+    doubleClickButton("Strikethrough");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| ~~Ada~~ |");
+
+    doubleClickButton("Strikethrough");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada |");
+  });
+
+  it("keeps formatting toolbar commands away from selected defaults", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n@header | Name |\n@defaults | Pending |\n| Ada |", onSourceChange);
+
+    focusInput(screenInput("A2"));
+    clickButton("Strikethrough");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name |\n@defaults | Pending |\n| Ada[strike] |");
+
+    focusInput(screenInput("Defaults A"));
+    onSourceChange.mockClear();
+    clickButton("Bold");
+    clickButton("H1");
+    doubleClickButton("Strikethrough");
+    clickElement(document.querySelector<HTMLButtonElement>(".celloVisualToneOptions .celloVisualTone-warn"));
+
+    expect(onSourceChange).not.toHaveBeenCalled();
+  });
+
   it("renames sheets and calls optional source-view action", async () => {
     const onSourceChange = vi.fn();
     const onRequestSourceView = vi.fn();
@@ -197,6 +252,19 @@ function screenColorInput(index: number): HTMLInputElement {
 function clickButton(label: string): void {
   act(() => {
     screenButton(label).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+function doubleClickButton(label: string): void {
+  act(() => {
+    screenButton(label).dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+}
+
+function clickElement(element: HTMLElement | null): void {
+  expect(element).toBeTruthy();
+  act(() => {
+    element?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 }
 

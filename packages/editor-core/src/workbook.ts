@@ -2,7 +2,7 @@ import { parse } from "../../core/src/index.js";
 import type { EditorCell, EditorRow, EditorSheet, EditorWorkbook } from "./model.js";
 import { DEFAULT_SHEET_NAME, rejectExternalSource } from "./options.js";
 import type { CreateEditorWorkbookOptions } from "./options.js";
-import { toBaseRaw } from "./source.js";
+import { parseCellSource, toBaseRaw } from "./source.js";
 
 export function createEditorWorkbook(source: string, options: CreateEditorWorkbookOptions = {}): EditorWorkbook {
   const ast = parse(source, {
@@ -14,6 +14,10 @@ export function createEditorWorkbook(source: string, options: CreateEditorWorkbo
 
   const sheets = ast.sheets.map((sheet) => ({
     name: sheet.name,
+    defaults: sheet.columns.map((column) => {
+      const source = column.modifiers.find((modifier) => modifier.key === "default")?.value ?? "";
+      return parseDefaultCellSource(source);
+    }),
     rows: sheet.rows.map((row) => ({
       kind: row.kind,
       modifiers: row.modifiers,
@@ -32,6 +36,7 @@ export function createEditorWorkbook(source: string, options: CreateEditorWorkbo
 export function createBlankSheet(name: string): EditorSheet {
   return {
     name,
+    defaults: [],
     rows: []
   };
 }
@@ -54,4 +59,11 @@ export function createHeaderRow(columnCount: number): EditorRow {
 
 export function createBlankCell(): EditorCell {
   return { raw: "", modifiers: [] };
+}
+
+function parseDefaultCellSource(source: string): EditorCell {
+  if (source.length === 0) {
+    return createBlankCell();
+  }
+  return parseCellSource(source);
 }

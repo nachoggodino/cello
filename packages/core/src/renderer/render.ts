@@ -81,8 +81,10 @@ function renderStyles(): string {
     .cello-corner-index, .cello-row-index { min-width: 36px; }
     .cello-bold { font-weight: 700; }
     .cello-italic { font-style: italic; }
+    .cello-strike { text-decoration: line-through; }
     .cello-h1 { font-size: 1.25rem; font-weight: 700; }
     .cello-h2 { font-size: 1.1rem; font-weight: 700; }
+    .cello-h3 { font-size: 1rem; font-weight: 700; }
     .cello-tone-ok { color: var(--cello-tone-ok-color); background: var(--cello-tone-ok-background); }
     .cello-tone-warn { color: var(--cello-tone-warn-color); background: var(--cello-tone-warn-background); }
     .cello-tone-error { color: var(--cello-tone-error-color); background: var(--cello-tone-error-background); }
@@ -213,6 +215,9 @@ function buildCellAttributes(cell: CellNode, modifiers: Modifier[]): string {
 }
 
 function formatInline(raw: string): string {
+  if (raw.startsWith("### ")) {
+    return `<span class="cello-h3">${escapeHtml(raw.slice(4))}</span>`;
+  }
   if (raw.startsWith("## ")) {
     return `<span class="cello-h1">${escapeHtml(raw.slice(3))}</span>`;
   }
@@ -316,6 +321,9 @@ function toStyleRule(mod: Modifier): string {
   if (mod.key === "italic") {
     return "font-style:italic";
   }
+  if (mod.key === "strike") {
+    return "text-decoration:line-through";
+  }
   if (mod.key === "bg" && mod.value) {
     return `background:${mod.value}`;
   }
@@ -347,7 +355,7 @@ function toClassName(mod: Modifier): string {
 }
 
 function isNamedColorModifier(key: string): boolean {
-  return /^[a-z]+$/.test(key) && !["bold", "default", "italic", "hidden"].includes(key);
+  return /^[a-z]+$/.test(key) && !["bold", "default", "italic", "hidden", "strike", "tone"].includes(key);
 }
 
 function isToneName(value: string): value is ToneName {

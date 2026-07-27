@@ -34,7 +34,7 @@ describe("render", () => {
 
   it("renders inline formatting and cell styles", async () => {
     const html = await render(
-      "@sheet S\n| *Bold* | _Italic_ | ~~Gone~~ |\n| value[bg:red][bold] | # Big | ## Bigger |\n| mix[#bg:#111:#eee] | named[red] |"
+      "@sheet S\n| *Bold* | _Italic_ | ~~Gone~~ |\n| value[bg:red][bold] | # Big | ## Bigger |\n| mix[#bg:#111:#eee] | named[red] | ### Small[strike] |"
     );
     expect(html).toContain('<span class="cello-bold">Bold</span>');
     expect(html).toContain('<span class="cello-italic">Italic</span>');
@@ -45,6 +45,7 @@ describe("render", () => {
     expect(html).toContain("color:red");
     expect(html).toContain('<span class="cello-h2">Big</span>');
     expect(html).toContain('<span class="cello-h1">Bigger</span>');
+    expect(html).toContain('<td style="text-decoration:line-through"><span class="cello-h3">Small</span></td>');
   });
 
   it("renders supported tone modifiers as overridable css classes", async () => {

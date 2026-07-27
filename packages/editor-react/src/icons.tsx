@@ -1,4 +1,4 @@
-export type EditorIconName = "column" | "format" | "mergeLeft" | "mergeUp" | "paint" | "row" | "sheet" | "trash";
+export type EditorIconName = "column" | "format" | "mergeLeft" | "mergeUp" | "paint" | "row" | "sheet" | "sheetPlus" | "trash";
 
 const paths: Record<EditorIconName, string> = {
   column: "M5 4h14M7 8h4v12H7zM13 8h4v12h-4z",
@@ -8,6 +8,7 @@ const paths: Record<EditorIconName, string> = {
   paint: "M5 13l6-6 6 6-6 6zM14 4l6 6M4 20h16",
   row: "M4 5v14M8 7h12v4H8zM8 13h12v4H8z",
   sheet: "M6 3h9l5 5v13H6zM14 3v6h6M9 14h8M9 18h8",
+  sheetPlus: "M6 3h9l5 5v13H6zM14 3v6h6M10 16h6M13 13v6",
   trash: "M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"
 };
 

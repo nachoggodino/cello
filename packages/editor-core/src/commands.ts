@@ -1,5 +1,5 @@
 import type { Modifier } from "../../core/src/index.js";
-import type { CellAddress, ColorModifierKey, EditorCell, EditorRow, EditorSheet, EditorWorkbook, HeaderRowResolution, MergeDirection, ToggleModifierKey } from "./model.js";
+import type { CellAddress, ColorModifierKey, EditorCell, EditorRow, EditorSheet, EditorWorkbook, HeaderRowResolution, MergeDirection, TextTone, ToggleModifierKey } from "./model.js";
 import type { EditorLayoutOptions } from "./options.js";
 import { GENERATED_SHEET_NAME_PREFIX } from "./options.js";
 import { getVisibleColumnCount } from "./selectors.js";
@@ -16,6 +16,14 @@ export function updateCellRaw(workbook: EditorWorkbook, address: CellAddress, ra
 export function updateCellSource(workbook: EditorWorkbook, address: CellAddress, source: string, options?: EditorLayoutOptions): EditorWorkbook {
   const parsed = parseCellSource(source);
   return updateCell(workbook, address, options, () => parsed);
+}
+
+export function updateDefaultCellSource(workbook: EditorWorkbook, sheetIndex: number, colIndex: number, source: string): EditorWorkbook {
+  const parsed = parseCellSource(source);
+  return updateSheet(workbook, sheetIndex, (sheet) => ({
+    ...sheet,
+    defaults: ensureCellCount(sheet.defaults, colIndex + 1).map((cell, index) => index === colIndex ? parsed : cell)
+  }));
 }
 
 export function toggleCellModifier(workbook: EditorWorkbook, address: CellAddress, key: ToggleModifierKey, options?: EditorLayoutOptions): EditorWorkbook {
@@ -56,6 +64,25 @@ export function setCellColorModifier(workbook: EditorWorkbook, address: CellAddr
   });
 }
 
+export function setCellToneModifier(workbook: EditorWorkbook, address: CellAddress, value: TextTone, options?: EditorLayoutOptions): EditorWorkbook {
+  return updateCell(workbook, address, options, (cell) => {
+    if (isMergeToken(cell.raw)) {
+      return cell;
+    }
+    return {
+      ...cell,
+      modifiers: setModifierValue(cell.modifiers, "tone", value)
+    };
+  });
+}
+
+export function setRowToneModifier(workbook: EditorWorkbook, address: CellAddress, value: TextTone, options?: EditorLayoutOptions): EditorWorkbook {
+  return updateRow(workbook, address.sheetIndex, address.rowIndex, options, (row) => ({
+    ...row,
+    modifiers: setModifierValue(row.modifiers, "tone", value)
+  }));
+}
+
 export function setRowColorModifier(workbook: EditorWorkbook, address: CellAddress, key: ColorModifierKey, value: string, options?: EditorLayoutOptions): EditorWorkbook {
   return updateRow(workbook, address.sheetIndex, address.rowIndex, options, (row) => ({
     ...row,
@@ -77,21 +104,25 @@ export function mergeCell(workbook: EditorWorkbook, address: CellAddress, direct
   return updateCellRaw(workbook, address, getMergeToken(direction), options);
 }
 
-export function addRow(workbook: EditorWorkbook, sheetIndex: number, options?: EditorLayoutOptions): EditorWorkbook {
+export function addRow(workbook: EditorWorkbook, sheetIndex: number, options?: EditorLayoutOptions, afterRowIndex?: number): EditorWorkbook {
   return updateSheet(workbook, sheetIndex, (sheet) => ({
     ...sheet,
-    rows: [...sheet.rows, createBlankRow(getVisibleColumnCount(sheet, options) - 1)]
+    rows: insertAt(sheet.rows, getInsertIndex(sheet.rows.length, afterRowIndex), createBlankRow(getVisibleColumnCount(sheet, options) - 1))
   }));
 }
 
-export function addColumn(workbook: EditorWorkbook, sheetIndex: number): EditorWorkbook {
-  return updateSheet(workbook, sheetIndex, (sheet) => ({
-    ...sheet,
-    rows: sheet.rows.map((row) => ({
-      ...row,
-      cells: [...row.cells, createBlankCell()]
-    }))
-  }));
+export function addColumn(workbook: EditorWorkbook, sheetIndex: number, afterColIndex?: number): EditorWorkbook {
+  return updateSheet(workbook, sheetIndex, (sheet) => {
+    const dataColumnCount = getSheetDataColumnCount(sheet);
+    return {
+      ...sheet,
+      defaults: insertAt(ensureCellCount(sheet.defaults, dataColumnCount), getInsertIndex(dataColumnCount, afterColIndex), createBlankCell()),
+      rows: sheet.rows.map((row) => ({
+        ...row,
+        cells: insertAt(row.cells, getInsertIndex(row.cells.length, afterColIndex), createBlankCell())
+      }))
+    };
+  });
 }
 
 export function addSheet(workbook: EditorWorkbook): EditorWorkbook {
@@ -223,11 +254,26 @@ function toggleModifier(modifiers: Modifier[], key: ToggleModifierKey): Modifier
     : [...modifiers, { raw: key, key }];
 }
 
-function setModifierValue(modifiers: Modifier[], key: ColorModifierKey, value: string): Modifier[] {
+function setModifierValue(modifiers: Modifier[], key: ColorModifierKey | "tone", value: string): Modifier[] {
   const modifier: Modifier = {
     raw: `${key}:${value}`,
     key,
     value
   };
   return [...modifiers.filter((existing) => existing.key !== key), modifier];
+}
+
+function insertAt<T>(values: T[], index: number, value: T): T[] {
+  return [...values.slice(0, index), value, ...values.slice(index)];
+}
+
+function getInsertIndex(length: number, afterIndex: number | undefined): number {
+  if (afterIndex === undefined) {
+    return length;
+  }
+  return Math.max(0, Math.min(afterIndex + 1, length));
+}
+
+function getSheetDataColumnCount(sheet: EditorSheet): number {
+  return getVisibleColumnCount(sheet) - 1;
 }

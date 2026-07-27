@@ -729,6 +729,7 @@ function isCellModifier(modifier: Modifier): boolean {
   return (
     modifier.key === "bold" ||
     modifier.key === "italic" ||
+    modifier.key === "strike" ||
     modifier.key === "hidden" ||
     modifier.key === "%" ||
     modifier.key === "€" ||

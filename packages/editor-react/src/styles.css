@@ -17,6 +17,23 @@
   --cello-visual-accent-selection: var(--orange-selection, rgba(231, 102, 47, 0.32));
   --cello-visual-warm-white: var(--white-warm, #fffaf4);
   --cello-visual-green-wash: var(--green-wash, rgba(90, 125, 84, 0.1));
+  --cello-visual-formula-equals: #d9461f;
+  --cello-visual-formula-column: #1d4ed8;
+  --cello-visual-formula-operator: #7c3aed;
+  --cello-visual-formula-sheet: #047857;
+  --cello-visual-formula-range: #b45309;
+  --cello-visual-tone-ok-color: #166534;
+  --cello-visual-tone-ok-background: #dcfce7;
+  --cello-visual-tone-warn-color: #9a3412;
+  --cello-visual-tone-warn-background: #ffedd5;
+  --cello-visual-tone-error-color: #991b1b;
+  --cello-visual-tone-error-background: #fee2e2;
+  --cello-visual-tone-info-color: #1d4ed8;
+  --cello-visual-tone-info-background: #dbeafe;
+  --cello-visual-tone-muted-color: #475569;
+  --cello-visual-tone-muted-background: #e2e8f0;
+  --cello-visual-tone-accent-color: #6d28d9;
+  --cello-visual-tone-accent-background: #ede9fe;
   --cello-visual-control-height: var(--control-height, 34px);
   --cello-visual-icon-button-size: var(--icon-button-size, 34px);
   --cello-visual-icon-size: var(--icon-size, 16px);
@@ -62,7 +79,9 @@
 }
 
 .celloVisualToolbar {
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: var(--cello-visual-space-8);
   min-width: 0;
   padding: var(--cello-visual-space-7) var(--cello-visual-space-11);
@@ -71,13 +90,28 @@
   backdrop-filter: var(--cello-visual-blur-control);
 }
 
+.celloVisualToolbarRow {
+  display: flex;
+  align-items: center;
+  gap: var(--cello-visual-space-8);
+  min-width: 0;
+}
+
+.celloVisualToolbarTopRow {
+  align-items: stretch;
+}
+
+.celloVisualToolbarFormatRow {
+  flex-wrap: wrap;
+}
+
 .celloVisualToolbarGroup {
   gap: var(--cello-visual-space-6);
   min-width: 0;
 }
 
 .celloVisualToolbarIdentity {
-  flex: 1 1 360px;
+  flex: 2 1 520px;
   align-items: stretch;
 }
 
@@ -115,6 +149,39 @@
   font-size: var(--cello-visual-font-size-control);
 }
 
+.celloVisualFormulaEditor {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 220px;
+}
+
+.celloVisualFormulaHighlight {
+  position: absolute;
+  inset: 0;
+  min-height: var(--cello-visual-control-height);
+  padding-inline: var(--cello-visual-space-8);
+  border: 1px solid transparent;
+  font-family: var(--cello-visual-font-code);
+  font-size: var(--cello-visual-font-size-control);
+  line-height: var(--cello-visual-control-height);
+  overflow: hidden;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+.celloVisualFormulaArea.hasHighlight {
+  color: transparent;
+  caret-color: var(--cello-visual-ink);
+  background: rgba(255, 250, 244, 0.64);
+}
+
+.formula-equals { color: var(--cello-visual-formula-equals); }
+.formula-column { color: var(--cello-visual-formula-column); }
+.formula-operator { color: var(--cello-visual-formula-operator); }
+.formula-sheet { color: var(--cello-visual-formula-sheet); }
+.formula-range { color: var(--cello-visual-formula-range); }
+.formula-plain { color: var(--cello-visual-ink); }
+
 .celloVisualFormulaArea {
   min-height: var(--cello-visual-control-height);
   padding-block: 0;
@@ -143,6 +210,12 @@
   border-color: var(--cello-visual-accent-border);
   color: var(--cello-visual-accent-dark);
   background: var(--cello-visual-control-strong);
+}
+
+.celloVisualScopeSwitch button.active {
+  border-color: var(--cello-visual-accent);
+  color: var(--cello-visual-warm-white);
+  background: var(--cello-visual-accent);
 }
 
 .celloVisualButton:focus-visible,
@@ -190,6 +263,127 @@
 .celloVisualPrimaryAction:hover {
   color: var(--cello-visual-warm-white);
   background: var(--cello-visual-accent-dark);
+}
+
+.celloVisualLabeledGroup {
+  position: relative;
+  padding-left: 48px;
+}
+
+.celloVisualGroupLabel {
+  position: absolute;
+  left: 0;
+  color: var(--cello-visual-muted);
+  font-size: var(--cello-visual-font-size-label);
+  font-weight: var(--cello-visual-font-weight-heavy);
+  letter-spacing: var(--cello-visual-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.celloVisualTextStyleButton {
+  min-width: 36px;
+  padding-inline: var(--cello-visual-space-6);
+}
+
+.celloVisualStrikeIcon {
+  text-decoration: line-through;
+}
+
+.celloVisualToneMenu {
+  position: relative;
+}
+
+.celloVisualToneMenu summary {
+  display: inline-flex;
+  align-items: center;
+  list-style: none;
+}
+
+.celloVisualToneMenu summary::-webkit-details-marker {
+  display: none;
+}
+
+.celloVisualToneOptions {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + var(--cello-visual-space-4));
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(72px, 1fr));
+  gap: var(--cello-visual-space-4);
+  min-width: 160px;
+  padding: var(--cello-visual-space-7);
+  border: 1px solid var(--cello-visual-line-strong);
+  border-radius: var(--cello-visual-radius-control);
+  background: rgba(255, 250, 244, 0.96);
+  box-shadow: var(--cello-visual-shadow-panel);
+}
+
+.celloVisualToneOptions button {
+  height: 28px;
+  border: 1px solid var(--cello-visual-line);
+  border-radius: var(--cello-visual-radius-control);
+  cursor: pointer;
+  font-size: var(--cello-visual-font-size-small);
+  font-weight: var(--cello-visual-font-weight-strong);
+}
+
+.celloVisualInheritedPanel {
+  flex: 1 1 33%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--cello-visual-space-6);
+  min-width: 240px;
+  min-height: var(--cello-visual-control-height);
+  padding: var(--cello-visual-space-5) var(--cello-visual-space-7);
+  border: 1px solid var(--cello-visual-line);
+  border-radius: var(--cello-visual-radius-control);
+  background: var(--cello-visual-input);
+  font-size: var(--cello-visual-font-size-small);
+}
+
+.celloVisualInheritedPanel > span {
+  color: var(--cello-visual-muted);
+  font-size: var(--cello-visual-font-size-label);
+  font-weight: var(--cello-visual-font-weight-heavy);
+  letter-spacing: var(--cello-visual-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.celloVisualInheritedPanel > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cello-visual-space-4);
+  min-width: 0;
+}
+
+.celloVisualInheritedToken {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px var(--cello-visual-space-4);
+  border-radius: var(--cello-visual-radius-control);
+  overflow-wrap: anywhere;
+  font-family: var(--cello-visual-font-code);
+}
+
+.celloVisualInheritedToken.default {
+  color: #854d0e;
+  background: #fef3c7;
+}
+
+.celloVisualInheritedToken.column {
+  color: #075985;
+  background: #e0f2fe;
+}
+
+.celloVisualInheritedToken.row {
+  color: #9f1239;
+  background: #ffe4e6;
+}
+
+.celloVisualInheritedEmpty {
+  color: var(--cello-visual-muted);
 }
 
 .celloVisualScopeSwitch {
@@ -243,7 +437,7 @@
 
 .celloVisualWorkbook {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   min-height: 0;
 }
 
@@ -252,7 +446,7 @@
   min-width: 0;
   overflow-x: auto;
   padding: var(--cello-visual-space-7) var(--cello-visual-space-11);
-  border-bottom: 1px solid var(--cello-visual-line);
+  border-top: 1px solid var(--cello-visual-line);
 }
 
 .celloVisualSheetTabs button {
@@ -305,6 +499,17 @@
 .celloVisualCorner,
 .celloVisualRowHeader {
   left: 0;
+}
+
+.celloVisualRowHeader.selectedRow {
+  color: var(--cello-visual-warm-white);
+  background: var(--cello-visual-accent);
+}
+
+.celloVisualRowHeader.selectedRow .celloVisualHeaderBadge {
+  border-color: rgba(255, 250, 244, 0.64);
+  color: var(--cello-visual-warm-white);
+  background: rgba(169, 63, 30, 0.42);
 }
 
 .celloVisualCorner {
@@ -369,6 +574,47 @@
   outline: none;
 }
 
+.celloVisualDefaultsRow input {
+  color: var(--cello-visual-muted);
+  background: rgba(255, 250, 244, 0.34);
+}
+
+.celloVisualTone-ok,
+.celloVisualTone-ok input {
+  color: var(--cello-visual-tone-ok-color);
+  background: var(--cello-visual-tone-ok-background);
+}
+
+.celloVisualTone-warn,
+.celloVisualTone-warn input {
+  color: var(--cello-visual-tone-warn-color);
+  background: var(--cello-visual-tone-warn-background);
+}
+
+.celloVisualTone-error,
+.celloVisualTone-error input {
+  color: var(--cello-visual-tone-error-color);
+  background: var(--cello-visual-tone-error-background);
+}
+
+.celloVisualTone-info,
+.celloVisualTone-info input {
+  color: var(--cello-visual-tone-info-color);
+  background: var(--cello-visual-tone-info-background);
+}
+
+.celloVisualTone-muted,
+.celloVisualTone-muted input {
+  color: var(--cello-visual-tone-muted-color);
+  background: var(--cello-visual-tone-muted-background);
+}
+
+.celloVisualTone-accent,
+.celloVisualTone-accent input {
+  color: var(--cello-visual-tone-accent-color);
+  background: var(--cello-visual-tone-accent-background);
+}
+
 .celloVisualGrid input::selection {
   background: var(--cello-visual-accent-selection);
 }
@@ -378,7 +624,7 @@
 }
 
 @media (max-width: 1080px) {
-  .celloVisualToolbar {
+  .celloVisualToolbarRow {
     align-items: flex-start;
     flex-wrap: wrap;
   }
@@ -398,7 +644,7 @@
     overflow: visible;
   }
 
-  .celloVisualToolbar {
+  .celloVisualToolbarRow {
     display: grid;
     grid-template-columns: 1fr;
   }
@@ -410,6 +656,8 @@
 
   .celloVisualCellAddress,
   .celloVisualFormulaInput,
+  .celloVisualFormulaEditor,
+  .celloVisualInheritedPanel,
   .celloVisualSheetNameInput,
   .celloVisualSourceButton {
     width: 100%;

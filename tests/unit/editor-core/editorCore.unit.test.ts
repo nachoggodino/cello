@@ -12,12 +12,16 @@ import {
   getCellDisplayText,
   getCellSourceText,
   getCellStyle,
+  getCellToneClass,
   getColumnName,
+  getDefaultCellAt,
+  getInheritedModifierGroups,
   getRowAt,
   getScopedColorValue,
   getSelectedCell,
   getVisibleColumnCount,
   getVisibleRowCount,
+  getVisualCellSpan,
   hasScopedModifier,
   isMergeToken,
   mergeCell,
@@ -28,11 +32,14 @@ import {
   resolveEditorLayoutOptions,
   serializeEditorWorkbook,
   setCellColorModifier,
+  setCellToneModifier,
   setColumnColorModifier,
   setRowColorModifier,
+  setRowToneModifier,
   toggleCellModifier,
   toggleColumnModifier,
   toggleRowModifier,
+  updateDefaultCellSource,
   updateCellRaw,
   updateCellSource
 } from "@cello/editor-core";
@@ -70,7 +77,7 @@ describe("editor core", () => {
   });
 
   it("creates a blank sheet for empty source", () => {
-    expect(createEditorWorkbook("").sheets).toEqual([{ name: "Sheet1", rows: [] }]);
+    expect(createEditorWorkbook("").sheets).toEqual([{ name: "Sheet1", rows: [], defaults: [] }]);
   });
 
   it("uses host-provided parse options for anonymous sheets and external sources", () => {
@@ -155,9 +162,11 @@ describe("editor core", () => {
     const address = { sheetIndex: 0, rowIndex: 0, colIndex: 1 };
     const toggled = toggleCellModifier(workbook, address, "bold");
     const colored = setCellColorModifier(workbook, address, "bg", "#abcdef");
+    const toned = setCellToneModifier(workbook, address, "ok");
 
     expect(getSelectedCell(toggled, address)).toEqual({ raw: "<", modifiers: [] });
     expect(getSelectedCell(colored, address)).toEqual({ raw: "<", modifiers: [] });
+    expect(getSelectedCell(toned, address)).toEqual({ raw: "<", modifiers: [] });
   });
 
   it("adds rows, columns, and sheets", () => {
@@ -168,6 +177,13 @@ describe("editor core", () => {
     expect(updated.sheets[0]?.rows.length).toBe(2);
     expect(updated.sheets[0]?.rows[0]?.cells.length).toBe(3);
     expect(serializeEditorWorkbook(updated)).toContain("@sheet Sheet2");
+  });
+
+  it("inserts rows and columns after the selected cell", () => {
+    const workbook = createEditorWorkbook("@sheet Report\n| A | B |\n| C | D |");
+    const updated = addColumn(addRow(workbook, 0, undefined, 0), 0, 0);
+
+    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| A |  | B |\n|  |\n| C |  | D |");
   });
 
   it("generates the next available sheet name", () => {
@@ -240,6 +256,46 @@ describe("editor core", () => {
     expect(hasScopedModifier(sheet, address, "column", "italic")).toBe(true);
     expect(getScopedColorValue(sheet, address, "cell", "color", "#000000")).toBe("#111111");
     expect(getScopedColorValue(sheet, address, "row", "color", "#000000")).toBe("#000000");
+  });
+
+  it("derives visual display for inline text styles and tones", () => {
+    const workbook = createEditorWorkbook("@sheet Report\n@header | Name[tone:accent] | State |\n[tone:muted] | ## Total[strike] | ok[tone:ok] |");
+    const sheet = workbook.sheets[0];
+
+    expect(getCellDisplayText(getCellAt(sheet, 1, 0))).toBe("Total");
+    expect(getCellStyle(sheet, 1, 0)).toEqual({ fontWeight: 700, textDecoration: "line-through" });
+    expect(getCellToneClass(sheet, 1, 0)).toBe("celloVisualTone-muted");
+    expect(getCellToneClass(sheet, 1, 1)).toBe("celloVisualTone-ok");
+    expect(getCellDisplayText({ raw: "~~Done~~", modifiers: [] })).toBe("Done");
+
+    const tonedCell = setCellToneModifier(workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 0 }, "warn");
+    const tonedRow = setRowToneModifier(workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 0 }, "info");
+    expect(serializeEditorWorkbook(tonedCell)).toContain("## Total[strike][tone:warn]");
+    expect(serializeEditorWorkbook(tonedRow)).toContain("[tone:info] | ## Total[strike] |");
+  });
+
+  it("computes visual merge spans and hidden continuation cells", () => {
+    const workbook = createEditorWorkbook("@sheet Report\n| A | < | < |\n| ^ | < | < |\n| B | C | D |");
+    const sheet = workbook.sheets[0];
+
+    expect(getVisualCellSpan(sheet, 0, 0)).toEqual({ hidden: false, colspan: 3, rowspan: 2 });
+    expect(getVisualCellSpan(sheet, 0, 1)).toEqual({ hidden: true, colspan: 1, rowspan: 1 });
+    expect(getVisualCellSpan(sheet, 1, 0)).toEqual({ hidden: true, colspan: 1, rowspan: 1 });
+    expect(getVisualCellSpan(sheet, 2, 1)).toEqual({ hidden: false, colspan: 1, rowspan: 1 });
+  });
+
+  it("loads, edits, serializes, and reports default values", () => {
+    const workbook = createEditorWorkbook("@sheet Report\n@header | Name[italic] | Amount |\n@defaults | Pending | =Amount*2 |\n| Ada | |");
+    const sheet = workbook.sheets[0];
+
+    expect(getDefaultCellAt(sheet, 0).raw).toBe("Pending");
+    expect(getInheritedModifierGroups(sheet, 1, 0)).toEqual([
+      { scope: "default", modifiers: [{ raw: "default:Pending", key: "default", value: "Pending" }] },
+      { scope: "column", modifiers: [{ raw: "italic", key: "italic" }] }
+    ]);
+
+    const updated = updateDefaultCellSource(workbook, 0, 1, "=Amount*3");
+    expect(serializeEditorWorkbook(updated)).toContain("@defaults | Pending | =Amount*3 |");
   });
 
   it("falls back cleanly when scoped modifiers cannot be found", () => {
