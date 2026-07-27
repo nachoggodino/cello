@@ -12,7 +12,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "paths": {
-      "@cello/core": ["../src/index.ts"]
+      "@cello/core": ["../../packages/core/src/index.ts"]
     },
     "resolveJsonModule": true,
     "isolatedModules": true,

@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { basename, dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
-import { render } from "../renderer/render.js";
+import { render } from "../../core/src/renderer/render.js";
 
 const LIVE_VERSION_PATH = "/__cello/version";
 

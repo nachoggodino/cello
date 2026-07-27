@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as cello from "../../../src/index.js";
+import * as cello from "../../../packages/core/src/index.js";
 
 describe("public API", () => {
   it("exports core functions", () => {

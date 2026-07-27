@@ -19,6 +19,11 @@ const CodeEditor = lazy(async () => ({ default: (await import("./CodeEditor")).C
 type MobilePanel = "editor" | "preview" | "syntax";
 type PlaygroundPage = "source" | "visual";
 
+interface ActiveSheetMessage {
+  type: "cello:active-sheet";
+  sheet: string;
+}
+
 const mobilePanels: Array<{ id: MobilePanel; label: string }> = [
   { id: "editor", label: "Editor" },
   { id: "preview", label: "Preview" },
@@ -56,11 +61,10 @@ export function App() {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      const data = event.data;
-      if (!data || typeof data !== "object" || data.type !== "cello:active-sheet" || typeof data.sheet !== "string") {
+      if (!isActiveSheetMessage(event.data)) {
         return;
       }
-      setActiveSheetName(data.sheet);
+      setActiveSheetName(event.data.sheet);
     };
 
     window.addEventListener("message", handleMessage);
@@ -199,6 +203,17 @@ export function App() {
         <a href={bylawsUrl} target="_blank" rel="noreferrer">Read the BYLAWS</a>
       </footer>
     </div>
+  );
+}
+
+function isActiveSheetMessage(value: unknown): value is ActiveSheetMessage {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "type" in value &&
+    value.type === "cello:active-sheet" &&
+    "sheet" in value &&
+    typeof value.sheet === "string"
   );
 }
 

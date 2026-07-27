@@ -51,7 +51,7 @@
   "main": "./dist/extension.js",
   "scripts": {
     "typecheck": "tsc -p . --noEmit",
-    "compile": "npm run typecheck && esbuild src/extension.ts --bundle --platform=node --format=esm --target=node20 --external:vscode --outfile=dist/extension.js",
+    "compile": "npm run typecheck && node -e \"const fs=require('node:fs');fs.mkdirSync('dist/syntaxes',{recursive:true});fs.copyFileSync('../../packages/language-support/syntaxes/cel.tmLanguage.json','dist/syntaxes/cel.tmLanguage.json');fs.copyFileSync('../../packages/language-support/syntaxes/cel.language-configuration.json','dist/syntaxes/cel.language-configuration.json')\" && esbuild src/extension.ts --bundle --platform=node --format=esm --target=node20 --external:vscode --outfile=dist/extension.js",
     "watch": "tsc -w -p .",
     "test": "vitest run",
     "vscode:prepublish": "npm run compile",
@@ -69,7 +69,7 @@
         "extensions": [
           ".cel"
         ],
-        "configuration": "./syntaxes/cel.language-configuration.json",
+        "configuration": "./dist/syntaxes/cel.language-configuration.json",
         "icon": {
           "light": "./media/cello-file.svg",
           "dark": "./media/cello-file.svg"
@@ -80,7 +80,7 @@
       {
         "language": "cel",
         "scopeName": "source.cel",
-        "path": "./syntaxes/cel.tmLanguage.json"
+        "path": "./dist/syntaxes/cel.tmLanguage.json"
       }
     ],
     "commands": [

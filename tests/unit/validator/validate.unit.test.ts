@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validate } from "../../../src/validator/validate.js";
+import { validate } from "../../../packages/core/src/validator/validate.js";
 
 describe("validate", () => {
   it("returns valid when parsing and evaluation produce no diagnostics", async () => {

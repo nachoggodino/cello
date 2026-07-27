@@ -6,7 +6,7 @@ import type {
   SheetFormat,
   SheetNode,
   WorkbookAst
-} from "../../src/shared/types.js";
+} from "../../packages/core/src/shared/types.js";
 
 type Scalar = string | number | boolean | null;
 

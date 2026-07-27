@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
-import { parse } from "../../src/parser/parse.js";
-import { render } from "../../src/renderer/render.js";
-import type { CellNode, WorkbookAst } from "../../src/shared/types.js";
+import { parse } from "../../packages/core/src/parser/parse.js";
+import { render } from "../../packages/core/src/renderer/render.js";
+import type { CellNode, WorkbookAst } from "../../packages/core/src/shared/types.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "fixtures");

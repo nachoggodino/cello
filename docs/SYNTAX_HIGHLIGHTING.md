@@ -2,8 +2,8 @@
 
 Cello ships a TextMate grammar as the portable syntax-highlighting standard for `.cel` files:
 
-- Grammar: [`syntaxes/cel.tmLanguage.json`](../syntaxes/cel.tmLanguage.json)
-- Editor configuration: [`syntaxes/cel.language-configuration.json`](../syntaxes/cel.language-configuration.json)
+- Grammar: [`packages/language-support/syntaxes/cel.tmLanguage.json`](../packages/language-support/syntaxes/cel.tmLanguage.json)
+- Editor configuration: [`packages/language-support/syntaxes/cel.language-configuration.json`](../packages/language-support/syntaxes/cel.language-configuration.json)
 - Language id: `cel`
 - File extension: `.cel`
 - Root scope: `source.cel`
@@ -22,14 +22,14 @@ Use this contribution block in a VS Code extension package:
         "id": "cel",
         "aliases": ["Cello", "cel"],
         "extensions": [".cel"],
-        "configuration": "./syntaxes/cel.language-configuration.json"
+        "configuration": "./packages/language-support/syntaxes/cel.language-configuration.json"
       }
     ],
     "grammars": [
       {
         "language": "cel",
         "scopeName": "source.cel",
-        "path": "./syntaxes/cel.tmLanguage.json"
+        "path": "./packages/language-support/syntaxes/cel.tmLanguage.json"
       }
     ]
   }

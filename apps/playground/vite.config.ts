@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@cello/core": resolve(import.meta.dirname, "../src/index.ts"),
+      "@cello/core": resolve(import.meta.dirname, "../../packages/core/src/index.ts"),
       "node:fs": resolve(import.meta.dirname, "src/shims/nodeFs.ts"),
       "node:path": resolve(import.meta.dirname, "src/shims/nodePath.ts")
     }

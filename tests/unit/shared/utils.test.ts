@@ -8,8 +8,8 @@ import {
   parseTrailingModifiers,
   splitDelimitedLine,
   workbookHasFormulas
-} from "../../../src/shared/utils.js";
-import { parse } from "../../../src/parser/parse.js";
+} from "../../../packages/core/src/shared/utils.js";
+import { parse } from "../../../packages/core/src/parser/parse.js";
 
 describe("utils", () => {
   it("computes spreadsheet column letters", () => {

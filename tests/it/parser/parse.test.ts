@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../../../src/parser/parse.js";
+import { parse } from "../../../packages/core/src/parser/parse.js";
 
 describe("parse", () => {
   it("parses native sheets, headers, row modifiers and formulas", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render } from "../../../src/renderer/render.js";
+import { render } from "../../../packages/core/src/renderer/render.js";
 
 describe("render", () => {
   it("renders full html document with tab controls", async () => {

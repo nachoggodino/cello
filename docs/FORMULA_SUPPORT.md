@@ -26,7 +26,7 @@
 
 ## Translation model
 
-- Formulas are preprocessed in `src/evaluator/formula.ts`.
+- Formulas are preprocessed in `packages/core/src/evaluator/formula.ts`.
 - Unresolvable tokens are kept unchanged.
 - Named refs with missing data rows emit warning diagnostics and remain unchanged.
 - Formula parse errors from engine degrade to original formula text in output (`computed`).

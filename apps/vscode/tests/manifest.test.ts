@@ -12,7 +12,7 @@ describe("extension manifest", () => {
       expect.objectContaining({
         id: "cel",
         extensions: [".cel"],
-        configuration: "./syntaxes/cel.language-configuration.json",
+        configuration: "./dist/syntaxes/cel.language-configuration.json",
         icon: {
           light: "./media/cello-file.svg",
           dark: "./media/cello-file.svg"
@@ -23,7 +23,7 @@ describe("extension manifest", () => {
       expect.objectContaining({
         language: "cel",
         scopeName: "source.cel",
-        path: "./syntaxes/cel.tmLanguage.json"
+        path: "./dist/syntaxes/cel.tmLanguage.json"
       })
     );
   });
@@ -38,13 +38,11 @@ describe("extension manifest", () => {
     );
   });
 
-  it("keeps packaged syntax assets synced with the root grammar assets", () => {
-    const packagedGrammar = readFileSync(join(extensionRoot, "syntaxes/cel.tmLanguage.json"), "utf8");
-    const rootGrammar = readFileSync(join(extensionRoot, "../syntaxes/cel.tmLanguage.json"), "utf8");
-    const packagedConfiguration = readFileSync(join(extensionRoot, "syntaxes/cel.language-configuration.json"), "utf8");
-    const rootConfiguration = readFileSync(join(extensionRoot, "../syntaxes/cel.language-configuration.json"), "utf8");
+  it("keeps syntax source in the shared language-support package", () => {
+    const grammar = readFileSync(join(extensionRoot, "../../packages/language-support/syntaxes/cel.tmLanguage.json"), "utf8");
+    const configuration = readFileSync(join(extensionRoot, "../../packages/language-support/syntaxes/cel.language-configuration.json"), "utf8");
 
-    expect(packagedGrammar).toBe(rootGrammar);
-    expect(packagedConfiguration).toBe(rootConfiguration);
+    expect(grammar.length).toBeGreaterThan(0);
+    expect(configuration.length).toBeGreaterThan(0);
   });
 });

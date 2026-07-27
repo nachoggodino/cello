@@ -4,17 +4,17 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   resolve: {
     alias: {
-      "@cello/core": fileURLToPath(new URL("./src/index.ts", import.meta.url))
+      "@cello/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url))
     }
   },
   test: {
-    include: ["tests/unit/**/*.test.ts", "tests/it/**/*.test.ts", "tests/e2e/**/*.test.ts", "playground/src/**/*.test.ts"],
+    include: ["tests/unit/**/*.test.ts", "tests/it/**/*.test.ts", "tests/e2e/**/*.test.ts", "apps/playground/src/**/*.test.ts"],
     environment: "node",
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      include: ["src/**/*.ts"],
-      exclude: ["src/shared/types.ts"]
+      include: ["packages/core/src/**/*.ts", "packages/cli/src/**/*.ts"],
+      exclude: ["packages/core/src/shared/types.ts"]
     }
   }
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../../../src/parser/parse.js";
+import { parse } from "../../../packages/core/src/parser/parse.js";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";

@@ -6,6 +6,7 @@ coverage/**
 .env*
 .vercel/**
 dist/*
+!dist/syntaxes/**
 !dist/extension.js
 *.ts
 tsconfig.json

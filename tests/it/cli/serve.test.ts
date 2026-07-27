@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { startServe, type ServeHandle } from "../../../src/cli/serve.js";
+import { startServe, type ServeHandle } from "../../../packages/cli/src/serve.js";
 
 const tempDirs: string[] = [];
 const handles: ServeHandle[] = [];

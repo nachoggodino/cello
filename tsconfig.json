@@ -5,7 +5,7 @@
     "moduleResolution": "NodeNext",
     "declaration": true,
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "packages",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -14,6 +14,7 @@
     "types": ["node"]
   },
   "include": [
-    "src/**/*.ts"
+    "packages/core/src/**/*.ts",
+    "packages/cli/src/**/*.ts"
   ]
 }

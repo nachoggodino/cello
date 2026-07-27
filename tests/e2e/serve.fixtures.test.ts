@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { startServe } from "../../src/cli/serve.js";
+import { startServe } from "../../packages/cli/src/serve.js";
 
 describe("serve e2e fixtures", () => {
   it("serves a fixture workbook over http", async () => {

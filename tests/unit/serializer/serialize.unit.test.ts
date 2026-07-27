@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../../../src/parser/parse.js";
-import { serialize } from "../../../src/serializer/serialize.js";
-import type { WorkbookAst } from "../../../src/shared/types.js";
+import { parse } from "../../../packages/core/src/parser/parse.js";
+import { serialize } from "../../../packages/core/src/serializer/serialize.js";
+import type { WorkbookAst } from "../../../packages/core/src/shared/types.js";
 import { dataRow, headerRow, sheet, valueCell, workbook } from "../../helpers/ast.js";
 
 function createWorkbook(format: WorkbookAst["sheets"][number]["format"], rows: WorkbookAst["sheets"][number]["rows"]) {

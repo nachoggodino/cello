@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { evaluate } from "../../../src/evaluator/evaluate.js";
+import { evaluate } from "../../../packages/core/src/evaluator/evaluate.js";
 import { formulaCell, sheet, valueCell, workbook } from "../../helpers/ast.js";
 
 const buildFromSheetsMock = vi.fn();

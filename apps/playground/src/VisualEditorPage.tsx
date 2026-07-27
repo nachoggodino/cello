@@ -1,6 +1,5 @@
 import { evaluate, parse } from "@cello/core";
 import { startTransition, useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
 import { ToolbarIcon } from "./icons";
 import {
   addColumn,
@@ -311,7 +310,7 @@ export function VisualEditorPage({ source, onOpenSource, onSourceChange }: Visua
                           <input
                             aria-label={`${getColumnName(colIndex)}${rowIndex + 1}`}
                             value={getCellDisplayText(cell, computed)}
-                            style={getCellStyle(activeSheet, rowIndex, colIndex) as CSSProperties}
+                            style={getCellStyle(activeSheet, rowIndex, colIndex)}
                             onFocus={() => selectCell(rowIndex, colIndex)}
                             onChange={(event) => {
                               const nextAddress = { sheetIndex: activeSheetIndex, rowIndex, colIndex };

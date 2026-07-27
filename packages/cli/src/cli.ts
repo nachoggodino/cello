@@ -3,15 +3,15 @@ import { realpathSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { evaluate } from "../evaluator/evaluate.js";
-import { format as formatCello } from "../formatter/format.js";
-import { parse } from "../parser/parse.js";
-import { render } from "../renderer/render.js";
-import { serialize } from "../serializer/serialize.js";
-import { validate } from "../validator/validate.js";
-import { VERSION } from "../version.js";
+import { evaluate } from "../../core/src/evaluator/evaluate.js";
+import { format as formatCello } from "../../core/src/formatter/format.js";
+import { parse } from "../../core/src/parser/parse.js";
+import { render } from "../../core/src/renderer/render.js";
+import { serialize } from "../../core/src/serializer/serialize.js";
+import { validate } from "../../core/src/validator/validate.js";
+import { VERSION } from "../../core/src/version.js";
 import { startServe } from "./serve.js";
-import type { RenderOptions } from "../shared/types.js";
+import type { RenderOptions } from "../../core/src/shared/types.js";
 
 export interface CliDeps {
   cwd: string;

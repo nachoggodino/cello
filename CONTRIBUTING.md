@@ -14,7 +14,11 @@
 
 ## Change workflow
 
-1. Implement the change in `src/`.
+1. Implement the change in the relevant package or app:
+   - Core library behavior: `packages/core/src/`
+   - CLI behavior: `packages/cli/src/`
+   - Playground/editor UI: `apps/playground/src/`
+   - VS Code extension: `apps/vscode/src/`
 2. Add or update tests in `tests/`:
    - Unit tests for edge/isolated behavior.
    - Integration tests for parse/evaluate/render/serialize flows.

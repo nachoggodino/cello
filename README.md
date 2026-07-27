@@ -67,7 +67,7 @@ Rendered preview:
 | --- | ---: |
 | Revenue | 8.7 |
 
-For a larger example with named references, slices, and cross-sheet formulas, see [examples/advanced_kpi.cel](examples/advanced_kpi.cel).
+For a larger example with named references, slices, and cross-sheet formulas, see [docs/examples/advanced_kpi.cel](docs/examples/advanced_kpi.cel).
 
 ## CLI
 
@@ -173,9 +173,8 @@ The npm package publishes only the built library/CLI output and user-facing meta
 
 - `dist/`
 - `docs/`
-- `examples/`
-- `skills/`
-- `syntaxes/`
+- `packages/language-support/`
+- `packages/write-cel-code-skill/`
 - `BYLAWS.md`
 - `README.md`
 - `CHANGELOG.md`
@@ -192,13 +191,15 @@ npm run coverage
 
 Repository layout:
 
-- `src/parser/` parses workbooks into ASTs.
-- `src/evaluator/` computes formulas.
-- `src/formatter/` pretty-prints native Cello pipe tables.
-- `src/validator/` reports parse/evaluation diagnostics.
-- `src/renderer/` creates self-contained HTML.
-- `src/serializer/` converts ASTs back to `.cel`.
-- `src/cli/` exposes the command-line interface.
+- `packages/core/src/parser/` parses workbooks into ASTs.
+- `packages/core/src/evaluator/` computes formulas.
+- `packages/core/src/formatter/` pretty-prints native Cello pipe tables.
+- `packages/core/src/validator/` reports parse/evaluation diagnostics.
+- `packages/core/src/renderer/` creates self-contained HTML.
+- `packages/core/src/serializer/` converts ASTs back to `.cel`.
+- `packages/cli/src/` exposes the command-line interface.
+- `apps/playground/` contains the web playground and current visual editor.
+- `apps/vscode/` contains the VS Code extension.
 - `tests/` covers unit, integration, and fixture behavior.
 
 ## Versioning

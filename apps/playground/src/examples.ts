@@ -1,6 +1,6 @@
-import advancedKpi from "../../examples/advanced_kpi.cel?raw";
-import basic from "../../examples/basic.cel?raw";
-import featureShowcase from "../../examples/feature_showcase.cel?raw";
+import advancedKpi from "../../../docs/examples/advanced_kpi.cel?raw";
+import basic from "../../../docs/examples/basic.cel?raw";
+import featureShowcase from "../../../docs/examples/feature_showcase.cel?raw";
 
 export interface PlaygroundExample {
   id: string;

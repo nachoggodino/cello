@@ -55,4 +55,4 @@ The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
 ## Build/run notes
 
 - Build first: `npm run build`
-- Direct run example: `node dist/cli/cli.js render examples/basic.cel -o out.html`
+- Direct run example: `node dist/cli/src/cli.js render docs/examples/basic.cel -o out.html`

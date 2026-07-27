@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { format } from "../../../src/formatter/format.js";
+import { format } from "../../../packages/core/src/formatter/format.js";
 
 describe("format", () => {
   it("aligns contiguous native cello table blocks", () => {

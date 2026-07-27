@@ -1,5 +1,5 @@
-import { evaluate, parse, render } from "../../src/index.js";
-import type { Diagnostic, WorkbookAst } from "../../src/index.js";
+import { evaluate, parse, render } from "@cello/core";
+import type { Diagnostic, WorkbookAst } from "@cello/core";
 
 export interface PreviewResult {
   html: string;

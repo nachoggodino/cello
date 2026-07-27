@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../../../package.json" with { type: "json" };
-import { createCliDeps, isDirectCliExecution, runCli, runMain } from "../../../src/cli/cli.js";
-import { VERSION } from "../../../src/version.js";
+import { createCliDeps, isDirectCliExecution, runCli, runMain } from "../../../packages/cli/src/cli.js";
+import { VERSION } from "../../../packages/core/src/version.js";
 
 const tempDirs: string[] = [];
 
