@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
     "declaration": true,
     "outDir": "dist",
     "rootDir": "packages",
@@ -11,10 +12,16 @@
     "exactOptionalPropertyTypes": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@cello/editor-core": ["./packages/editor-core/src/index.ts"]
+    }
   },
   "include": [
     "packages/core/src/**/*.ts",
-    "packages/cli/src/**/*.ts"
+    "packages/cli/src/**/*.ts",
+    "packages/editor-core/src/**/*.ts",
+    "packages/editor-react/src/**/*.ts",
+    "packages/editor-react/src/**/*.tsx"
   ]
 }

@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { CSSProperties, ReactNode } from "react";
 import { format as formatCello } from "@cello/core";
 import type { Diagnostic } from "@cello/core";
+import { CelloVisualEditor } from "@cello/editor-react";
+import "@cello/editor-react/styles.css";
 import logoUrl from "./assets/cello-logo.svg?url";
 import { examples, getExample } from "./examples";
 import { ToolbarIcon } from "./icons";
@@ -12,7 +14,6 @@ import { syntaxExamples } from "./syntaxReference";
 import { useClipboardStatus } from "./useClipboardStatus";
 import { usePreviewRender } from "./usePreviewRender";
 import { useResizableSplit } from "./useResizableSplit";
-import { VisualEditorPage } from "./VisualEditorPage";
 
 const CodeEditor = lazy(async () => ({ default: (await import("./CodeEditor")).CodeEditor }));
 
@@ -194,7 +195,7 @@ export function App() {
           </main>
         </>
       ) : (
-        <VisualEditorPage source={source} onSourceChange={setSource} onOpenSource={() => navigateToPage("source")} />
+        <CelloVisualEditor source={source} onSourceChange={setSource} onRequestSourceView={() => navigateToPage("source")} />
       )}
 
       <footer className="siteFooter">

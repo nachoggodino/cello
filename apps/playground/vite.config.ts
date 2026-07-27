@@ -8,6 +8,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@cello/core": resolve(import.meta.dirname, "../../packages/core/src/index.ts"),
+      "@cello/editor-core": resolve(import.meta.dirname, "../../packages/editor-core/src/index.ts"),
+      "@cello/editor-react/styles.css": resolve(import.meta.dirname, "../../packages/editor-react/src/styles.css"),
+      "@cello/editor-react": resolve(import.meta.dirname, "../../packages/editor-react/src/index.ts"),
       "node:fs": resolve(import.meta.dirname, "src/shims/nodeFs.ts"),
       "node:path": resolve(import.meta.dirname, "src/shims/nodePath.ts")
     }

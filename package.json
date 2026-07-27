@@ -9,6 +9,17 @@
     ".": {
       "types": "./dist/core/src/index.d.ts",
       "import": "./dist/core/src/index.js"
+    },
+    "./editor-core": {
+      "types": "./dist/editor-core/src/index.d.ts",
+      "import": "./dist/editor-core/src/index.js"
+    },
+    "./editor-react": {
+      "types": "./dist/editor-react/src/index.d.ts",
+      "import": "./dist/editor-react/src/index.js"
+    },
+    "./editor-react/styles.css": {
+      "default": "./dist/editor-react/src/styles.css"
     }
   },
   "bin": {
@@ -28,8 +39,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "npm run clean && tsc -p tsconfig.json",
+    "build": "npm run clean && tsc -p tsconfig.json && npm run copy:assets",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "copy:assets": "node -e \"const fs=require('node:fs');fs.mkdirSync('dist/editor-react/src',{recursive:true});fs.copyFileSync('packages/editor-react/src/styles.css','dist/editor-react/src/styles.css')\"",
     "dev": "tsc -w -p tsconfig.json",
     "prepack": "npm run build",
     "playground:dev": "vite --config apps/playground/vite.config.ts",
@@ -86,11 +98,12 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "jsdom": "^30.0.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.3",
-    "vite": "^8.0.13",
+    "vite": "^8.1.5",
     "vitest": "^4.1.6"
   }
 }
