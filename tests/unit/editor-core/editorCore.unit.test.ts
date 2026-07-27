@@ -263,14 +263,19 @@ describe("editor core", () => {
     const sheet = workbook.sheets[0];
 
     expect(getCellDisplayText(getCellAt(sheet, 1, 0))).toBe("Total");
-    expect(getCellStyle(sheet, 1, 0)).toEqual({ fontWeight: 700, textDecoration: "line-through" });
+    expect(getCellStyle(sheet, 1, 0)).toEqual({ fontSize: "1.25rem", fontWeight: 700, textDecoration: "line-through" });
+    expect(getCellDisplayText({ raw: "_Italic_", modifiers: [] })).toBe("Italic");
+    expect(getCellStyle({ name: "S", rows: [{ kind: "data", modifiers: [], cells: [{ raw: "_Italic_", modifiers: [] }, { raw: "*Bold*", modifiers: [] }] }], defaults: [] }, 0, 0)).toEqual({ fontStyle: "italic" });
+    expect(getCellStyle({ name: "S", rows: [{ kind: "data", modifiers: [], cells: [{ raw: "_Italic_", modifiers: [] }, { raw: "*Bold*", modifiers: [] }] }], defaults: [] }, 0, 1)).toEqual({ fontWeight: 700 });
     expect(getCellToneClass(sheet, 1, 0)).toBe("celloVisualTone-muted");
     expect(getCellToneClass(sheet, 1, 1)).toBe("celloVisualTone-ok");
     expect(getCellDisplayText({ raw: "~~Done~~", modifiers: [] })).toBe("Done");
 
     const tonedCell = setCellToneModifier(workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 0 }, "warn");
+    const untonedCell = setCellToneModifier(tonedCell, { sheetIndex: 0, rowIndex: 1, colIndex: 0 }, "warn");
     const tonedRow = setRowToneModifier(workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 0 }, "info");
     expect(serializeEditorWorkbook(tonedCell)).toContain("## Total[strike][tone:warn]");
+    expect(serializeEditorWorkbook(untonedCell)).toContain("## Total[strike] |");
     expect(serializeEditorWorkbook(tonedRow)).toContain("[tone:info] | ## Total[strike] |");
   });
 

@@ -114,11 +114,23 @@ describe("CelloVisualEditor", () => {
     expect(document.querySelector(".formula-column")?.textContent).toBe("Total");
     expect(document.querySelector(".formula-range")?.textContent).toBe("[1:1]");
 
+    clickButton("Tone");
     clickElement(document.querySelector<HTMLButtonElement>(".celloVisualToneOptions .celloVisualTone-ok"));
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1][tone:ok] |");
+    expect(screenButton("Tone").textContent).toBe("Tone: ok");
+    expect(screenButton("Tone").className).toContain("celloVisualTone-ok");
+
+    clickButton("Tone");
+    expect(document.querySelector(".celloVisualToneOptions .celloVisualTone-ok")?.getAttribute("aria-checked")).toBe("true");
+    clickOutside();
+    expect(document.querySelector(".celloVisualToneOptions")).toBeNull();
+
+    clickButton("Tone");
+    clickElement(document.querySelector<HTMLButtonElement>(".celloVisualToneOptions .celloVisualTone-ok"));
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1] |");
 
     changeInput(screenInput("Defaults A"), "Queued");
-    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Queued | =Qty*Price |\n| Ada | =Total[1:1][tone:ok] |");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Queued | =Qty*Price |\n| Ada | =Total[1:1] |");
   });
 
   it("toggles inline heading and strike text styles from the toolbar", async () => {
@@ -128,6 +140,7 @@ describe("CelloVisualEditor", () => {
     focusInput(screenInput("A1"));
     clickButton("H1");
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| ## Ada |");
+    expect(screenButton("H1").className).toContain("active");
 
     clickButton("H1");
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada |");
@@ -152,6 +165,7 @@ describe("CelloVisualEditor", () => {
     clickButton("Bold");
     clickButton("H1");
     doubleClickButton("Strikethrough");
+    clickButton("Tone");
     clickElement(document.querySelector<HTMLButtonElement>(".celloVisualToneOptions .celloVisualTone-warn"));
 
     expect(onSourceChange).not.toHaveBeenCalled();
@@ -258,6 +272,12 @@ function clickButton(label: string): void {
 function doubleClickButton(label: string): void {
   act(() => {
     screenButton(label).dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
+}
+
+function clickOutside(): void {
+  act(() => {
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
   });
 }
 

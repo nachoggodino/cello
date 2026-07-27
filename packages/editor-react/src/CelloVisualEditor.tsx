@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import {
   addColumn,
   addRow,
@@ -9,6 +9,7 @@ import {
   getCellAddressKey,
   getCellAt,
   getCellDisplayText,
+  getCellHeadingPrefix,
   getCellSourceText,
   getCellStyle,
   getCellToneClass,
@@ -115,7 +116,7 @@ const defaultLabels: CelloVisualEditorLabels = {
   tableGroup: "Table",
   textColor: "Text color",
   textGroup: "Text",
-  tone: "Text tone",
+  tone: "Tone",
   toolbar: "Visual editor toolbar",
   workbook: "Visual spreadsheet editor"
 };
@@ -150,6 +151,8 @@ export function CelloVisualEditor({
   const [selectedDefaultCol, setSelectedDefaultCol] = useState<number | null>(null);
   const [modifierScope, setModifierScope] = useState<ModifierScope>("cell");
   const [computedValues, setComputedValues] = useState<ComputedCellValues>({});
+  const [toneMenuOpen, setToneMenuOpen] = useState(false);
+  const toneMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const nextWorkbook = createEditorWorkbook(source, workbookOptions);
@@ -182,6 +185,21 @@ export function CelloVisualEditor({
     };
   }, [source, workbookOptions]);
 
+  useEffect(() => {
+    if (!toneMenuOpen) {
+      return;
+    }
+
+    const closeMenu = (event: MouseEvent) => {
+      if (!toneMenuRef.current?.contains(event.target as Node)) {
+        setToneMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeMenu);
+    return () => document.removeEventListener("mousedown", closeMenu);
+  }, [toneMenuOpen]);
+
   const activeSheet = workbook.sheets[activeSheetIndex] ?? workbook.sheets[0] ?? fallbackSheet;
   const selectedCell = selectedDefaultCol === null ? getSelectedCell(workbook, selected) : getDefaultCellAt(activeSheet, selectedDefaultCol);
   const selectedLabel = selectedDefaultCol === null
@@ -190,6 +208,7 @@ export function CelloVisualEditor({
   const selectedTextColor = getScopedColorValue(activeSheet, selected, modifierScope, "color", defaultTextColor);
   const selectedFillColor = getScopedColorValue(activeSheet, selected, modifierScope, "bg", defaultFillColor);
   const selectedTone = getScopedToneValue(activeSheet, selected, modifierScope);
+  const selectedHeadingPrefix = getCellHeadingPrefix(selectedCell);
   const visibleRowCount = getVisibleRowCount(activeSheet, layout);
   const visibleColumnCount = getVisibleColumnCount(activeSheet, layout);
   const selectedSourceText = useMemo(() => getCellSourceText(selectedCell), [selectedCell]);
@@ -256,6 +275,7 @@ export function CelloVisualEditor({
       return;
     }
     commit((current) => modifierScope === "cell" ? setCellToneModifier(current, selected, value, layout) : setRowToneModifier(current, selected, value, layout));
+    setToneMenuOpen(false);
   };
 
   const handleSourceChange = (value: string) => {
@@ -358,26 +378,44 @@ export function CelloVisualEditor({
               <span className="celloVisualStrikeIcon">S</span>
             </button>
             {headingStyles.map((style) => (
-              <IconTextButton key={style.labelKey} label={labels[style.labelKey]} onClick={() => handleApplyPrefix(style.prefix)} />
+              <IconTextButton key={style.labelKey} active={selectedHeadingPrefix === style.prefix} label={labels[style.labelKey]} onClick={() => handleApplyPrefix(style.prefix)} />
             ))}
             <label className="celloVisualColorTool" title={labels.textColor} aria-label={labels.textColor}>
-              <span>A</span>
+              <span style={{ color: selectedTextColor }}>A</span>
               <input type="color" value={selectedTextColor} onChange={(event) => handleSetColor("color", event.target.value)} />
             </label>
-            <label className="celloVisualColorTool" title={labels.fillColor} aria-label={labels.fillColor}>
+            <label className="celloVisualColorTool" title={labels.fillColor} aria-label={labels.fillColor} style={{ background: selectedFillColor }}>
               <EditorIcon name="paint" />
               <input type="color" value={selectedFillColor} onChange={(event) => handleSetColor("bg", event.target.value)} />
             </label>
-            <details className="celloVisualToneMenu">
-              <summary className="celloVisualButton">{labels.tone}{selectedTone ? `: ${selectedTone}` : ""}</summary>
+            <div className="celloVisualToneMenu" ref={toneMenuRef}>
+              <button
+                type="button"
+                className={["celloVisualButton", selectedTone ? `celloVisualTone-${selectedTone}` : ""].filter(Boolean).join(" ")}
+                aria-expanded={toneMenuOpen}
+                aria-haspopup="menu"
+                aria-label={labels.tone}
+                onClick={() => setToneMenuOpen((open) => !open)}
+              >
+                {labels.tone}{selectedTone ? `: ${selectedTone}` : ""}
+              </button>
+              {toneMenuOpen ? (
               <div className="celloVisualToneOptions">
                 {TEXT_TONES.map((tone) => (
-                  <button key={tone} type="button" className={`celloVisualTone-${tone}`} onClick={() => handleSetTone(tone)}>
+                  <button
+                    key={tone}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={selectedTone === tone}
+                    className={[`celloVisualTone-${tone}`, selectedTone === tone ? "active" : ""].join(" ")}
+                    onClick={() => handleSetTone(tone)}
+                  >
                     {tone}
                   </button>
                 ))}
               </div>
-            </details>
+              ) : null}
+            </div>
           </div>
 
           <div className="celloVisualToolbarGroup celloVisualLabeledGroup">
@@ -448,13 +486,13 @@ export function CelloVisualEditor({
               {sheet.name}
             </button>
           ))}
+          <IconButton label={labels.newSheet} icon="sheetPlus" className="celloVisualPrimaryAction" onClick={handleAddSheet} />
           <input
             className="celloVisualSheetNameInput"
             aria-label={labels.renameSheet}
             value={activeSheet.name}
             onChange={(event) => commit((current) => renameSheet(current, activeSheetIndex, event.target.value))}
           />
-          <IconButton label={labels.newSheet} icon="sheetPlus" className="celloVisualPrimaryAction" onClick={handleAddSheet} />
           <IconButton label={labels.deleteSheet} icon="trash" disabled={workbook.sheets.length <= 1} onClick={handleRemoveSheet} />
         </div>
       </section>
@@ -507,7 +545,7 @@ function VisualDataRows({
         const computed = computedValues[getCellAddressKey({ sheetIndex: activeSheetIndex, rowIndex, colIndex })];
         const toneClass = getCellToneClass(activeSheet, rowIndex, colIndex);
         return (
-          <td key={colIndex} className={[isSelected ? "selected" : "", toneClass].filter(Boolean).join(" ")} colSpan={span.colspan} rowSpan={span.rowspan}>
+          <td key={colIndex} className={[isSelected ? "selected" : "", toneClass, span.colspan > 1 || span.rowspan > 1 ? "merged" : ""].filter(Boolean).join(" ")} colSpan={span.colspan} rowSpan={span.rowspan}>
             <input
               aria-label={`${getColumnName(colIndex)}${rowIndex + 1}`}
               value={getCellDisplayText(cell, computed)}
@@ -582,9 +620,9 @@ function IconButton({
   );
 }
 
-function IconTextButton({ label, onClick }: { label: string; onClick: () => void }) {
+function IconTextButton({ active, label, onClick }: { active?: boolean; label: string; onClick: () => void }) {
   return (
-    <button type="button" className="celloVisualButton celloVisualTextStyleButton" aria-label={label} title={label} onClick={onClick}>
+    <button type="button" className={["celloVisualButton", "celloVisualTextStyleButton", active ? "active" : ""].filter(Boolean).join(" ")} aria-label={label} title={label} onClick={onClick}>
       {label}
     </button>
   );

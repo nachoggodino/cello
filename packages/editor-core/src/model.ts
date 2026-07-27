@@ -45,6 +45,7 @@ export type TextTone = (typeof TEXT_TONES)[number];
 export interface EditorCellStyle {
   background?: string;
   color?: string;
+  fontSize?: string;
   fontStyle?: string;
   fontWeight?: number;
   textDecoration?: string;

@@ -255,6 +255,9 @@ function toggleModifier(modifiers: Modifier[], key: ToggleModifierKey): Modifier
 }
 
 function setModifierValue(modifiers: Modifier[], key: ColorModifierKey | "tone", value: string): Modifier[] {
+  if (key === "tone" && modifiers.some((existing) => existing.key === key && existing.value === value)) {
+    return modifiers.filter((existing) => existing.key !== key);
+  }
   const modifier: Modifier = {
     raw: `${key}:${value}`,
     key,

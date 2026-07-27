@@ -8,6 +8,13 @@ import { isMergeToken } from "./source.js";
 
 const headingPattern = /^#{1,3}\s+/;
 const inlineStrikeMarker = "~~";
+const inlineBoldPattern = /^\*[^*]+\*$/;
+const inlineItalicPattern = /^_[^_]+_$/;
+const headingFontSizes = new Map([
+  ["## ", "1.25rem"],
+  ["# ", "1.1rem"],
+  ["### ", "1rem"]
+]);
 
 export function getSelectedCell(workbook: { sheets: EditorSheet[] }, address: CellAddress): EditorCell {
   return getCellAt(workbook.sheets[address.sheetIndex], address.rowIndex, address.colIndex);
@@ -52,6 +59,16 @@ export function getCellStyle(sheet: EditorSheet | undefined, rowIndex: number, c
   const raw = getCellAt(sheet, rowIndex, colIndex).raw;
   if (headingPattern.test(raw)) {
     style.fontWeight = 700;
+    const fontSize = getHeadingFontSize(raw);
+    if (fontSize) {
+      style.fontSize = fontSize;
+    }
+  }
+  if (inlineBoldPattern.test(raw)) {
+    style.fontWeight = 700;
+  }
+  if (inlineItalicPattern.test(raw)) {
+    style.fontStyle = "italic";
   }
   if (isWrapped(raw, inlineStrikeMarker)) {
     style.textDecoration = "line-through";
@@ -99,6 +116,10 @@ export function getScopedToneValue(sheet: EditorSheet | undefined, address: Cell
   return getScopeModifiers(sheet, address, scope).find((modifier) => modifier.key === "tone")?.value;
 }
 
+export function getCellHeadingPrefix(cell: EditorCell): string | undefined {
+  return Array.from(headingFontSizes.keys()).find((prefix) => cell.raw.startsWith(prefix));
+}
+
 export function getInheritedModifierGroups(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): Array<{ scope: "default" | "column" | "row"; modifiers: Modifier[] }> {
   const defaultCell = getDefaultCellAt(sheet, colIndex);
   const groups: Array<{ scope: "default" | "column" | "row"; modifiers: Modifier[] }> = [
@@ -136,10 +157,17 @@ export function getCellDisplayText(cell: EditorCell, computed?: ComputedCellValu
   if (isWrapped(cell.raw, inlineStrikeMarker)) {
     return cell.raw.slice(inlineStrikeMarker.length, -inlineStrikeMarker.length);
   }
+  if (inlineBoldPattern.test(cell.raw) || inlineItalicPattern.test(cell.raw)) {
+    return cell.raw.slice(1, -1);
+  }
   if (headingPattern.test(cell.raw)) {
     return cell.raw.replace(headingPattern, "");
   }
   return cell.raw;
+}
+
+function getHeadingFontSize(raw: string): string | undefined {
+  return Array.from(headingFontSizes.entries()).find(([prefix]) => raw.startsWith(prefix))?.[1];
 }
 
 function isWrapped(value: string, marker: string): boolean {

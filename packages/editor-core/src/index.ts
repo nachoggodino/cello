@@ -31,6 +31,7 @@ export { serializeEditorWorkbook } from "./serialization.js";
 export {
   getCellAt,
   getCellDisplayText,
+  getCellHeadingPrefix,
   getCellToneClass,
   getDefaultCellAt,
   getCellStyle,
