@@ -15,6 +15,7 @@ The npm package is `@nachoggodino/cello`. It is licensed as GPLv3 because formul
 - JSON AST output for tooling.
 - Validation diagnostics that return proper process exit codes.
 - Library API and `cello` CLI.
+- Optional editor packages for source-preserving editor integrations and a React visual editor.
 
 ## Install
 
@@ -134,6 +135,8 @@ Editor package exports:
 - `@nachoggodino/cello/editor-react` exports `CelloVisualEditor` for React hosts.
 - `@nachoggodino/cello/editor-react/styles.css` provides the visual editor stylesheet.
 
+For editor package usage, see [docs/EDITOR_PACKAGES.md](docs/EDITOR_PACKAGES.md).
+
 ## Format Overview
 
 Native Cello sheets use pipe-delimited rows:
@@ -196,6 +199,7 @@ npm run build
 npm run typecheck
 npm test
 npm run coverage
+npm run playground:build
 ```
 
 Repository layout:
@@ -207,6 +211,10 @@ Repository layout:
 - `packages/core/src/renderer/` creates self-contained HTML.
 - `packages/core/src/serializer/` converts ASTs back to `.cel`.
 - `packages/cli/src/` exposes the command-line interface.
+- `packages/editor-core/src/` exposes source-preserving editor commands and selectors.
+- `packages/editor-react/src/` exposes the React visual editor component and stylesheet.
+- `packages/language-support/` contains reusable TextMate grammar and language configuration assets.
+- `packages/write-cel-code-skill/` contains the packaged Cello authoring skill.
 - `apps/playground/` contains the web playground and current visual editor.
 - `apps/vscode/` contains the VS Code extension.
 - `tests/` covers unit, integration, and fixture behavior.
@@ -214,6 +222,8 @@ Repository layout:
 ## Versioning
 
 This project uses Semantic Versioning. See [CHANGELOG.md](CHANGELOG.md) for release history.
+
+Release preparation notes live in [docs/RELEASE.md](docs/RELEASE.md).
 
 ## License
 

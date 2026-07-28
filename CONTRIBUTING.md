@@ -3,7 +3,7 @@
 ## Ground rules
 
 - `BYLAWS.md` is the source of truth for syntax/behavior.
-- `SPEC.md` must stay aligned with BYLAWS and implementation status.
+- `docs/SPEC.md` must stay aligned with BYLAWS and implementation status.
 - Prefer additive, test-backed changes.
 
 ## Setup
@@ -23,13 +23,19 @@
    - Unit tests for edge/isolated behavior.
    - Integration tests for parse/evaluate/render/serialize flows.
 3. Update docs when behavior changes:
-   - `SPEC.md` (if public behavior changes)
+   - `docs/SPEC.md` (if public behavior changes)
    - `docs/COMPLIANCE.md`
    - Any relevant `docs/*.md`
+4. Update release metadata when published behavior changes:
+   - `CHANGELOG.md`
+   - `package.json`
+   - `package-lock.json`
+   - `packages/core/src/version.ts`
 
 ## Acceptance checklist
 
 - Tests pass locally.
 - New behavior is covered by tests.
 - BYLAWS compliance checked for affected rules.
+- Changelog and package version are updated when release-facing behavior changes.
 - No unrelated refactors mixed in.

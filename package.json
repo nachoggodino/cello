@@ -1,6 +1,6 @@
 {
   "name": "@nachoggodino/cello",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Markdown, but for spreadsheets. Plain-text tabular data with formulas.",
   "type": "module",
   "main": "dist/core/src/index.js",

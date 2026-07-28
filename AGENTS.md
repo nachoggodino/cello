@@ -24,7 +24,7 @@ Use the project scripts defined in `package.json`:
 - Keep implementation changes in the relevant `packages/*/src` or `apps/*/src` boundary.
 - Add tests in `tests/` alongside the relevant module.
 - Prefer small, additive changes and preserve `BYLAWS.md` as the syntax source of truth.
-- When behavior changes, update relevant docs in `docs/` and/or `SPEC.md`.
+- When behavior changes, update relevant docs in `docs/`, especially `docs/SPEC.md` when public syntax or behavior changes.
 
 ## Important repo docs
 - `README.md` — overall project purpose and quickstart.
