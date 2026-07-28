@@ -27,6 +27,7 @@ export type {
 } from "./model.js";
 export type { CreateEditorWorkbookOptions, EditorLayoutOptions, ResolvedEditorLayoutOptions } from "./options.js";
 export type { EvaluateEditorWorkbookOptions } from "./evaluation.js";
+export type { CellRange } from "./ranges.js";
 
 export { TEXT_TONES } from "./model.js";
 export {
@@ -96,6 +97,15 @@ export {
   updateCellSource
 } from "./commands.js";
 export { evaluateEditorWorkbookSource, getCellAddressKey } from "./evaluation.js";
+export {
+  clearRange,
+  copyRangeAsTsv,
+  getCellRangeSize,
+  isAddressInRange,
+  normalizeCellRange,
+  parseClipboardMatrix,
+  pasteMatrixAt
+} from "./ranges.js";
 export {
   ROW_HEIGHT_PRESETS,
   CELLO_HEADING_STYLES,
