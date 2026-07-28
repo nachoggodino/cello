@@ -379,8 +379,9 @@ Markdown-style inline formatting is supported inside cell content:
 | `~~texto~~`   | ~~strikethrough~~   |
 | `# texto`     | Heading style (`cello-h2`) |
 | `## texto`    | Heading style (`cello-h1`) |
+| `### texto`   | Heading style (`cello-h3`) |
 
-`#` and `##` apply to the entire cell and cannot be combined with other inline formatting in the same cell.
+`#`, `##`, and `###` apply to the entire cell and cannot be combined with other inline formatting in the same cell.
 
 ---
 

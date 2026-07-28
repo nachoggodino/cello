@@ -152,3 +152,14 @@ const CSS_NAMED_COLORS = new Set([
 export function isNamedColorModifier(key: string): boolean {
   return CSS_NAMED_COLORS.has(key);
 }
+
+export function sanitizeCssColor(value: string | undefined): string | undefined {
+  const color = value?.trim();
+  if (!color) {
+    return undefined;
+  }
+  if (/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{1})?$/.test(color) || /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/.test(color)) {
+    return color;
+  }
+  return isNamedColorModifier(color.toLowerCase()) ? color.toLowerCase() : undefined;
+}

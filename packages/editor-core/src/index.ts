@@ -43,6 +43,7 @@ export { serializeEditorWorkbook } from "./serialization.js";
 export {
   getCellAt,
   getCellDisplayText,
+  getCellFormattedDisplayText,
   getCellHeadingPrefix,
   getCellToneClass,
   getDefaultCellAt,
@@ -56,6 +57,10 @@ export {
   getScopedToneValue,
   getSelectedCell,
   getVisualCellSpan,
+  getVisualCellStyle,
+  getVisualCellContentStyle,
+  getVisualColumnStyle,
+  getVisualRowStyle,
   getVisibleColumnCount,
   getVisibleRowCount,
   hasScopedModifier,
@@ -91,6 +96,9 @@ export {
 export { evaluateEditorWorkbookSource, getCellAddressKey } from "./evaluation.js";
 export {
   ROW_HEIGHT_PRESETS,
+  CELLO_HEADING_STYLES,
+  CELLO_TONE_COLORS,
+  CELLO_TONE_NAMES,
   DEFAULT_COLUMN_WIDTH,
   DEFAULT_ROW_LAYOUT,
   SHEET_LAYOUT_DEFAULT_SENTINEL,

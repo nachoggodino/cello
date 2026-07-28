@@ -4,6 +4,7 @@ import {
   addRow,
   addSheet,
   applyWorkbookPatch,
+  CELLO_HEADING_STYLES,
   createEditorDocument,
   DEFAULT_COLUMN_WIDTH,
   DEFAULT_ROW_LAYOUT,
@@ -17,10 +18,9 @@ import {
   evaluateEditorWorkbookSource,
   getCellAddressKey,
   getCellAt,
-  getCellDisplayText,
-  getCellHeadingPrefix,
+  getCellFormattedDisplayText,
   getCellSourceText,
-  getCellStyle,
+  getCellHeadingPrefix,
   getCellToneClass,
   getColumnWidthValue,
   getColumnName,
@@ -33,6 +33,8 @@ import {
   getVisibleColumnCount,
   getVisibleRowCount,
   getVisualCellSpan,
+  getVisualCellStyle,
+  getVisualCellContentStyle,
   hasScopedModifier,
   isColumnFit,
   isRowWrap,
@@ -88,6 +90,8 @@ export interface CelloVisualEditorLabels {
   newColumn: string;
   newRow: string;
   newSheet: string;
+  noInheritedModifiers: string;
+  propertyScope: string;
   renameSheet: string;
   selectedColumn: string;
   selectedRow: string;
@@ -102,6 +106,7 @@ export interface CelloVisualEditorLabels {
   tone: string;
   toolbar: string;
   workbook: string;
+  workbookSheets: string;
   columnsMode: string;
   defaultOption: string;
   columnsNormal: string;
@@ -143,6 +148,8 @@ const defaultLabels: CelloVisualEditorLabels = {
   newColumn: "New column",
   newRow: "New row",
   newSheet: "New sheet",
+  noInheritedModifiers: "None",
+  propertyScope: "Property scope",
   renameSheet: "Rename active sheet",
   selectedColumn: "Column",
   selectedRow: "Row",
@@ -157,6 +164,7 @@ const defaultLabels: CelloVisualEditorLabels = {
   tone: "Tone",
   toolbar: "Visual editor toolbar",
   workbook: "Visual spreadsheet editor",
+  workbookSheets: "Workbook sheets",
   columnsMode: "Columns",
   defaultOption: "Default",
   columnsNormal: "Normal",
@@ -173,16 +181,13 @@ const defaultTextColor = "#1f1e1b";
 const defaultFillColor = "#fffaf4";
 const defaultColumnWidthPlaceholder = DEFAULT_COLUMN_WIDTH.value === undefined ? "" : String(DEFAULT_COLUMN_WIDTH.value);
 const defaultRowHeightPlaceholder = DEFAULT_ROW_LAYOUT.height.value === undefined ? "" : String(DEFAULT_ROW_LAYOUT.height.value);
-const fallbackSheet: EditorSheet = { name: DEFAULT_SHEET_NAME, layout: {}, rows: [], defaults: [] };
-const headingStyles = [
-  { labelKey: "h1", prefix: "## " },
-  { labelKey: "h2", prefix: "# " },
-  { labelKey: "h3", prefix: "### " }
-] as const;
+const fallbackSheet: EditorSheet = { name: DEFAULT_SHEET_NAME, format: { kind: "cello" }, layout: {}, rows: [], defaults: [] };
+const headingStyles = CELLO_HEADING_STYLES.map((heading) => ({ labelKey: heading.level, prefix: heading.prefix }));
 const formulaTokenPattern = /([A-Za-z_][\w ]*!|!!)|(\[[^\]]+\])|([+\-*/^(),[\]])|(=)|([A-Za-z_][\w ]*)|(\s+|.)/g;
 const inlineStrikeMarker = "~~";
 
 type ModifierScope = "cell" | "row";
+type DraftCell = { key: string; value: string } | null;
 
 export function CelloVisualEditor({
   source,
@@ -204,6 +209,7 @@ export function CelloVisualEditor({
   const [modifierScope, setModifierScope] = useState<ModifierScope>("cell");
   const [computedValues, setComputedValues] = useState<ComputedCellValues>({});
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
+  const [draftCell, setDraftCell] = useState<DraftCell>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [toneMenuOpen, setToneMenuOpen] = useState(false);
   const toneMenuRef = useRef<HTMLDivElement>(null);
@@ -214,9 +220,16 @@ export function CelloVisualEditor({
       setEditorDocument(nextDocument);
       setActiveSheetIndex((index) => Math.min(index, nextDocument.workbook.sheets.length - 1));
       setSelected((address) => clampAddress(address, nextDocument.workbook, layout));
-      setEditingCellKey(null);
     });
   }, [layout, source, workbookOptions]);
+
+  useEffect(() => {
+    if (!commandError) {
+      return;
+    }
+    const timeout = window.setTimeout(() => setCommandError(null), 15000);
+    return () => window.clearTimeout(timeout);
+  }, [commandError]);
 
   useEffect(() => {
     onDiagnosticsChange?.(editorDocument.diagnostics);
@@ -319,6 +332,7 @@ export function CelloVisualEditor({
       setSelected({ sheetIndex: nextSheetIndex, rowIndex: 0, colIndex: 0 });
       setSelectedDefaultCol(null);
       setEditingCellKey(null);
+      setDraftCell(null);
       setCommandError(null);
       onSourceChange(result.source);
       return result.document;
@@ -340,6 +354,7 @@ export function CelloVisualEditor({
       setSelected({ sheetIndex: nextSheetIndex, rowIndex: 0, colIndex: 0 });
       setSelectedDefaultCol(null);
       setEditingCellKey(null);
+      setDraftCell(null);
       setCommandError(null);
       onSourceChange(result.source);
       return result.document;
@@ -429,13 +444,13 @@ export function CelloVisualEditor({
                 <span key={group.scope} className={`celloVisualInheritedToken ${group.scope}`}>
                   {group.scope}: {group.modifiers.map((modifier) => `[${modifier.raw}]`).join("")}
                 </span>
-              )) : <span className="celloVisualInheritedEmpty">None</span>}
+	              )) : <span className="celloVisualInheritedEmpty">{labels.noInheritedModifiers}</span>}
             </div>
           </div>
         </div>
 
         <div className="celloVisualToolbarRow celloVisualToolbarFormatRow">
-          <div className="celloVisualToolbarGroup celloVisualScopeSwitch" role="tablist" aria-label="Property scope">
+	          <div className="celloVisualToolbarGroup celloVisualScopeSwitch" role="tablist" aria-label={labels.propertyScope}>
             {([
               ["cell", labels.cellScope],
               ["row", labels.rowScope]
@@ -634,6 +649,7 @@ export function CelloVisualEditor({
                   key={rowIndex}
                   activeSheet={activeSheet}
                   activeSheetIndex={activeSheetIndex}
+                  aliases={workbook.aliases}
                   computedValues={computedValues}
                   labels={labels}
                   modifierScope={modifierScope}
@@ -644,8 +660,10 @@ export function CelloVisualEditor({
                   commit={commit}
                   layout={layout}
                   editingCellKey={editingCellKey}
+                  draftCell={draftCell}
                   selectCell={selectCell}
                   selectDefaultCell={selectDefaultCell}
+                  setDraftCell={setDraftCell}
                   setEditingCellKey={setEditingCellKey}
                 />
               ))}
@@ -653,7 +671,7 @@ export function CelloVisualEditor({
           </table>
         </div>
 
-        <div className="celloVisualSheetTabs" role="tablist" aria-label="Workbook sheets">
+	        <div className="celloVisualSheetTabs" role="tablist" aria-label={labels.workbookSheets}>
           {workbook.sheets.map((sheet, sheetIndex) => (
             <button
               key={`${sheet.name}-${sheetIndex}`}
@@ -687,8 +705,10 @@ export function CelloVisualEditor({
 function VisualDataRows({
   activeSheet,
   activeSheetIndex,
+  aliases,
   computedValues,
   commit,
+  draftCell,
   editingCellKey,
   labels,
   layout,
@@ -697,15 +717,18 @@ function VisualDataRows({
   selectCell,
   selectDefaultCell,
   setEditingCellKey,
+  setDraftCell,
   selected,
   selectedDefaultCol,
   visibleColumnCount
 }: {
   activeSheet: EditorSheet;
   activeSheetIndex: number;
+  aliases: EditorWorkbook["aliases"];
   computedValues: ComputedCellValues;
   commit: (update: (current: EditorWorkbook) => EditorWorkbook) => void;
   editingCellKey: string | null;
+  draftCell: DraftCell;
   labels: CelloVisualEditorLabels;
   layout: EditorLayoutOptions | undefined;
   modifierScope: ModifierScope;
@@ -713,6 +736,7 @@ function VisualDataRows({
   selectCell: (rowIndex: number, colIndex: number) => void;
   selectDefaultCell: (colIndex: number) => void;
   setEditingCellKey: (key: string | null) => void;
+  setDraftCell: (draft: DraftCell) => void;
   selected: CellAddress;
   selectedDefaultCol: number | null;
   visibleColumnCount: number;
@@ -733,26 +757,49 @@ function VisualDataRows({
         const cellKey = getCellAddressKey({ sheetIndex: activeSheetIndex, rowIndex, colIndex });
         const computed = computedValues[cellKey];
         const toneClass = getCellToneClass(activeSheet, rowIndex, colIndex);
-        const inputValue = cell.raw.startsWith("=") && editingCellKey === cellKey
-          ? getCellSourceText(cell)
-          : getCellDisplayText(cell, computed);
+        const workbookContext = aliases ? { aliases } : {};
+        const isEditing = editingCellKey === cellKey || draftCell?.key === cellKey;
+        const inputValue = draftCell?.key === cellKey
+          ? draftCell.value
+          : cell.raw.startsWith("=") && isEditing
+            ? getCellSourceText(cell)
+            : getCellFormattedDisplayText(activeSheet, rowIndex, colIndex, computed, workbookContext);
+        const cellStyle = getVisualCellStyle(workbookContext, activeSheet, rowIndex, colIndex, computedValues, activeSheetIndex);
+        const contentStyle = getVisualCellContentStyle(workbookContext, activeSheet, rowIndex);
+        const editorStyle = getVisualCellStyle(workbookContext, activeSheet, rowIndex, colIndex, computedValues, activeSheetIndex);
+        delete editorStyle.width;
+        delete editorStyle.minWidth;
+        const shouldHighlightFormula = inputValue.startsWith("=") && isEditing;
         return (
-          <td key={colIndex} className={[isSelected ? "selected" : "", toneClass, span.colspan > 1 || span.rowspan > 1 ? "merged" : ""].filter(Boolean).join(" ")} colSpan={span.colspan} rowSpan={span.rowspan}>
-            <input
-              aria-label={`${getColumnName(colIndex)}${rowIndex + 1}`}
-              value={inputValue}
-              style={getCellStyle(activeSheet, rowIndex, colIndex)}
-              onFocus={() => {
-                selectCell(rowIndex, colIndex);
-                setEditingCellKey(cell.raw.startsWith("=") ? cellKey : null);
-              }}
-              onBlur={() => setEditingCellKey(null)}
-              onChange={(event) => {
-                const nextAddress = { sheetIndex: activeSheetIndex, rowIndex, colIndex };
-                selectCell(rowIndex, colIndex);
-                commit((current) => updateCellRaw(current, nextAddress, event.target.value, layout));
-              }}
-            />
+          <td key={colIndex} className={[isSelected ? "selected" : "", toneClass, span.colspan > 1 || span.rowspan > 1 ? "merged" : ""].filter(Boolean).join(" ")} style={cellStyle} colSpan={span.colspan} rowSpan={span.rowspan}>
+            <div className={`celloVisualCellEditor ${shouldHighlightFormula ? "hasFormulaHighlight" : ""}`} style={contentStyle}>
+              {shouldHighlightFormula ? (
+                <div className="celloVisualCellFormulaHighlight" aria-hidden="true">
+                  {renderFormulaHighlight(inputValue)}
+                </div>
+              ) : null}
+              <textarea
+                aria-label={`${getColumnName(colIndex)}${rowIndex + 1}`}
+                value={inputValue}
+                style={{ ...editorStyle, ...contentStyle }}
+                rows={1}
+                onFocus={() => {
+                  selectCell(rowIndex, colIndex);
+                  setEditingCellKey(cell.raw.startsWith("=") ? cellKey : null);
+                  setDraftCell({ key: cellKey, value: getCellSourceText(cell) });
+                }}
+                onBlur={() => {
+                  setEditingCellKey(null);
+                  setDraftCell(null);
+                }}
+                onChange={(event) => {
+                  const nextAddress = { sheetIndex: activeSheetIndex, rowIndex, colIndex };
+                  selectCell(rowIndex, colIndex);
+                  setDraftCell({ key: cellKey, value: event.target.value });
+                  commit((current) => updateCellRaw(current, nextAddress, event.target.value, layout));
+                }}
+              />
+            </div>
           </td>
         );
       })}

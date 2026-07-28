@@ -17,7 +17,13 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html"],
       include: ["packages/core/src/**/*.ts", "packages/cli/src/**/*.ts", "packages/editor-core/src/**/*.ts", "packages/editor-react/src/**/*.{ts,tsx}"],
-      exclude: ["packages/core/src/shared/types.ts"]
+      exclude: ["packages/core/src/shared/types.ts"],
+      thresholds: {
+        statements: 80,
+        branches: 70,
+        functions: 80,
+        lines: 80
+      }
     }
   }
 });

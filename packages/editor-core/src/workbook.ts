@@ -28,6 +28,7 @@ export function createEditorWorkbookFromAst(ast: WorkbookAst): EditorWorkbook {
 function createEditorSheetFromAst(sheet: SheetNode): EditorSheet {
   return {
     name: sheet.name,
+    format: sheet.format,
     layout: sheet.layout,
     ...(sheet.format.kind === "json" && sheet.format.path ? { externalSource: { path: sheet.format.path, status: "unresolved" } } : {}),
     defaults: sheet.columns.map((column) => {
@@ -48,6 +49,7 @@ function createEditorSheetFromAst(sheet: SheetNode): EditorSheet {
 export function createBlankSheet(name: string): EditorSheet {
   return {
     name,
+    format: { kind: "cello" },
     layout: {},
     defaults: [],
     rows: []

@@ -48,6 +48,15 @@ describe("render", () => {
     expect(html).toContain('<td style="text-decoration:line-through"><span class="cello-h3">Small</span></td>');
   });
 
+  it("does not render unsafe color modifier values into style attributes", async () => {
+    const html = await render('@sheet S\n| x[bg:red" autofocus="x][color:blue" onclick="x][#not-a-color] | y[#bg:#111:" autofocus="x] |');
+
+    expect(html).not.toContain("autofocus");
+    expect(html).not.toContain("onclick");
+    expect(html).not.toContain('style="background:red"');
+    expect(html).not.toContain("not-a-color");
+  });
+
   it("renders supported tone modifiers as overridable css classes", async () => {
     const html = await render(
       "@sheet S\n@header | Name[tone:accent] | State |\n[tone:muted] | muted | ok[tone:ok] |\n| warn[tone:warn] | error[tone:error] |\n| info[tone:info][bg:black] | plain |"

@@ -1,5 +1,5 @@
-import { isSheetFormatModifier, parse, parseSheetFormat, parseTrailingModifiers, sheetLayoutToToken } from "../../core/src/index.js";
-import type { Modifier, SheetFormat } from "../../core/src/index.js";
+import { isSheetFormatModifier, parse, parseSheetFormat, parseTrailingModifiers } from "../../core/src/index.js";
+import type { AliasDeclaration, Modifier, SheetFormat, SheetLayout } from "../../core/src/index.js";
 import type {
   EditorCell,
   EditorCommandFailure,
@@ -14,9 +14,16 @@ import type {
   EditorSourceSpan,
   EditorWorkbook
 } from "./model.js";
-import { DEFAULT_SHEET_NAME, rejectExternalSource } from "./options.js";
+import { rejectExternalSource } from "./options.js";
 import type { CreateEditorWorkbookOptions } from "./options.js";
-import { isMergeToken } from "./source.js";
+import {
+  serializeEditorCell,
+  serializeEditorCellsAsRow,
+  serializeEditorDefaultsRow,
+  serializeEditorRow,
+  serializeEditorSheetDeclaration,
+  serializeEditorWorkbook
+} from "./serialization.js";
 import { createEditorWorkbookFromAst } from "./workbook.js";
 
 interface Patch {
@@ -86,12 +93,16 @@ function buildWorkbookPatches(
 ): Patch[] | Pick<EditorCommandFailure, "reason" | "message"> {
   const current = document.workbook;
   const patches: Patch[] = [];
-  if (JSON.stringify(current.aliases ?? []) !== JSON.stringify(nextWorkbook.aliases ?? [])) {
+  if (!aliasesEqual(current.aliases ?? [], nextWorkbook.aliases ?? [])) {
     return { reason: "unsupported-source-region", message: "Alias edits cannot be source-preserved in visual mode yet." };
   }
 
+  if (shouldMaterializeImplicitWorkbook(document, nextWorkbook)) {
+    return [{ span: { start: 0, end: document.source.length }, text: serializeEditorWorkbook(nextWorkbook) }];
+  }
+
   if (nextWorkbook.sheets.length === current.sheets.length + 1 && sheetsEqual(nextWorkbook.sheets.slice(0, -1), current.sheets)) {
-    patches.push({ span: { start: document.source.length, end: document.source.length }, text: `${document.source.endsWith("\n") ? "\n" : "\n\n"}${serializeSheet(nextWorkbook.sheets[nextWorkbook.sheets.length - 1])}` });
+    patches.push({ span: { start: document.source.length, end: document.source.length }, text: `${document.source.endsWith("\n") ? "\n" : "\n\n"}${serializeEditorWorkbook({ sheets: [nextWorkbook.sheets[nextWorkbook.sheets.length - 1] as EditorSheet] })}` });
     return patches;
   }
 
@@ -116,7 +127,10 @@ function buildWorkbookPatches(
       return { reason: "stale-source-map", message: "The edited sheet could not be mapped to source." };
     }
     if (!sourceSheet.editable && !sheetEqual(nextSheet, currentSheet)) {
-      return { reason: sourceSheet.externalSources.length > 0 ? "external-source-unavailable" : "unsupported-source-region", message: `Sheet "${currentSheet.name}" cannot be edited source-preservingly in visual mode.` };
+      return {
+        reason: sourceSheet.externalSources.length > 0 ? "external-source-unavailable" : "unsupported-source-region",
+        message: buildReadonlySheetMessage(currentSheet.name, sourceSheet.format, sourceSheet.externalSources.length > 0)
+      };
     }
 
     const sheetPatch = patchSheetDeclaration(sourceSheet, currentSheet, nextSheet);
@@ -141,13 +155,13 @@ function buildWorkbookPatches(
 }
 
 function patchSheetDeclaration(sourceSheet: EditorSheetSourceLocation, current: EditorSheet, next: EditorSheet): Patch | undefined {
-  if (current.name === next.name && JSON.stringify(current.layout ?? {}) === JSON.stringify(next.layout ?? {})) {
+  if (current.name === next.name && sheetLayoutsEqual(current.layout, next.layout)) {
     return undefined;
   }
   if (!sourceSheet.declaration) {
-    return { span: { start: sourceSheet.sheetSpan.start, end: sourceSheet.sheetSpan.start }, text: `${serializeSheetDeclaration(next)}\n` };
+    return { span: { start: sourceSheet.sheetSpan.start, end: sourceSheet.sheetSpan.start }, text: `${serializeEditorSheetDeclaration(next)}\n` };
   }
-  return { span: sourceSheet.declaration.lineSpan, text: serializeSheetDeclaration(next) };
+  return { span: sourceSheet.declaration.lineSpan, text: serializeEditorSheetDeclaration(next) };
 }
 
 function patchDefaults(
@@ -164,7 +178,8 @@ function patchDefaults(
     if (!anchor) {
       return { reason: "stale-source-map", message: "A defaults row cannot be inserted without a mapped sheet anchor." };
     }
-    return [{ span: { start: anchor.lineSpan.end, end: anchor.lineSpan.end }, text: `\n${serializeDefaults(next)}` }];
+    const defaults = serializeEditorDefaultsRow(next);
+    return defaults ? [{ span: { start: anchor.lineSpan.end, end: anchor.lineSpan.end }, text: `\n${defaults}` }] : [];
   }
   return patchRowCells(source, sourceSheet.defaults, current.defaults, next.defaults, "defaults");
 }
@@ -194,7 +209,7 @@ function patchRows(
         const currentCells = trimTrailingEmptyCells(currentRow.cells);
         const nextCells = trimTrailingEmptyCells(nextRow.cells);
         if (currentRow.kind !== nextRow.kind || currentCells.length > sourceRow.cells.length || !modifiersEqual(currentRow.modifiers, nextRow.modifiers)) {
-          patches.push({ span: sourceRow.lineSpan, text: serializeRow({ ...nextRow, cells: nextCells }) });
+          patches.push({ span: sourceRow.lineSpan, text: serializeEditorRow({ ...nextRow, cells: nextCells }) });
           continue;
         }
         const cellPatches = patchRowCells(source, sourceRow, currentCells, nextCells, "row");
@@ -205,7 +220,7 @@ function patchRows(
         continue;
       }
       if (!modifiersEqual(currentRow.modifiers, nextRow.modifiers)) {
-        patches.push({ span: sourceRow.lineSpan, text: serializeRow(nextRow) });
+        patches.push({ span: sourceRow.lineSpan, text: serializeEditorRow(nextRow) });
         continue;
       }
       const cellPatches = patchRowCells(source, sourceRow, trimTrailingEmptyCells(currentRow.cells), trimTrailingEmptyCells(nextRow.cells), "row");
@@ -227,7 +242,7 @@ function patchRows(
       return { reason: "stale-source-map", message: "The inserted row anchor could not be mapped to source." };
     }
     const insertedRow = next.rows[insertIndex] as EditorRow;
-    return [{ span: { start: previous.lineSpan.end, end: previous.lineSpan.end }, text: `\n${serializeRow({ ...insertedRow, cells: trimTrailingEmptyCells(insertedRow.cells) })}` }];
+    return [{ span: { start: previous.lineSpan.end, end: previous.lineSpan.end }, text: `\n${serializeEditorRow({ ...insertedRow, cells: trimTrailingEmptyCells(insertedRow.cells) })}` }];
   }
 
   return { reason: "unsupported-source-region", message: "This row change cannot be source-preserved yet." };
@@ -258,7 +273,7 @@ function patchRowCells(
     if (!sourceCell) {
       return { reason: "stale-source-map", message: `The edited ${label} cell ${cellIndex + 1} could not be mapped to source.` };
     }
-    patches.push({ span: sourceCell.span, text: serializeCell(nextCell) });
+    patches.push({ span: expandCellPatchSpan(source, sourceRow, sourceCell.span), text: serializeEditorCell(nextCell) });
   }
   return patches;
 }
@@ -266,12 +281,12 @@ function patchRowCells(
 function serializeCellsAsRowSource(source: string, sourceRow: EditorRowSourceLocation, cells: EditorCell[]): string {
   const line = source.slice(sourceRow.lineSpan.start, sourceRow.lineSpan.end);
   if (line.trimStart().startsWith("@header")) {
-    return `@header | ${cells.map(serializeCell).join(" | ")} |`;
+    return serializeEditorCellsAsRow(cells, "header");
   }
   if (line.trimStart().startsWith("@defaults")) {
-    return `@defaults | ${cells.map(serializeCell).join(" | ")} |`;
+    return serializeEditorCellsAsRow(cells, "defaults");
   }
-  return `| ${cells.map(serializeCell).join(" | ")} |`;
+  return serializeEditorCellsAsRow(cells, "row");
 }
 
 function findInsertedRowIndex(currentRows: EditorRow[], nextRows: EditorRow[]): number {
@@ -308,7 +323,8 @@ function buildEditorSourceMap(source: string, options: CreateEditorWorkbookOptio
         sheetSpan: { start: line.start, end: line.end },
         rows: [],
         externalSources: [],
-        editable: declaration.format.kind === "cello"
+        editable: declaration.format.kind === "cello",
+        format: declaration.format
       };
       currentFormat = declaration.format;
       hasSheetContent = true;
@@ -374,8 +390,37 @@ function createImplicitSheet(_source: string): EditorSheetSourceLocation {
     sheetSpan: { start: 0, end: 0 },
     rows: [],
     externalSources: [],
-    editable: true
+    editable: true,
+    format: { kind: "cello" }
   };
+}
+
+function buildReadonlySheetMessage(name: string, format: SheetFormat, external: boolean): string {
+  const label = formatLabel(format);
+  const detail = external
+    ? `${label} sheets loaded from external sources are read-only in visual mode for now.`
+    : `${label} sheets are read-only in visual mode for now.`;
+  return `Sheet "${name}" is a ${label} sheet, so visual edits are blocked. ${detail} ${label} rows do not support source-preserved Cello cell modifiers like [bold]; switch to source mode or convert this sheet to native Cello syntax to edit formatting.`;
+}
+
+function shouldMaterializeImplicitWorkbook(document: EditorDocument, nextWorkbook: EditorWorkbook): boolean {
+  const hasImplicitSheet = document.sourceMap.sheets.some((sourceSheet) => !sourceSheet.declaration);
+  if (!hasImplicitSheet) {
+    return false;
+  }
+  if (document.workbook.sheets.length !== nextWorkbook.sheets.length) {
+    return true;
+  }
+  return document.sourceMap.sheets.some((sourceSheet, sheetIndex) =>
+    !sourceSheet.declaration && !sheetEqual(document.workbook.sheets[sheetIndex], nextWorkbook.sheets[sheetIndex])
+  );
+}
+
+function formatLabel(format: SheetFormat): string {
+  if (format.kind === "delimited") {
+    return (format.alias ?? "delimited").toUpperCase();
+  }
+  return format.kind.toUpperCase();
 }
 
 function getSheetDeclaration(line: SourceLine): (NonNullable<EditorSheetSourceLocation["declaration"]> & { format: SheetFormat }) | undefined {
@@ -474,6 +519,20 @@ function applyPatches(source: string, patches: Patch[]): string {
   return next;
 }
 
+function expandCellPatchSpan(source: string, sourceRow: EditorRowSourceLocation, span: EditorSourceSpan): EditorSourceSpan {
+  const line = source.slice(sourceRow.lineSpan.start, sourceRow.lineSpan.end);
+  const spanEndInLine = span.end - sourceRow.lineSpan.start;
+  const nextPipe = line.indexOf("|", spanEndInLine);
+  if (nextPipe < 0) {
+    return span;
+  }
+  const trailing = line.slice(spanEndInLine, nextPipe);
+  if (!/^\s+$/.test(trailing) || trailing.length <= 1) {
+    return span;
+  }
+  return { start: span.start, end: span.end + trailing.length - 1 };
+}
+
 function expandRemovedSheetSpan(source: string, span: EditorSourceSpan): EditorSourceSpan {
   let start = span.start;
   let end = span.end;
@@ -490,42 +549,6 @@ function expandRemovedSheetSpan(source: string, span: EditorSourceSpan): EditorS
   return { start, end };
 }
 
-function serializeSheet(sheet: EditorSheet | undefined): string {
-  if (!sheet) {
-    return "";
-  }
-  return [serializeSheetDeclaration(sheet), ...sheet.rows.map(serializeRow)].join("\n");
-}
-
-function serializeSheetDeclaration(sheet: EditorSheet): string {
-  const layout = sheetLayoutToToken(sheet.layout);
-  return `@sheet ${sanitizeSheetName(sheet.name)}${layout ? ` ${layout}` : ""}`;
-}
-
-function serializeDefaults(sheet: EditorSheet): string {
-  return `@defaults | ${sheet.defaults.map(serializeCell).join(" | ")} |`;
-}
-
-function serializeRow(row: EditorRow): string {
-  const cells = row.cells.map(serializeCell).join(" | ");
-  if (row.kind === "header") {
-    return `@header | ${cells} |`;
-  }
-  const prefix = row.modifiers.length > 0 ? `${row.modifiers.map((modifier) => `[${modifier.raw}]`).join("")} ` : "";
-  return `${prefix}| ${cells} |`;
-}
-
-function serializeCell(cell: EditorCell): string {
-  if (isMergeToken(cell.raw)) {
-    return cell.raw;
-  }
-  return `${cell.raw.replaceAll("|", " ")}${cell.modifiers.map((modifier) => `[${modifier.raw}]`).join("")}`;
-}
-
-function sanitizeSheetName(value: string): string {
-  return value.replaceAll("[", "").replaceAll("]", "").trim() || DEFAULT_SHEET_NAME;
-}
-
 function sheetsEqual(left: EditorSheet[], right: EditorSheet[]): boolean {
   return left.length === right.length && left.every((sheet, index) => sheetEqual(sheet, right[index] as EditorSheet | undefined));
 }
@@ -536,7 +559,8 @@ function sheetEqual(left: EditorSheet | undefined, right: EditorSheet | undefine
   }
   return (
     left.name === right.name &&
-    JSON.stringify(left.layout ?? {}) === JSON.stringify(right.layout ?? {}) &&
+    sheetFormatsEqual(left.format, right.format) &&
+    sheetLayoutsEqual(left.layout, right.layout) &&
     rowsEqual(left.rows, right.rows) &&
     cellsEqual(left.defaults, right.defaults)
   );
@@ -564,11 +588,52 @@ function cellsEqual(left: EditorCell[], right: EditorCell[]): boolean {
 }
 
 function cellEqual(left: EditorCell | undefined, right: EditorCell | undefined): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  if (!left || !right) {
+    return false;
+  }
+  return left.raw === right.raw && modifiersEqual(left.modifiers, right.modifiers);
 }
 
 function modifiersEqual(left: Modifier[], right: Modifier[]): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return left.length === right.length && left.every((modifier, index) => modifierEqual(modifier, right[index]));
+}
+
+function modifierEqual(left: Modifier, right: Modifier | undefined): boolean {
+  if (!right) {
+    return false;
+  }
+  return left.raw === right.raw && left.key === right.key && left.value === right.value;
+}
+
+function aliasesEqual(left: AliasDeclaration[], right: AliasDeclaration[]): boolean {
+  return left.length === right.length && left.every((alias, index) => {
+    const candidate = right[index];
+    if (!candidate) {
+      return false;
+    }
+    return (
+      alias.namespace === candidate.namespace &&
+      alias.name === candidate.name &&
+      modifiersEqual(alias.modifiers, candidate.modifiers)
+    );
+  });
+}
+
+function sheetLayoutsEqual(left: SheetLayout | undefined, right: SheetLayout | undefined): boolean {
+  return (left?.columns ?? undefined) === (right?.columns ?? undefined) && (left?.rows ?? undefined) === (right?.rows ?? undefined);
+}
+
+function sheetFormatsEqual(left: SheetFormat, right: SheetFormat): boolean {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (left.kind === "delimited" && right.kind === "delimited") {
+    return left.delimiter === right.delimiter && left.noHeader === right.noHeader && left.alias === right.alias;
+  }
+  if (left.kind === "json" && right.kind === "json") {
+    return left.path === right.path;
+  }
+  return true;
 }
 
 function trimTrailingEmptyCells(cells: EditorCell[]): EditorCell[] {

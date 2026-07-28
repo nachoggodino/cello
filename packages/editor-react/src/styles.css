@@ -145,7 +145,8 @@
 .celloVisualSheetNameInput,
 .celloVisualInputTool input,
 .celloVisualSelectTool select,
-.celloVisualGrid input {
+.celloVisualGrid input,
+.celloVisualGrid textarea {
   border: 1px solid var(--cello-visual-line);
   color: var(--cello-visual-ink);
   background: var(--cello-visual-input);
@@ -235,7 +236,8 @@
 .celloVisualScopeSwitch button:focus-visible,
 .celloVisualFormulaInput:focus-visible,
 .celloVisualSheetNameInput:focus-visible,
-.celloVisualGrid input:focus-visible {
+.celloVisualGrid input:focus-visible,
+.celloVisualGrid textarea:focus-visible {
   outline: 2px solid var(--cello-visual-accent);
   outline-offset: 2px;
 }
@@ -608,7 +610,8 @@
   background: var(--cello-visual-cell);
 }
 
-.celloVisualGrid td.merged input {
+.celloVisualGrid td.merged input,
+.celloVisualGrid td.merged textarea {
   height: 100%;
   min-height: 36px;
   text-align: center;
@@ -618,16 +621,51 @@
   box-shadow: inset 0 0 0 2px var(--cello-visual-accent);
 }
 
-.celloVisualGrid input {
+.celloVisualCellEditor {
+  position: relative;
   width: 100%;
-  height: 36px;
+  min-height: 36px;
+  overflow: hidden;
+}
+
+.celloVisualGrid input,
+.celloVisualGrid textarea {
+  width: 100%;
+  min-height: 36px;
   padding-inline: var(--cello-visual-space-7);
   border: 0;
   border-radius: 0;
   background: transparent;
   font-family: var(--cello-visual-font-code);
   font-size: var(--cello-visual-font-size-small);
+  line-height: 20px;
   outline: none;
+}
+
+.celloVisualGrid textarea {
+  display: block;
+  height: 100%;
+  padding-block: 8px;
+  resize: none;
+}
+
+.celloVisualCellEditor.hasFormulaHighlight textarea {
+  color: transparent;
+  caret-color: var(--cello-visual-ink);
+  position: relative;
+  z-index: 1;
+}
+
+.celloVisualCellFormulaHighlight {
+  position: absolute;
+  inset: 0;
+  padding: 8px var(--cello-visual-space-7);
+  overflow: hidden;
+  font-family: var(--cello-visual-font-code);
+  font-size: var(--cello-visual-font-size-small);
+  line-height: 20px;
+  pointer-events: none;
+  white-space: pre-wrap;
 }
 
 .celloVisualDefaultsRow input {
@@ -636,46 +674,54 @@
 }
 
 .celloVisualTone-ok,
-.celloVisualTone-ok input {
+.celloVisualTone-ok input,
+.celloVisualTone-ok textarea {
   color: var(--cello-visual-tone-ok-color);
   background: var(--cello-visual-tone-ok-background);
 }
 
 .celloVisualTone-warn,
-.celloVisualTone-warn input {
+.celloVisualTone-warn input,
+.celloVisualTone-warn textarea {
   color: var(--cello-visual-tone-warn-color);
   background: var(--cello-visual-tone-warn-background);
 }
 
 .celloVisualTone-error,
-.celloVisualTone-error input {
+.celloVisualTone-error input,
+.celloVisualTone-error textarea {
   color: var(--cello-visual-tone-error-color);
   background: var(--cello-visual-tone-error-background);
 }
 
 .celloVisualTone-info,
-.celloVisualTone-info input {
+.celloVisualTone-info input,
+.celloVisualTone-info textarea {
   color: var(--cello-visual-tone-info-color);
   background: var(--cello-visual-tone-info-background);
 }
 
 .celloVisualTone-muted,
-.celloVisualTone-muted input {
+.celloVisualTone-muted input,
+.celloVisualTone-muted textarea {
   color: var(--cello-visual-tone-muted-color);
   background: var(--cello-visual-tone-muted-background);
 }
 
 .celloVisualTone-accent,
-.celloVisualTone-accent input {
+.celloVisualTone-accent input,
+.celloVisualTone-accent textarea {
   color: var(--cello-visual-tone-accent-color);
   background: var(--cello-visual-tone-accent-background);
 }
 
-.celloVisualGrid input::selection {
+.celloVisualGrid input::selection,
+.celloVisualGrid textarea::selection {
   background: var(--cello-visual-accent-selection);
 }
 
-.celloVisualHeaderRow input {
+.celloVisualHeaderRow input,
+.celloVisualHeaderRow textarea {
   font-weight: var(--cello-visual-font-weight-heavy);
 }
 

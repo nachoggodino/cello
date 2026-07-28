@@ -217,9 +217,12 @@ describe("CelloVisualEditor", () => {
       className: "hostEditor",
       labels: {
         headerRow: "Heading",
+        noInheritedModifiers: "No modifiers",
+        propertyScope: "Scope picker",
         source: "Open source",
         toolbar: "Toolbar",
-        workbook: "Workbook"
+        workbook: "Workbook",
+        workbookSheets: "Sheets list"
       },
       onRequestSourceView
     });
@@ -227,7 +230,10 @@ describe("CelloVisualEditor", () => {
     expect(document.querySelector(".celloVisualEditorShell.hostEditor")).toBeTruthy();
     expect(document.querySelector("[aria-label='Toolbar']")).toBeTruthy();
     expect(document.querySelector("[aria-label='Workbook']")).toBeTruthy();
+    expect(document.querySelector("[aria-label='Scope picker']")).toBeTruthy();
+    expect(document.querySelector("[aria-label='Sheets list']")).toBeTruthy();
     expect(document.body.textContent).toContain("Heading");
+    expect(document.body.textContent).toContain("No modifiers");
     clickButton("Open source");
     expect(onRequestSourceView).toHaveBeenCalledTimes(1);
   });
@@ -256,6 +262,70 @@ describe("CelloVisualEditor", () => {
     focusInput(screenInput("A4"));
     expect(screenInput("A4").value).toBe("=SUM(Amount)");
   });
+
+  it("formats units and layout in the visual grid", async () => {
+    renderEditor("@sheet Report [columns:fit][rows:wrap]\n@header | Amount[€][2d] | Rate[%][1d] |\n| 12.5 | 0.42 |", vi.fn());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screenInput("A2").value).toBe("€12.50");
+    expect(screenInput("B2").value).toBe("42.0%");
+    expect(screenInput("A2").style.whiteSpace).toBe("normal");
+    expect(screenInput("A2").closest("td")?.getAttribute("style")).toContain("width:");
+
+    focusInput(screenInput("A2"));
+    expect(screenInput("A2").value).toBe("12.5");
+  });
+
+  it("syntax-highlights formulas in grid edit mode", async () => {
+    renderEditor("@sheet Report\n@header | Amount |\n| 5 |\n| =SUM(Amount) |", vi.fn());
+
+    focusInput(screenInput("A3"));
+
+    expect(document.querySelector(".celloVisualCellFormulaHighlight .formula-equals")?.textContent).toBe("=");
+    expect(document.querySelector(".celloVisualCellFormulaHighlight .formula-column")?.textContent).toBe("SUM");
+  });
+
+  it("preserves transient trailing spaces while editing visual cells", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n| Hello |", onSourceChange);
+
+    const cell = screenInput("A1");
+    focusInput(cell);
+    changeInput(cell, "Hello ");
+
+    expect(screenInput("A1").value).toBe("Hello ");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Hello  |");
+
+    changeInput(screenInput("A1"), "Hello world");
+
+    expect(screenInput("A1").value).toBe("Hello world");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Hello world |");
+  });
+
+  it("explains read-only CSV sheets and clears command warnings after 15 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      renderEditor("@sheet RawData [csv]\nname,amount\nAda,5", vi.fn());
+
+      focusInput(screenInput("A2"));
+      clickButton("Bold");
+
+      expect(document.querySelector(".celloVisualCommandError")?.textContent).toContain("RawData");
+      expect(document.querySelector(".celloVisualCommandError")?.textContent).toContain("CSV");
+      expect(document.querySelector(".celloVisualCommandError")?.textContent).toContain("native Cello syntax");
+
+      act(() => {
+        vi.advanceTimersByTime(15000);
+      });
+
+      expect(document.querySelector(".celloVisualCommandError")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 function renderEditor(
@@ -271,8 +341,8 @@ function renderEditor(
   });
 }
 
-function screenInput(label: string): HTMLInputElement {
-  const input = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+function screenInput(label: string): HTMLInputElement | HTMLTextAreaElement {
+  const input = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`input[aria-label="${label}"], textarea[aria-label="${label}"]`);
   expect(input).toBeTruthy();
   return input!;
 }
@@ -334,7 +404,7 @@ function clickElement(element: HTMLElement | null): void {
   });
 }
 
-function focusInput(input: HTMLInputElement): void {
+function focusInput(input: HTMLInputElement | HTMLTextAreaElement): void {
   act(() => {
     input.focus();
   });

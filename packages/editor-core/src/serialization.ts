@@ -8,13 +8,12 @@ export function serializeEditorWorkbook(workbook: EditorWorkbook): string {
   const sheetText = workbook.sheets
     .map((sheet) => {
       const normalizedRows = trimTrailingEmptyRows(sheet.rows).map(trimTrailingEmptyCells);
-      const layoutToken = sheetLayoutToToken(sheet.layout);
-      const lines = [`@sheet ${sanitizeSheetName(sheet.name)}${layoutToken ? ` ${layoutToken}` : ""}`];
+      const lines = [serializeEditorSheetDeclaration(sheet)];
 
       for (const row of normalizedRows) {
-        lines.push(serializeRow(row));
+        lines.push(serializeEditorRow(row));
         if (row.kind === "header") {
-          const defaults = serializeDefaultsRow(sheet);
+          const defaults = serializeEditorDefaultsRow(sheet);
           if (defaults) {
             lines.push(defaults);
           }
@@ -22,7 +21,7 @@ export function serializeEditorWorkbook(workbook: EditorWorkbook): string {
       }
 
       if (!normalizedRows.some((row) => row.kind === "header")) {
-        const defaults = serializeDefaultsRow(sheet);
+        const defaults = serializeEditorDefaultsRow(sheet);
         if (defaults) {
           lines.push(defaults);
         }
@@ -61,8 +60,13 @@ function isEmptyCell(cell: EditorCell | undefined): boolean {
   return Boolean(cell) && cell?.raw.trim() === "" && cell.modifiers.length === 0;
 }
 
-function serializeRow(row: EditorRow): string {
-  const cells = row.cells.map(serializeCell).join(" | ");
+export function serializeEditorSheetDeclaration(sheet: EditorWorkbook["sheets"][number]): string {
+  const layoutToken = sheetLayoutToToken(sheet.layout);
+  return `@sheet ${sanitizeSheetName(sheet.name)}${layoutToken ? ` ${layoutToken}` : ""}`;
+}
+
+export function serializeEditorRow(row: EditorRow): string {
+  const cells = row.cells.map(serializeEditorCell).join(" | ");
   if (row.kind === "header") {
     return `@header | ${cells} |`;
   }
@@ -70,19 +74,30 @@ function serializeRow(row: EditorRow): string {
   return `${rowPrefix}| ${cells} |`;
 }
 
-function serializeCell(cell: EditorCell): string {
+export function serializeEditorCellsAsRow(cells: EditorCell[], sourceKind: "row" | "header" | "defaults"): string {
+  const serialized = cells.map(serializeEditorCell).join(" | ");
+  if (sourceKind === "header") {
+    return `@header | ${serialized} |`;
+  }
+  if (sourceKind === "defaults") {
+    return `@defaults | ${serialized} |`;
+  }
+  return `| ${serialized} |`;
+}
+
+export function serializeEditorCell(cell: EditorCell): string {
   if (isMergeToken(cell.raw)) {
     return cell.raw;
   }
   return `${sanitizeCellRaw(cell.raw)}${cell.modifiers.map((modifier) => `[${modifier.raw}]`).join("")}`;
 }
 
-function serializeDefaultsRow(sheet: EditorWorkbook["sheets"][number]): string | undefined {
+export function serializeEditorDefaultsRow(sheet: EditorWorkbook["sheets"][number]): string | undefined {
   const defaults = trimTrailingEmptyCells({ kind: "data", modifiers: [], cells: sheet.defaults ?? [] }).cells;
   if (defaults.length === 0) {
     return undefined;
   }
-  return `@defaults | ${defaults.map(serializeCell).join(" | ")} |`;
+  return serializeEditorCellsAsRow(defaults, "defaults");
 }
 
 function sanitizeCellRaw(value: string): string {

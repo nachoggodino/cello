@@ -12,6 +12,7 @@ import {
   getCellAddressKey,
   getCellAt,
   getCellDisplayText,
+  getCellFormattedDisplayText,
   getCellSourceText,
   getCellStyle,
   getCellToneClass,
@@ -26,6 +27,8 @@ import {
   getVisibleColumnCount,
   getVisibleRowCount,
   getVisualCellSpan,
+  getVisualCellStyle,
+  getVisualCellContentStyle,
   hasScopedModifier,
   isColumnFit,
   isRowWrap,
@@ -122,7 +125,7 @@ describe("editor core", () => {
   });
 
   it("creates a blank sheet for empty source", () => {
-    expect(createEditorWorkbook("").sheets).toEqual([{ name: "Sheet1", layout: {}, rows: [], defaults: [] }]);
+    expect(createEditorWorkbook("").sheets).toEqual([{ name: "Sheet1", format: { kind: "cello" }, layout: {}, rows: [], defaults: [] }]);
   });
 
   it("uses host-provided parse options for anonymous sheets and external sources", () => {
@@ -334,6 +337,16 @@ describe("editor core", () => {
     expect(serializeEditorWorkbook(tonedRow)).toContain("[tone:info] | ## Total[strike] |");
   });
 
+  it("derives formatted visual display text and layout styles", () => {
+    const workbook = createEditorWorkbook("@sheet Report [columns:fit][rows:wrap]\n@header | Amount[€][2d] | Rate[%][1d] |\n| 12.5 | 0.42 |");
+    const sheet = workbook.sheets[0];
+
+    expect(getCellFormattedDisplayText(sheet, 1, 0, undefined, workbook)).toBe("€12.50");
+    expect(getCellFormattedDisplayText(sheet, 1, 1, undefined, workbook)).toBe("42.0%");
+    expect(getVisualCellContentStyle(workbook, sheet, 1)).toEqual({ whiteSpace: "normal", overflowWrap: "anywhere" });
+    expect(getVisualCellStyle(workbook, sheet, 1, 0).width).toContain("calc(");
+  });
+
   it("computes visual merge spans and hidden continuation cells", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| A | < | < |\n| ^ | < | < |\n| B | C | D |");
     const sheet = workbook.sheets[0];
@@ -416,6 +429,34 @@ describe("editor core", () => {
       "| Ada | 7 |",
       "// keep this too"
     ].join("\n"));
+  });
+
+  it("materializes an empty implicit sheet when editing a blank document", () => {
+    const document = createEditorDocument("");
+    const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 }, "Ada");
+    const result = applyWorkbookPatch(document, nextWorkbook);
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe("@sheet Sheet1\n| Ada |");
+  });
+
+  it("materializes the implicit first sheet when adding a sheet to empty source", () => {
+    const document = createEditorDocument("");
+    const result = applyWorkbookPatch(document, addSheet(document.workbook));
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe("@sheet Sheet1\n\n@sheet Sheet2");
+    expect(result.ok ? result.document.workbook.sheets.map((sheet) => sheet.name) : []).toEqual(["Sheet1", "Sheet2"]);
+  });
+
+  it("materializes implicit sheets when column controls insert a header", () => {
+    const document = createEditorDocument("| Ada |");
+    const resolution = ensureColumnHeaderRow(document.workbook, 0);
+    const nextWorkbook = setColumnWidth(resolution.workbook, 0, resolution.headerRowIndex, 0, "24");
+    const result = applyWorkbookPatch(document, nextWorkbook);
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe("@sheet Sheet1\n@header | [width:24] |\n| Ada |");
   });
 
   it("keeps source-map sheets aligned when aliases appear before the first sheet", () => {
@@ -516,7 +557,19 @@ describe("editor core", () => {
     expect(result).toMatchObject({
       ok: false,
       reason: "external-source-unavailable",
-      message: "Sheet \"Imported\" cannot be edited source-preservingly in visual mode."
+      message: expect.stringContaining("native Cello syntax")
+    });
+  });
+
+  it("explains source-preserving edit failures for non-native sheets", () => {
+    const document = createEditorDocument("@sheet RawData [csv]\nname,amount\nAda,5");
+    const nextWorkbook = toggleCellModifier(document.workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 0 }, "bold");
+    const result = applyWorkbookPatch(document, nextWorkbook);
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "unsupported-source-region",
+      message: expect.stringContaining("CSV")
     });
   });
 

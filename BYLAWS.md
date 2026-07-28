@@ -397,6 +397,7 @@ Cell text supports a small Markdown-like formatting set.
 | `~~text~~` | Strikethrough |
 | `# text` | Heading-style cell |
 | `## text` | Larger heading-style cell |
+| `### text` | Smaller heading-style cell |
 
 Examples:
 
@@ -405,9 +406,10 @@ Examples:
 | _Estimated_ |
 | ~~Deprecated~~ |
 | ## Total |
+| ### Detail |
 ```
 
-`#` and `##` apply to the whole cell.
+`#`, `##`, and `###` apply to the whole cell.
 
 ## 14. 💬 Comments
 

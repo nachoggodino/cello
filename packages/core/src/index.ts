@@ -27,6 +27,7 @@ export type {
   WorkbookAst
 } from "./shared/types.js";
 export type { ResolvedHeight, ResolvedRowLayout, ResolvedWidth } from "./shared/layout.js";
+export type { CurrencySymbol, NumericDisplayFormat, ToneName } from "./shared/display.js";
 export {
   DEFAULT_COLUMN_WIDTH,
   FIT_COLUMN_MAX_WIDTH,
@@ -47,7 +48,8 @@ export {
   resolveColumnWidth,
   resolveRowLayout
 } from "./shared/layout.js";
-export { isNamedColorModifier } from "./shared/colors.js";
+export { CELLO_HEADING_STYLES, CELLO_TONE_COLORS, CELLO_TONE_NAMES, collectNumericDisplayFormat, formatDisplayValue, isCurrencyModifier, parseDecimalsModifier } from "./shared/display.js";
+export { isNamedColorModifier, sanitizeCssColor } from "./shared/colors.js";
 export { sheetLayoutToModifiers, sheetLayoutToToken, stringifyModifiers } from "./shared/serialization.js";
 export { isCellModifier, isKnownModifier, isSheetFormatModifier, parseModifier, parseSheetFormat, parseTrailingModifiers } from "./shared/utils.js";
 export type { ValidateOptions, ValidateResult } from "./validator/validate.js";

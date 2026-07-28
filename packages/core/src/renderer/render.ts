@@ -1,21 +1,14 @@
 import { evaluate } from "../evaluator/evaluate.js";
 import { parse } from "../parser/parse.js";
-import { isNamedColorModifier } from "../shared/colors.js";
+import { isNamedColorModifier, sanitizeCssColor } from "../shared/colors.js";
+import { CELLO_HEADING_STYLES, CELLO_TONE_COLORS, CELLO_TONE_NAMES, formatDisplayValue } from "../shared/display.js";
 import { DEFAULT_COLUMN_WIDTH, FIT_COLUMN_MAX_WIDTH, FIT_COLUMN_MIN_WIDTH, expandAliasModifiers, resolveColumnWidth, resolveRowLayout } from "../shared/layout.js";
 import type { ResolvedRowLayout, ResolvedWidth } from "../shared/layout.js";
 import type { CellNode, Modifier, RenderOptions, RowNode, SheetNode, WorkbookAst } from "../shared/types.js";
 import { columnLetter, escapeHtml, workbookHasFormulas } from "../shared/utils.js";
 
-type CurrencySymbol = "€" | "$" | "£";
-type ToneName = "ok" | "warn" | "error" | "info" | "muted" | "accent";
 const RENDER_CELL_INLINE_PADDING_PX = 16;
 const RENDER_ROW_INDEX_WIDTH_PX = 36;
-
-interface NumericDisplayFormat {
-  decimals?: number;
-  currency?: CurrencySymbol;
-  percent: boolean;
-}
 
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
   const parseOptions = {
@@ -60,18 +53,7 @@ function renderStyles(): string {
     .cello-workbook {
       font-family: Inter, Segoe UI, Arial, sans-serif;
       color: #111827;
-      --cello-tone-ok-color: #166534;
-      --cello-tone-ok-background: #dcfce7;
-      --cello-tone-warn-color: #9a3412;
-      --cello-tone-warn-background: #ffedd5;
-      --cello-tone-error-color: #991b1b;
-      --cello-tone-error-background: #fee2e2;
-      --cello-tone-info-color: #1d4ed8;
-      --cello-tone-info-background: #dbeafe;
-      --cello-tone-muted-color: #475569;
-      --cello-tone-muted-background: #e2e8f0;
-      --cello-tone-accent-color: #6d28d9;
-      --cello-tone-accent-background: #ede9fe;
+      ${renderToneVariables()}
     }
     .cello-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 12px; }
     .cello-tab { border: 1px solid #d1d5db; background: #ffffff; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
@@ -91,16 +73,22 @@ function renderStyles(): string {
     .cello-bold { font-weight: 700; }
     .cello-italic { font-style: italic; }
     .cello-strike { text-decoration: line-through; }
-    .cello-h1 { font-size: 1.25rem; font-weight: 700; }
-    .cello-h2 { font-size: 1.1rem; font-weight: 700; }
-    .cello-h3 { font-size: 1rem; font-weight: 700; }
-    .cello-tone-ok { color: var(--cello-tone-ok-color); background: var(--cello-tone-ok-background); }
-    .cello-tone-warn { color: var(--cello-tone-warn-color); background: var(--cello-tone-warn-background); }
-    .cello-tone-error { color: var(--cello-tone-error-color); background: var(--cello-tone-error-background); }
-    .cello-tone-info { color: var(--cello-tone-info-color); background: var(--cello-tone-info-background); }
-    .cello-tone-muted { color: var(--cello-tone-muted-color); background: var(--cello-tone-muted-background); }
-    .cello-tone-accent { color: var(--cello-tone-accent-color); background: var(--cello-tone-accent-background); }
-  </style>`;
+    ${renderHeadingClasses()}
+    ${renderToneClasses()}
+	  </style>`;
+}
+
+function renderToneVariables(): string {
+  return CELLO_TONE_NAMES.map((tone) => `--cello-tone-${tone}-color: ${CELLO_TONE_COLORS[tone].color};
+      --cello-tone-${tone}-background: ${CELLO_TONE_COLORS[tone].background};`).join("\n      ");
+}
+
+function renderToneClasses(): string {
+  return CELLO_TONE_NAMES.map((tone) => `.cello-tone-${tone} { color: var(--cello-tone-${tone}-color); background: var(--cello-tone-${tone}-background); }`).join("\n    ");
+}
+
+function renderHeadingClasses(): string {
+  return CELLO_HEADING_STYLES.map((heading) => `.${heading.className} { font-size: ${heading.fontSize}; font-weight: 700; }`).join("\n    ");
 }
 
 function renderWorkbook(tabs: string, sheetsHtml: string): string {
@@ -234,14 +222,10 @@ function buildCellAttributes(cell: CellNode, modifiers: Modifier[], rowLayout: R
 }
 
 function formatInline(raw: string): string {
-  if (raw.startsWith("### ")) {
-    return `<span class="cello-h3">${escapeHtml(raw.slice(4))}</span>`;
-  }
-  if (raw.startsWith("## ")) {
-    return `<span class="cello-h1">${escapeHtml(raw.slice(3))}</span>`;
-  }
-  if (raw.startsWith("# ")) {
-    return `<span class="cello-h2">${escapeHtml(raw.slice(2))}</span>`;
+  for (const heading of CELLO_HEADING_STYLES) {
+    if (raw.startsWith(heading.prefix)) {
+      return `<span class="${heading.className}">${escapeHtml(raw.slice(heading.prefix.length))}</span>`;
+    }
   }
 
   let out = escapeHtml(raw);
@@ -264,61 +248,6 @@ function buildClassAttribute(modifiers: Modifier[], rowLayout: ResolvedRowLayout
     ...modifiers.map(toClassName)
   ].filter(Boolean);
   return classes.length > 0 ? `class="${classes.join(" ")}"` : "";
-}
-
-function formatDisplayValue(value: string | number | boolean | null, modifiers: Modifier[]): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return String(value);
-  }
-
-  const format = collectNumericDisplayFormat(modifiers);
-  if (!format) {
-    return String(value);
-  }
-
-  const scaled = format.percent ? value * 100 : value;
-  const numberText = format.decimals === undefined ? String(scaled) : scaled.toFixed(format.decimals);
-  return `${format.currency ?? ""}${numberText}${format.percent ? "%" : ""}`;
-}
-
-function collectNumericDisplayFormat(modifiers: Modifier[]): NumericDisplayFormat | undefined {
-  const format: NumericDisplayFormat = { percent: false };
-  let found = false;
-
-  for (const mod of modifiers) {
-    if (isCurrencyModifier(mod.key)) {
-      format.currency = mod.key;
-      found = true;
-      continue;
-    }
-    if (mod.key === "%") {
-      format.percent = true;
-      found = true;
-      continue;
-    }
-
-    const decimals = parseDecimalsModifier(mod.key);
-    if (decimals !== undefined) {
-      format.decimals = decimals;
-      found = true;
-    }
-  }
-
-  return found ? format : undefined;
-}
-
-function isCurrencyModifier(key: string): key is CurrencySymbol {
-  return key === "€" || key === "$" || key === "£";
-}
-
-function parseDecimalsModifier(key: string): number | undefined {
-  const match = /^(\d+)d$/.exec(key);
-  if (!match) {
-    return undefined;
-  }
-
-  const decimals = Number(match[1]);
-  return Number.isSafeInteger(decimals) ? decimals : undefined;
 }
 
 function isRenderableCell(cell: CellNode): boolean {
@@ -348,17 +277,22 @@ function toStyleRule(mod: Modifier): string {
     return "text-decoration:line-through";
   }
   if (mod.key === "bg" && mod.value) {
-    return `background:${mod.value}`;
+    const color = sanitizeCssColor(mod.value);
+    return color ? `background:${color}` : "";
   }
   if (mod.key === "bgfg" && mod.value) {
     const [background = "", foreground = ""] = mod.value.split(":");
-    return [background ? `background:${background}` : "", foreground ? `color:${foreground}` : ""].filter(Boolean).join(";");
+    const backgroundColor = sanitizeCssColor(background);
+    const foregroundColor = sanitizeCssColor(foreground);
+    return [backgroundColor ? `background:${backgroundColor}` : "", foregroundColor ? `color:${foregroundColor}` : ""].filter(Boolean).join(";");
   }
   if (mod.key.startsWith("#")) {
-    return `color:${mod.key}`;
+    const color = sanitizeCssColor(mod.key);
+    return color ? `color:${color}` : "";
   }
   if (mod.key === "color" && mod.value) {
-    return `color:${mod.value}`;
+    const color = sanitizeCssColor(mod.value);
+    return color ? `color:${color}` : "";
   }
   if (mod.key === "tone") {
     return "";
@@ -422,6 +356,6 @@ function toClassName(mod: Modifier): string {
   return isToneName(mod.value) ? `cello-tone-${mod.value}` : "";
 }
 
-function isToneName(value: string): value is ToneName {
-  return ["ok", "warn", "error", "info", "muted", "accent"].includes(value);
+function isToneName(value: string): boolean {
+  return (CELLO_TONE_NAMES as readonly string[]).includes(value);
 }

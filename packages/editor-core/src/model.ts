@@ -1,4 +1,5 @@
-import type { AliasDeclaration, Diagnostic, Modifier, SheetLayout } from "../../core/src/index.js";
+import { CELLO_TONE_NAMES } from "../../core/src/index.js";
+import type { AliasDeclaration, Diagnostic, Modifier, SheetFormat, SheetLayout } from "../../core/src/index.js";
 
 export interface EditorCell {
   raw: string;
@@ -13,6 +14,7 @@ export interface EditorRow {
 
 export interface EditorSheet {
   name: string;
+  format: SheetFormat;
   layout?: SheetLayout;
   externalSource?: EditorExternalSource;
   rows: EditorRow[];
@@ -61,6 +63,7 @@ export interface EditorSheetSourceLocation {
     lineSpan: EditorSourceSpan;
   }>;
   editable: boolean;
+  format: SheetFormat;
 }
 
 export interface EditorSourceMap {
@@ -117,7 +120,7 @@ export type SheetRowsMode = "ellipsis" | "wrap";
 export type MergeDirection = "left" | "up";
 export type ComputedCellValue = string | number | boolean | null;
 export type ComputedCellValues = Record<string, ComputedCellValue>;
-export const TEXT_TONES = ["ok", "warn", "error", "info", "muted", "accent"] as const;
+export const TEXT_TONES = CELLO_TONE_NAMES;
 export type TextTone = (typeof TEXT_TONES)[number];
 
 export interface EditorCellStyle {
@@ -126,5 +129,15 @@ export interface EditorCellStyle {
   fontSize?: string;
   fontStyle?: string;
   fontWeight?: number;
+  height?: string;
+  maxHeight?: string;
+  minWidth?: string;
+  overflow?: string;
+  overflowWrap?: "anywhere";
+  textOverflow?: string;
   textDecoration?: string;
+  whiteSpace?: "normal" | "nowrap";
+  width?: string;
+  WebkitBoxOrient?: "vertical";
+  WebkitLineClamp?: number;
 }
