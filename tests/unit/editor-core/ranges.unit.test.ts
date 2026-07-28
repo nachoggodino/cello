@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyWorkbookPatch,
   clearRange,
+  clearRangeAll,
   copyRangeAsTsv,
+  createEditorDocument,
   createEditorWorkbook,
   getCellRangeSize,
   isAddressInRange,
@@ -43,7 +46,7 @@ describe("editor core ranges", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| Ada |");
     const updated = pasteMatrixAt(workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 1 }, [["5", "=SUM(B2)"], ["7", "9"]]);
 
-    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| Ada |\n|  | 5 | =SUM(B2) |\n|  | 7 | 9 |");
+    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| Ada |  |  |\n|  | 5 | =SUM(B2) |\n|  | 7 | 9 |");
   });
 
   it("pastes matrices over existing cells from the first row", () => {
@@ -57,6 +60,24 @@ describe("editor core ranges", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| A | B | C |\n| D | E | F |");
     const updated = clearRange(workbook, { sheetIndex: 0, startRow: 0, endRow: 1, startCol: 1, endCol: 2 });
 
-    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| A |\n| D |");
+    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| A |  |  |\n| D |  |  |");
+  });
+
+  it("distinguishes content clearing from full source clearing", () => {
+    const workbook = createEditorWorkbook("@sheet Report\n| A[bold] | B |");
+    const range = { sheetIndex: 0, startRow: 0, endRow: 0, startCol: 0, endCol: 0 };
+
+    expect(serializeEditorWorkbook(clearRange(workbook, range))).toBe("@sheet Report\n| [bold] | B |");
+    expect(serializeEditorWorkbook(clearRangeAll(workbook, range))).toBe("@sheet Report\n|  | B |");
+  });
+
+  it("pastes cell source modifiers and preserves unrelated source text", () => {
+    const source = "// lead\n@sheet Report\n| A | B |\n\n// keep\n| C | D |";
+    const document = createEditorDocument(source);
+    const workbook = pasteMatrixAt(document.workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 }, [["X[bold]", "Y"]]);
+    const result = applyWorkbookPatch(document, workbook);
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe("// lead\n@sheet Report\n| X[bold] | Y |\n\n// keep\n| C | D |");
   });
 });

@@ -45,6 +45,26 @@ export function Editor({ source, onChange }: { source: string; onChange: (source
 
 The component is designed for app hosts that own source persistence. It emits updated `.cel` text through `onSourceChange`; callers decide when and where to save it.
 
+### Visual editor interaction model
+
+The visual editor treats each native Cello sheet as a finite table:
+
+- The grid contains the source row count and the maximum source column count.
+- Ragged source rows render blank intersections inside that rectangle.
+- No viewport padding, append row, or append column is generated.
+- Empty sheets show an empty state; adding the first row creates a one-cell row.
+- Rows and columns are added only through explicit toolbar commands.
+
+Single click selects a cell and double-click enters in-cell editing. Printable typing replaces the active cell. F2 edits the existing value. While editing, arrow keys commit and move to the adjacent cell; Enter commits and moves down; Escape cancels. Navigation stops at the table boundary.
+
+Shift-click, Shift+Arrow, and pointer dragging extend a rectangular selection. Row and column identifiers select source-bounded rows and columns. Cell formatting applies to the selected cell rectangle, while row and column selections use Cello row and column modifiers.
+
+The editor address tag reports cells (`Report!B3`), ranges (`Report!B3:D8`), rows (`Report!3:8`), and columns (`Report!B:D`).
+
+Range commands are atomic and source-preserving. If an operation cannot be expressed as source patches, the editor reports a command failure instead of serializing and rewriting unrelated source.
+
+`minimumVisibleRows`, `minimumVisibleColumns`, and the `layout` component property were removed because they conflicted with the finite-table model.
+
 ## Relationship To Core
 
 The editor packages build on the core parser, evaluator, renderer, serializer, and shared presentation/layout helpers. Core remains the stable API for non-UI workflows:

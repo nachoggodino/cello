@@ -206,24 +206,14 @@ function patchRows(
         return { reason: "stale-source-map", message: `Row ${rowIndex + 1} could not be mapped to source.` };
       }
       if (currentRow.kind !== nextRow.kind || currentRow.cells.length !== nextRow.cells.length) {
-        const currentCells = trimTrailingEmptyCells(currentRow.cells);
-        const nextCells = trimTrailingEmptyCells(nextRow.cells);
-        if (currentRow.kind !== nextRow.kind || currentCells.length > sourceRow.cells.length || !modifiersEqual(currentRow.modifiers, nextRow.modifiers)) {
-          patches.push({ span: sourceRow.lineSpan, text: serializeEditorRow({ ...nextRow, cells: nextCells }) });
-          continue;
-        }
-        const cellPatches = patchRowCells(source, sourceRow, currentCells, nextCells, "row");
-        if (!Array.isArray(cellPatches)) {
-          return cellPatches;
-        }
-        patches.push(...cellPatches);
+        patches.push({ span: sourceRow.lineSpan, text: serializeEditorRow(nextRow) });
         continue;
       }
       if (!modifiersEqual(currentRow.modifiers, nextRow.modifiers)) {
         patches.push({ span: sourceRow.lineSpan, text: serializeEditorRow(nextRow) });
         continue;
       }
-      const cellPatches = patchRowCells(source, sourceRow, trimTrailingEmptyCells(currentRow.cells), trimTrailingEmptyCells(nextRow.cells), "row");
+      const cellPatches = patchRowCells(source, sourceRow, currentRow.cells, nextRow.cells, "row");
       if (!Array.isArray(cellPatches)) {
         return cellPatches;
       }
@@ -232,17 +222,23 @@ function patchRows(
     return patches;
   }
 
-  if (next.rows.length === current.rows.length + 1) {
-    const insertIndex = findInsertedRowIndex(current.rows, next.rows);
-    if (insertIndex < 0) {
-      return { reason: "ambiguous-cell-location", message: "The inserted row location could not be determined." };
+  if (next.rows.length > current.rows.length) {
+    const sharedRows = next.rows.slice(0, current.rows.length);
+    const sharedPatches = patchRows(source, sourceSheet, current, { ...next, rows: sharedRows });
+    if (!Array.isArray(sharedPatches)) {
+      return sharedPatches;
     }
-    const previous = sourceSheet.rows[insertIndex - 1] ?? sourceSheet.declaration;
+    const previous = sourceSheet.rows[current.rows.length - 1] ?? sourceSheet.declaration;
     if (!previous) {
-      return { reason: "stale-source-map", message: "The inserted row anchor could not be mapped to source." };
+      return { reason: "stale-source-map", message: "The appended row anchor could not be mapped to source." };
     }
-    const insertedRow = next.rows[insertIndex] as EditorRow;
-    return [{ span: { start: previous.lineSpan.end, end: previous.lineSpan.end }, text: `\n${serializeEditorRow({ ...insertedRow, cells: trimTrailingEmptyCells(insertedRow.cells) })}` }];
+    const appendedRows = next.rows.slice(current.rows.length)
+      .map((row) => serializeEditorRow(row))
+      .join("\n");
+    return [
+      ...sharedPatches,
+      { span: { start: previous.lineSpan.end, end: previous.lineSpan.end }, text: `\n${appendedRows}` }
+    ];
   }
 
   return { reason: "unsupported-source-region", message: "This row change cannot be source-preserved yet." };
@@ -256,12 +252,7 @@ function patchRowCells(
   label: string
 ): Patch[] | { reason: "unsupported-source-region" | "stale-source-map" | "ambiguous-cell-location"; message: string } {
   if (currentCells.length !== nextCells.length) {
-    const trimmedCurrentCells = trimTrailingEmptyCells(currentCells);
-    const trimmedNextCells = trimTrailingEmptyCells(nextCells);
-    if (trimmedCurrentCells.length === trimmedNextCells.length) {
-      return patchRowCells(source, sourceRow, trimmedCurrentCells, trimmedNextCells, label);
-    }
-    return [{ span: sourceRow.lineSpan, text: serializeCellsAsRowSource(source, sourceRow, trimmedNextCells) }];
+    return [{ span: sourceRow.lineSpan, text: serializeCellsAsRowSource(source, sourceRow, nextCells) }];
   }
   const patches: Patch[] = [];
   for (const [cellIndex, nextCell] of nextCells.entries()) {
@@ -287,17 +278,6 @@ function serializeCellsAsRowSource(source: string, sourceRow: EditorRowSourceLoc
     return serializeEditorCellsAsRow(cells, "defaults");
   }
   return serializeEditorCellsAsRow(cells, "row");
-}
-
-function findInsertedRowIndex(currentRows: EditorRow[], nextRows: EditorRow[]): number {
-  for (let index = 0; index < nextRows.length; index += 1) {
-    const currentAtIndex = currentRows[index];
-    const nextAtIndex = nextRows[index];
-    if (!currentAtIndex || !nextAtIndex || !rowEqual(currentAtIndex, nextAtIndex)) {
-      return index;
-    }
-  }
-  return -1;
 }
 
 function buildEditorSourceMap(source: string, options: CreateEditorWorkbookOptions, diagnostics: EditorDiagnostic[]): EditorSourceMap {
@@ -582,9 +562,7 @@ function rowEqual(left: EditorRow | undefined, right: EditorRow | undefined): bo
 }
 
 function cellsEqual(left: EditorCell[], right: EditorCell[]): boolean {
-  const trimmedLeft = trimTrailingEmptyCells(left);
-  const trimmedRight = trimTrailingEmptyCells(right);
-  return trimmedLeft.length === trimmedRight.length && trimmedLeft.every((cell, index) => cellEqual(cell, trimmedRight[index]));
+  return left.length === right.length && left.every((cell, index) => cellEqual(cell, right[index]));
 }
 
 function cellEqual(left: EditorCell | undefined, right: EditorCell | undefined): boolean {
@@ -634,16 +612,4 @@ function sheetFormatsEqual(left: SheetFormat, right: SheetFormat): boolean {
     return left.path === right.path;
   }
   return true;
-}
-
-function trimTrailingEmptyCells(cells: EditorCell[]): EditorCell[] {
-  let end = cells.length;
-  while (end > 0 && isEmptyCell(cells[end - 1])) {
-    end -= 1;
-  }
-  return cells.slice(0, end);
-}
-
-function isEmptyCell(cell: EditorCell | undefined): boolean {
-  return Boolean(cell) && cell?.raw.trim() === "" && cell.modifiers.length === 0;
 }

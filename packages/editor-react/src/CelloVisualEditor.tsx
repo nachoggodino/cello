@@ -7,6 +7,7 @@ import {
   CELLO_HEADING_STYLES,
   CELL_LAYOUT_METRICS,
   clearRange,
+  clearRangeAll,
   composeCellSource,
   copyRangeAsTsv,
   createEditorDocument,
@@ -17,6 +18,7 @@ import {
   WIDTH_PRESET_NAMES,
   ensureColumnHeaderRow,
   evaluateEditorWorkbookSource,
+  fillRange,
   getCellAddressKey,
   getCellAt,
   getCellFitMeasureText,
@@ -47,14 +49,14 @@ import {
   isColumnFit,
   isRowWrap,
   mergeCell,
-  normalizeCellRange,
   parseClipboardMatrix,
   pasteMatrixAt,
   removeSheet,
   renameSheet,
-  serializeEditorWorkbook,
   setCellColorModifier,
   setCellToneModifier,
+  setColumnColorModifier,
+  setColumnToneModifier,
   setColumnWidth,
   setRowHeight,
   setRowColorModifier,
@@ -62,12 +64,15 @@ import {
   setSheetColumnsMode,
   setSheetRowsMode,
   toggleColumnFit,
+  toggleColumnModifier,
   toggleCellModifier,
   toggleRowWrap,
   toggleRowModifier,
   updateCellRaw,
   updateCellSource,
+  updateColumnModifierSource,
   updateDefaultCellSource,
+  updateRowModifierSource,
   TEXT_TONES
 } from "@nachoggodino/cello/editor-core";
 import type {
@@ -78,17 +83,29 @@ import type {
   CreateEditorWorkbookOptions,
   EditorCommandFailure,
   EditorDocument,
-  EditorLayoutOptions,
   EditorSheet,
   EditorWorkbook,
   TextTone,
   ToggleModifierKey
 } from "@nachoggodino/cello/editor-core";
 import { EditorIcon } from "./icons.js";
+import {
+  createCellSelection,
+  expandRangeForMergedCells,
+  formatSelectionLabel,
+  getMergeOwnerAddress,
+  getRangeAddresses,
+  getSelectionRange,
+  isPasteCompatibleWithMergedCells,
+  rangeContainsMergedCells,
+  shiftSelectionRows
+} from "./selection.js";
+import type { GridSelection, SelectionKind } from "./selection.js";
 
 export interface CelloVisualEditorLabels {
   bold: string;
   cellScope: string;
+  columnScope: string;
   defaultsRow: string;
   deleteSheet: string;
   fillColor: string;
@@ -139,7 +156,6 @@ export interface CelloVisualEditorProps {
   activeSheetName?: string;
   className?: string;
   labels?: Partial<CelloVisualEditorLabels>;
-  layout?: EditorLayoutOptions;
   onActiveSheetChange?: (sheetName: string) => void;
   onRequestSourceView?: () => void;
   onCommandFailure?: (failure: EditorCommandFailure) => void;
@@ -150,6 +166,7 @@ export interface CelloVisualEditorProps {
 const defaultLabels: CelloVisualEditorLabels = {
   bold: "Bold",
   cellScope: "cell",
+  columnScope: "column",
   defaultsRow: "Defaults",
   deleteSheet: "Delete sheet",
   fillColor: "Fill color",
@@ -205,15 +222,15 @@ const formulaTokenPattern = /([A-Za-z_][\w ]*!|!!)|(\[[^\]]+\])|([+\-*/^(),[\]])
 const inlineStrikeMarker = "~~";
 const maxHistoryEntries = 100;
 
-type ModifierScope = "cell" | "row";
+type ModifierScope = "cell" | "row" | "column";
 type DraftCell = { key: string; value: string } | null;
 type FitColumnWidths = Readonly<Record<number, number>>;
 type GridMode = "navigate" | "edit";
 type HistoryMode = "push" | "skip";
 type MoveDirection = "up" | "down" | "left" | "right";
-
 interface EditingDraft {
   address: CellAddress;
+  entry: "pointer" | "f2" | "replace";
   original: string;
   value: string;
 }
@@ -236,7 +253,6 @@ export function CelloVisualEditor({
   activeSheetName,
   className,
   labels: labelOverrides,
-  layout,
   onActiveSheetChange,
   onRequestSourceView,
   onCommandFailure,
@@ -247,18 +263,15 @@ export function CelloVisualEditor({
   const workbookOptions = useMemo(() => ({ ...(readExternalSource ? { readExternalSource } : {}) }), [readExternalSource]);
   const [editorDocument, setEditorDocument] = useState(() => createEditorDocument(source, workbookOptions));
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
-  const [selected, setSelected] = useState<CellAddress>({ sheetIndex: 0, rowIndex: 0, colIndex: 0 });
-  const [selectedDefaultCol, setSelectedDefaultCol] = useState<number | null>(null);
+  const [selection, setSelection] = useState<GridSelection>(() => createCellSelection({ sheetIndex: 0, rowIndex: 0, colIndex: 0 }));
   const [modifierScope, setModifierScope] = useState<ModifierScope>("cell");
   const [computedValues, setComputedValues] = useState<ComputedCellValues>({});
-  const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<EditingDraft | null>(null);
-  const [selectionAnchor, setSelectionAnchor] = useState<CellAddress>({ sheetIndex: 0, rowIndex: 0, colIndex: 0 });
-  const [gridMode, setGridMode] = useState<GridMode>("navigate");
   const [, setHistory] = useState<SourceHistory>({ past: [], future: [] });
   const [liveMessage, setLiveMessage] = useState("");
   const [commandError, setCommandError] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const draggingSelectionRef = useRef(false);
 
   useEffect(() => {
     const nextDocument = createEditorDocument(source, workbookOptions);
@@ -268,13 +281,14 @@ export function CelloVisualEditor({
         const requestedIndex = activeSheetName ? nextDocument.workbook.sheets.findIndex((sheet) => sheet.name === activeSheetName) : -1;
         return requestedIndex >= 0 ? requestedIndex : Math.min(index, nextDocument.workbook.sheets.length - 1);
       });
-      setSelected((address) => clampAddress(address, nextDocument.workbook, layout));
-      setSelectionAnchor((address) => clampAddress(address, nextDocument.workbook, layout));
-      setGridMode("navigate");
+      setSelection((current) => ({
+        ...current,
+        anchor: clampAddress(current.anchor, nextDocument.workbook),
+        active: clampAddress(current.active, nextDocument.workbook)
+      }));
       setEditingDraft(null);
-      setEditingCellKey(null);
     });
-  }, [activeSheetName, layout, source, workbookOptions]);
+  }, [activeSheetName, source, workbookOptions]);
 
   useEffect(() => {
     if (!commandError) {
@@ -283,6 +297,14 @@ export function CelloVisualEditor({
     const timeout = window.setTimeout(() => setCommandError(null), 15000);
     return () => window.clearTimeout(timeout);
   }, [commandError]);
+
+  useEffect(() => {
+    const stopDragging = () => {
+      draggingSelectionRef.current = false;
+    };
+    window.addEventListener("mouseup", stopDragging);
+    return () => window.removeEventListener("mouseup", stopDragging);
+  }, []);
 
   useEffect(() => {
     onDiagnosticsChange?.(editorDocument.diagnostics);
@@ -312,29 +334,31 @@ export function CelloVisualEditor({
 
   const workbook = editorDocument.workbook;
   const activeSheet = workbook.sheets[activeSheetIndex] ?? workbook.sheets[0] ?? fallbackSheet;
+  const selected = selection.active;
+  const selectedDefaultCol = selection.kind === "default" ? selected.colIndex : null;
+  const gridMode: GridMode = editingDraft ? "edit" : "navigate";
   const workbookContext = useMemo(() => (workbook.aliases ? { aliases: workbook.aliases } : {}), [workbook.aliases]);
   const selectedCell = selectedDefaultCol === null ? getSelectedCell(workbook, selected) : getDefaultCellAt(activeSheet, selectedDefaultCol);
-  const selectedLabel = selectedDefaultCol === null
-    ? `${activeSheet.name}!${getColumnName(selected.colIndex)}${selected.rowIndex + 1}`
-    : `${activeSheet.name}!Defaults:${getColumnName(selectedDefaultCol)}`;
   const selectedTextColor = getScopedColorValue(activeSheet, selected, modifierScope, "color", defaultTextColor);
   const selectedFillColor = getScopedColorValue(activeSheet, selected, modifierScope, "bg", defaultFillColor);
   const selectedTone = getScopedToneValue(activeSheet, selected, modifierScope);
   const selectedHeadingPrefix = getCellHeadingPrefix(selectedCell);
-  const visibleRowCount = getVisibleRowCount(activeSheet, layout);
-  const visibleColumnCount = getVisibleColumnCount(activeSheet, layout);
+  const visibleRowCount = getVisibleRowCount(activeSheet);
+  const visibleColumnCount = getVisibleColumnCount(activeSheet);
   const selectedContentText = useMemo(() => getCellContentText(selectedCell), [selectedCell]);
-  const selectedModifierText = useMemo(() => getCellModifierSourceText(selectedCell), [selectedCell]);
   const inheritedGroups = selectedDefaultCol === null ? getInheritedModifierGroups(activeSheet, selected.rowIndex, selected.colIndex) : [];
   const selectedColumnFit = isColumnFit(activeSheet, selected.rowIndex, selected.colIndex);
   const selectedColumnWidth = getColumnWidthValue(activeSheet, selected.rowIndex, selected.colIndex);
-  const selectedRange = normalizeCellRange(selectionAnchor, selected);
+  const selectedRange = expandRangeForMergedCells(activeSheet, getSelectionRange(selection, visibleRowCount, visibleColumnCount));
+  const selectedLabel = formatSelectionLabel(activeSheet.name, selection, selectedRange);
+  const modifierSources = selectedDefaultCol === null
+    ? getSelectionModifierSources(activeSheet, selectedRange, modifierScope)
+    : [getCellModifierSourceText(selectedCell)];
+  const selectedModifierText = getCommonValue(modifierSources) ?? "";
+  const modifiersMixed = new Set(modifierSources).size > 1;
   const draftCell = editingDraft ? { key: getCellAddressKey(editingDraft.address), value: editingDraft.value } : null;
   const fitMeasureRef = useRef<HTMLDivElement>(null);
-  const fitMeasureEntries = useMemo(
-    () => getFitMeasureEntries(workbookContext, activeSheet, activeSheetIndex, selected.rowIndex, visibleColumnCount, computedValues),
-    [activeSheet, activeSheetIndex, computedValues, selected.rowIndex, visibleColumnCount, workbookContext]
-  );
+  const fitMeasureEntries = getFitMeasureEntries(workbookContext, activeSheet, activeSheetIndex, selected.rowIndex, visibleColumnCount, computedValues);
   const measuredFitColumnWidths = useMeasuredFitColumnWidths(fitMeasureRef, fitMeasureEntries);
   const selectedColumnResolvedFit = selectedColumnFit || (!selectedColumnWidth && activeSheet.layout?.columns === "fit");
   const selectedMeasuredFitWidth = measuredFitColumnWidths[selected.colIndex];
@@ -356,9 +380,23 @@ export function CelloVisualEditor({
     }
     const label = `${getColumnName(editingDraft.address.colIndex)}${editingDraft.address.rowIndex + 1}`;
     const textarea = gridRef.current?.querySelector<HTMLTextAreaElement>(`textarea[aria-label="${label}"]`);
-    textarea?.focus();
-    textarea?.select();
+    if (!textarea || document.activeElement === textarea) {
+      return;
+    }
+    textarea.focus();
+    if (editingDraft.entry !== "pointer") {
+      const caret = textarea.value.length;
+      textarea.setSelectionRange(caret, caret);
+    }
   }, [editingDraft]);
+
+  useEffect(() => {
+    if (editingDraft || selection.kind === "default") {
+      return;
+    }
+    const activeCell = gridRef.current?.querySelector<HTMLElement>(`[data-cell-address="${getCellAddressKey(selected)}"]`);
+    activeCell?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [editingDraft, selected, selection.kind]);
 
   const pushHistoryEntry = (previousSource: string) => {
     setHistory((current) => ({
@@ -369,9 +407,7 @@ export function CelloVisualEditor({
 
   const applySourceSnapshot = (nextSource: string, mode: HistoryMode = "skip") => {
     setEditorDocument(createEditorDocument(nextSource, workbookOptions));
-    setGridMode("navigate");
     setEditingDraft(null);
-    setEditingCellKey(null);
     setCommandError(null);
     onSourceChange(nextSource);
     if (mode === "push") {
@@ -379,20 +415,10 @@ export function CelloVisualEditor({
     }
   };
 
-  const commit = (update: (current: EditorWorkbook) => EditorWorkbook, mode: HistoryMode = "push", fallbackToSerializedWorkbook = false): boolean => {
+  const commit = (update: (current: EditorWorkbook) => EditorWorkbook, mode: HistoryMode = "push"): boolean => {
     let committed = false;
     setEditorDocument((currentDocument: EditorDocument) => {
       const nextWorkbook = update(currentDocument.workbook);
-      if (fallbackToSerializedWorkbook) {
-        const nextSource = serializeEditorWorkbook(nextWorkbook);
-        if (mode === "push" && nextSource !== currentDocument.source) {
-          pushHistoryEntry(currentDocument.source);
-        }
-        setCommandError(null);
-        onSourceChange(nextSource);
-        committed = nextSource !== currentDocument.source;
-        return createEditorDocument(nextSource, workbookOptions);
-      }
       const result = applyWorkbookPatch(currentDocument, nextWorkbook, workbookOptions);
       if (!result.ok) {
         setCommandError(result.message);
@@ -410,27 +436,45 @@ export function CelloVisualEditor({
     return committed;
   };
 
-  const selectCell = (rowIndex: number, colIndex: number) => {
+  const selectCell = (rowIndex: number, colIndex: number, extendRange = false) => {
     const next = { sheetIndex: activeSheetIndex, rowIndex, colIndex };
-    setSelected(next);
-    setSelectionAnchor(next);
-    setSelectedDefaultCol(null);
-    setGridMode("navigate");
+    setSelection((current) => ({
+      kind: "cells",
+      anchor: extendRange && current.kind === "cells" ? current.anchor : next,
+      active: next
+    }));
     setEditingDraft(null);
-    setEditingCellKey(null);
+    focusGrid();
   };
 
   const selectDefaultCell = (colIndex: number) => {
-    setSelected({ sheetIndex: activeSheetIndex, rowIndex: 0, colIndex });
-    setSelectedDefaultCol(colIndex);
-    setGridMode("navigate");
+    const next = { sheetIndex: activeSheetIndex, rowIndex: 0, colIndex };
+    setSelection({ kind: "default", anchor: next, active: next });
     setEditingDraft(null);
-    setEditingCellKey(null);
   };
 
-  const focusCellAddress = (address: CellAddress) => {
-    setSelected(address);
-    setSelectedDefaultCol(null);
+  const selectRow = (rowIndex: number, extendRange: boolean) => {
+    const next = { sheetIndex: activeSheetIndex, rowIndex, colIndex: selected.colIndex };
+    setSelection((current) => ({
+      kind: "rows",
+      anchor: extendRange && current.kind === "rows" ? current.anchor : next,
+      active: next
+    }));
+    setModifierScope("row");
+    setEditingDraft(null);
+    focusGrid();
+  };
+
+  const selectColumn = (colIndex: number, extendRange: boolean) => {
+    const next = { sheetIndex: activeSheetIndex, rowIndex: selected.rowIndex, colIndex };
+    setSelection((current) => ({
+      kind: "columns",
+      anchor: extendRange && current.kind === "columns" ? current.anchor : next,
+      active: next
+    }));
+    setModifierScope("column");
+    setEditingDraft(null);
+    focusGrid();
   };
 
   const handleAddSheet = () => {
@@ -446,12 +490,8 @@ export function CelloVisualEditor({
       const nextSheetIndex = next.sheets.length - 1;
       const nextSelected = { sheetIndex: nextSheetIndex, rowIndex: 0, colIndex: 0 };
       setActiveSheetIndex(nextSheetIndex);
-      setSelected(nextSelected);
-      setSelectionAnchor(nextSelected);
-      setSelectedDefaultCol(null);
-      setEditingCellKey(null);
+      setSelection(createCellSelection(nextSelected));
       setEditingDraft(null);
-      setGridMode("navigate");
       setCommandError(null);
       if (result.source !== currentDocument.source) {
         pushHistoryEntry(currentDocument.source);
@@ -474,12 +514,8 @@ export function CelloVisualEditor({
       const nextSheetIndex = Math.min(activeSheetIndex, next.sheets.length - 1);
       const nextSelected = { sheetIndex: nextSheetIndex, rowIndex: 0, colIndex: 0 };
       setActiveSheetIndex(nextSheetIndex);
-      setSelected(nextSelected);
-      setSelectionAnchor(nextSelected);
-      setSelectedDefaultCol(null);
-      setEditingCellKey(null);
+      setSelection(createCellSelection(nextSelected));
       setEditingDraft(null);
-      setGridMode("navigate");
       setCommandError(null);
       if (result.source !== currentDocument.source) {
         pushHistoryEntry(currentDocument.source);
@@ -491,81 +527,138 @@ export function CelloVisualEditor({
 
   const controlsDisabled = selectedDefaultCol !== null;
 
-  const handleToggleModifier = (key: ToggleModifierKey) => {
+  const applyScopedUpdate = (
+    cellUpdate: (current: EditorWorkbook, address: CellAddress) => EditorWorkbook,
+    rowUpdate: (current: EditorWorkbook, address: CellAddress) => EditorWorkbook,
+    columnUpdate: (current: EditorWorkbook, headerRowIndex: number, colIndex: number) => EditorWorkbook
+  ) => {
     if (selectedDefaultCol !== null) {
       return;
     }
-    commit((current) => modifierScope === "cell" ? toggleCellModifier(current, selected, key, layout) : toggleRowModifier(current, selected, key, layout));
+    commit((current) => {
+      let next = current;
+      if (modifierScope === "cell") {
+        for (const address of getRangeAddresses(selectedRange)) {
+          next = cellUpdate(next, address);
+        }
+        return next;
+      }
+      if (modifierScope === "row") {
+        for (let rowIndex = selectedRange.startRow; rowIndex <= selectedRange.endRow; rowIndex += 1) {
+          next = rowUpdate(next, { ...selected, rowIndex });
+        }
+        return next;
+      }
+      const resolution = ensureColumnHeaderRow(next, activeSheetIndex);
+      if (resolution.rowOffset !== 0) {
+        setSelection((currentSelection) => shiftSelectionRows(currentSelection, resolution.rowOffset));
+      }
+      next = resolution.workbook;
+      for (let colIndex = selectedRange.startCol; colIndex <= selectedRange.endCol; colIndex += 1) {
+        next = columnUpdate(next, resolution.headerRowIndex, colIndex);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleModifier = (key: ToggleModifierKey) => {
+    applyScopedUpdate(
+      (current, address) => toggleCellModifier(current, address, key),
+      (current, address) => toggleRowModifier(current, address, key),
+      (current, headerRowIndex, colIndex) => toggleColumnModifier(current, activeSheetIndex, headerRowIndex, colIndex, key)
+    );
   };
 
   const handleSetColor = (key: ColorModifierKey, value: string) => {
-    if (selectedDefaultCol !== null) {
-      return;
-    }
-    commit((current) => modifierScope === "cell" ? setCellColorModifier(current, selected, key, value, layout) : setRowColorModifier(current, selected, key, value, layout));
+    applyScopedUpdate(
+      (current, address) => setCellColorModifier(current, address, key, value),
+      (current, address) => setRowColorModifier(current, address, key, value),
+      (current, headerRowIndex, colIndex) => setColumnColorModifier(current, activeSheetIndex, headerRowIndex, colIndex, key, value)
+    );
   };
 
   const handleSetTone = (value: TextTone) => {
-    if (selectedDefaultCol !== null) {
-      return;
-    }
-    commit((current) => modifierScope === "cell" ? setCellToneModifier(current, selected, value, layout) : setRowToneModifier(current, selected, value, layout));
+    applyScopedUpdate(
+      (current, address) => setCellToneModifier(current, address, value),
+      (current, address) => setRowToneModifier(current, address, value),
+      (current, headerRowIndex, colIndex) => setColumnToneModifier(current, activeSheetIndex, headerRowIndex, colIndex, value)
+    );
   };
 
   const handleContentChange = (value: string) => {
     commit((current) => selectedDefaultCol === null
-      ? updateCellRaw(current, selected, value, layout)
+      ? updateCellRaw(current, selected, value)
       : updateDefaultCellSource(current, activeSheetIndex, selectedDefaultCol, composeCellSource(value, selectedModifierText)));
   };
 
   const handleModifierSourceChange = (value: string) => {
-    commit((current) => selectedDefaultCol === null
-      ? updateCellSource(current, selected, composeCellSource(selectedContentText, value), layout)
-      : updateDefaultCellSource(current, activeSheetIndex, selectedDefaultCol, composeCellSource(selectedContentText, value)));
+    if (selectedDefaultCol !== null) {
+      commit((current) => updateDefaultCellSource(current, activeSheetIndex, selectedDefaultCol, composeCellSource(selectedContentText, value)));
+      return;
+    }
+    commit((current) => {
+      let next = current;
+      if (modifierScope === "cell") {
+        for (const address of getRangeAddresses(selectedRange)) {
+          const content = getCellContentText(getCellAt(next.sheets[address.sheetIndex], address.rowIndex, address.colIndex));
+          next = updateCellSource(next, address, composeCellSource(content, value));
+        }
+        return next;
+      }
+      if (modifierScope === "row") {
+        for (let rowIndex = selectedRange.startRow; rowIndex <= selectedRange.endRow; rowIndex += 1) {
+          next = updateRowModifierSource(next, { ...selected, rowIndex }, value);
+        }
+        return next;
+      }
+      const resolution = ensureColumnHeaderRow(next, activeSheetIndex);
+      if (resolution.rowOffset !== 0) {
+        setSelection((currentSelection) => shiftSelectionRows(currentSelection, resolution.rowOffset));
+      }
+      next = resolution.workbook;
+      for (let colIndex = selectedRange.startCol; colIndex <= selectedRange.endCol; colIndex += 1) {
+        next = updateColumnModifierSource(next, activeSheetIndex, resolution.headerRowIndex, colIndex, value);
+      }
+      return next;
+    });
   };
 
   const handleApplyPrefix = (prefix: string) => {
     if (selectedDefaultCol === null) {
-      commit((current) => updateCellRaw(current, selected, setHeadingPrefix(selectedContentText, prefix), layout));
+      commit((current) => updateCellRaw(current, selected, setHeadingPrefix(selectedContentText, prefix)));
     }
   };
 
   const handleToggleInlineStrike = () => {
     if (selectedDefaultCol === null) {
-      commit((current) => updateCellRaw(current, selected, toggleWrappedText(selectedContentText, inlineStrikeMarker), layout));
+      commit((current) => updateCellRaw(current, selected, toggleWrappedText(selectedContentText, inlineStrikeMarker)));
     }
   };
 
   const withHeaderColumn = (update: (current: EditorWorkbook, headerRowIndex: number) => EditorWorkbook) => {
     commit((current) => {
-      const resolution = ensureColumnHeaderRow(current, activeSheetIndex, layout);
+      const resolution = ensureColumnHeaderRow(current, activeSheetIndex);
       const nextSelected = { ...selected, rowIndex: selected.rowIndex + resolution.rowOffset };
       if (resolution.rowOffset !== 0) {
-        setSelected(nextSelected);
-        setSelectionAnchor(nextSelected);
+        setSelection(createCellSelection(nextSelected));
       }
       return update(resolution.workbook, resolution.headerRowIndex);
     });
   };
 
   const focusGrid = () => {
-    window.setTimeout(() => gridRef.current?.focus(), 0);
+    gridRef.current?.focus();
   };
 
-  const getDraftAddressKey = (address: CellAddress) => getCellAddressKey(address);
-
-  const enterEditMode = (address: CellAddress, mode: "preserve" | "replace", value?: string) => {
+  const enterEditMode = (address: CellAddress, entry: EditingDraft["entry"], value?: string) => {
     const cell = getCellAt(workbook.sheets[address.sheetIndex], address.rowIndex, address.colIndex);
     const original = getCellContentText(cell);
-    setSelected(address);
-    setSelectionAnchor(address);
-    setSelectedDefaultCol(null);
-    setGridMode("edit");
-    setEditingCellKey(getDraftAddressKey(address));
+    setSelection(createCellSelection(address));
     setEditingDraft({
       address,
+      entry,
       original,
-      value: mode === "replace" ? value ?? "" : original
+      value: entry === "replace" ? value ?? "" : original
     });
   };
 
@@ -574,27 +667,32 @@ export function CelloVisualEditor({
       return true;
     }
     const draft = editingDraft;
-    setGridMode("navigate");
     setEditingDraft(null);
-    setEditingCellKey(null);
     if (draft.value === draft.original) {
       return true;
     }
-    return commit((current) => updateCellRaw(current, draft.address, draft.value, layout));
+    return commit((current) => updateCellRaw(current, draft.address, draft.value));
   };
 
   const cancelEditingDraft = () => {
-    setGridMode("navigate");
     setEditingDraft(null);
-    setEditingCellKey(null);
     focusGrid();
   };
 
   const moveActiveCell = (direction: MoveDirection, extendRange: boolean) => {
-    const next = clampAddress(moveAddress(selected, direction), workbook, layout);
-    setSelected(next);
-    setSelectionAnchor(extendRange ? selectionAnchor : next);
-    setSelectedDefaultCol(null);
+    const owner = getMergeOwnerAddress(activeSheet, selected);
+    const ownerSpan = getVisualCellSpan(activeSheet, owner.rowIndex, owner.colIndex);
+    const adjacent = direction === "right"
+      ? { ...owner, colIndex: owner.colIndex + ownerSpan.colspan }
+      : direction === "down"
+        ? { ...owner, rowIndex: owner.rowIndex + ownerSpan.rowspan }
+        : moveAddress(owner, direction);
+    const next = getMergeOwnerAddress(activeSheet, clampAddress(adjacent, workbook));
+    setSelection((current) => ({
+      kind: "cells",
+      anchor: extendRange && current.kind === "cells" ? current.anchor : next,
+      active: next
+    }));
     focusGrid();
   };
 
@@ -651,7 +749,7 @@ export function CelloVisualEditor({
 
   const cutSelectedRange = () => {
     copySelectedRange();
-    if (commit((current) => clearRange(current, selectedRange, layout))) {
+    if (commit((current) => clearRangeAll(current, selectedRange))) {
       const size = getCellRangeSize(selectedRange);
       setLiveMessage(`Cut ${size.cells} ${size.cells === 1 ? "cell" : "cells"}`);
     }
@@ -662,13 +760,62 @@ export function CelloVisualEditor({
     if (matrix.length === 0) {
       return;
     }
-    if (commit((current) => pasteMatrixAt(current, selected, matrix, layout), "push", true)) {
+    const singleValue = matrix.length === 1 && matrix[0]?.length === 1 ? matrix[0][0] : undefined;
+    const fillsSelectedRange = singleValue !== undefined && getCellRangeSize(selectedRange).cells > 1;
+    if (
+      !isPasteCompatibleWithMergedCells(activeSheet, selected, matrix) ||
+      (fillsSelectedRange && rangeContainsMergedCells(activeSheet, selectedRange))
+    ) {
+      setCommandError("Paste would split or replace part of a merged cell. Paste a range with the same merge layout.");
+      return;
+    }
+    const didCommit = fillsSelectedRange
+      ? commit((current) => fillRange(current, selectedRange, singleValue))
+      : commit((current) => pasteMatrixAt(current, selected, matrix));
+    if (didCommit) {
       const cellCount = matrix.reduce((total, row) => total + row.length, 0);
       setLiveMessage(`Pasted ${cellCount} ${cellCount === 1 ? "cell" : "cells"}`);
+      if (singleValue === undefined || getCellRangeSize(selectedRange).cells === 1) {
+        const rowCount = matrix.length;
+        const columnCount = Math.max(0, ...matrix.map((row) => row.length));
+        const active = {
+          sheetIndex: selected.sheetIndex,
+          rowIndex: selected.rowIndex + Math.max(0, rowCount - 1),
+          colIndex: selected.colIndex + Math.max(0, columnCount - 1)
+        };
+        setSelection({ kind: "cells", anchor: selected, active });
+      }
     }
   };
 
   const handleGridKeyDown = (event: ReactKeyboardEvent) => {
+    if (gridMode === "edit") {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancelEditingDraft();
+        return;
+      }
+      const editDirection = keyToDirection(event.key);
+      if (editDirection) {
+        event.preventDefault();
+        commitAndMove(editDirection);
+        return;
+      }
+      if (event.key === "Enter") {
+        if (event.shiftKey) {
+          return;
+        }
+        event.preventDefault();
+        commitAndMove("down");
+        return;
+      }
+      if (event.key === "Tab") {
+        event.preventDefault();
+        commitAndMove(event.shiftKey ? "left" : "right");
+      }
+      return;
+    }
+
     const isMeta = event.metaKey || event.ctrlKey;
     if (isMeta && event.key.toLowerCase() === "z" && !event.shiftKey) {
       event.preventDefault();
@@ -704,25 +851,28 @@ export function CelloVisualEditor({
     }
     if (event.key === "F2") {
       event.preventDefault();
-      enterEditMode(selected, "preserve");
+      enterEditMode(selected, "f2");
       return;
     }
     const direction = keyToDirection(event.key);
     if (direction) {
       event.preventDefault();
-      if (gridMode === "edit") {
-        commitAndMove(direction);
-      } else {
-        moveActiveCell(direction, event.shiftKey);
-      }
+      moveActiveCell(direction, event.shiftKey);
       return;
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      commitAndMove(event.shiftKey ? "up" : "down");
+      moveActiveCell("down", false);
       return;
     }
-    if (gridMode === "navigate" && isPrintableKey(event)) {
+    if (event.key === "Backspace" || event.key === "Delete") {
+      event.preventDefault();
+      if (commit((current) => clearRange(current, selectedRange))) {
+        setLiveMessage("Cleared selection");
+      }
+      return;
+    }
+    if (isPrintableKey(event)) {
       event.preventDefault();
       enterEditMode(selected, "replace", event.key);
     }
@@ -770,6 +920,7 @@ export function CelloVisualEditor({
             <input
               aria-label={labels.modifiers}
               value={selectedModifierText}
+              placeholder={modifiersMixed ? "Mixed" : undefined}
               onChange={(event) => handleModifierSourceChange(event.target.value)}
             />
           </label>
@@ -790,7 +941,8 @@ export function CelloVisualEditor({
           <div className="celloVisualToolbarGroup celloVisualScopeSwitch" role="tablist" aria-label={labels.propertyScope}>
             {([
               ["cell", labels.cellScope],
-              ["row", labels.rowScope]
+              ["row", labels.rowScope],
+              ["column", labels.columnScope]
             ] as const).map(([scope, label]) => (
               <button
                 key={scope}
@@ -879,10 +1031,10 @@ export function CelloVisualEditor({
               disabled={controlsDisabled}
               onChange={(value) => commit((current) => setSheetRowsMode(current, activeSheetIndex, value === "wrap" ? undefined : value as "ellipsis"))}
             />
-            <IconButton label={labels.mergeLeft} icon="mergeLeft" disabled={controlsDisabled} onClick={() => commit((current) => mergeCell(current, selected, "left", layout))} />
-            <IconButton label={labels.mergeUp} icon="mergeUp" disabled={controlsDisabled} onClick={() => commit((current) => mergeCell(current, selected, "up", layout))} />
-            <IconButton label={labels.newRow} icon="row" onClick={() => commit((current) => addRow(current, activeSheetIndex, layout, selected.rowIndex))} />
-            <IconButton label={labels.newColumn} icon="column" onClick={() => commit((current) => addColumn(current, activeSheetIndex, selected.colIndex))} />
+            <IconButton label={labels.mergeLeft} icon="mergeLeft" disabled={controlsDisabled} onClick={() => commit((current) => mergeCell(current, selected, "left"))} />
+            <IconButton label={labels.mergeUp} icon="mergeUp" disabled={controlsDisabled} onClick={() => commit((current) => mergeCell(current, selected, "up"))} />
+            <IconButton label={labels.newRow} icon="row" onClick={() => commit((current) => addRow(current, activeSheetIndex, visibleRowCount === 0 ? undefined : selected.rowIndex))} />
+            <IconButton label={labels.newColumn} icon="column" disabled={visibleRowCount === 0} onClick={() => commit((current) => addColumn(current, activeSheetIndex, selected.colIndex))} />
           </div>
 
           <div className="celloVisualToolbarGroup celloVisualLabeledGroup">
@@ -892,7 +1044,7 @@ export function CelloVisualEditor({
               className={`celloVisualButton ${selectedColumnResolvedFit ? "active" : ""}`}
               aria-label={labels.fit}
               disabled={controlsDisabled}
-              onClick={() => withHeaderColumn((current, headerRowIndex) => toggleColumnFit(current, activeSheetIndex, headerRowIndex, selected.colIndex, layout))}
+              onClick={() => withHeaderColumn((current, headerRowIndex) => toggleColumnFit(current, activeSheetIndex, headerRowIndex, selected.colIndex))}
             >
               {labels.fit}
             </button>
@@ -903,7 +1055,7 @@ export function CelloVisualEditor({
               options={WIDTH_PRESET_NAMES.map((value) => ({ label: value, value }))}
               value={selectedColumnWidth}
               disabled={controlsDisabled}
-              onChange={(value) => withHeaderColumn((current, headerRowIndex) => setColumnWidth(current, activeSheetIndex, headerRowIndex, selected.colIndex, value.trim() || undefined, layout))}
+              onChange={(value) => withHeaderColumn((current, headerRowIndex) => setColumnWidth(current, activeSheetIndex, headerRowIndex, selected.colIndex, value.trim() || undefined))}
             />
           </div>
 
@@ -914,7 +1066,7 @@ export function CelloVisualEditor({
               className={`celloVisualButton ${selectedRowWrap ? "active" : ""}`}
               aria-label={labels.wrap}
               disabled={controlsDisabled}
-              onClick={() => commit((current) => toggleRowWrap(current, selected, layout))}
+              onClick={() => commit((current) => toggleRowWrap(current, selected))}
             >
               {labels.wrap}
             </button>
@@ -925,7 +1077,7 @@ export function CelloVisualEditor({
               options={ROW_HEIGHT_PRESETS.map((value) => ({ label: value, value }))}
               value={selectedRowHeight}
               disabled={controlsDisabled}
-              onChange={(value) => commit((current) => setRowHeight(current, selected, value.trim() || undefined, layout))}
+              onChange={(value) => commit((current) => setRowHeight(current, selected, value.trim() || undefined))}
             />
           </div>
 
@@ -948,12 +1100,8 @@ export function CelloVisualEditor({
               onClick={() => {
                 const nextSelected = { sheetIndex, rowIndex: 0, colIndex: 0 };
                 setActiveSheetIndex(sheetIndex);
-                setSelected(nextSelected);
-                setSelectionAnchor(nextSelected);
-                setSelectedDefaultCol(null);
-                setGridMode("navigate");
+                setSelection(createCellSelection(nextSelected));
                 setEditingDraft(null);
-                setEditingCellKey(null);
                 onActiveSheetChange?.(sheet.name);
               }}
             >
@@ -978,22 +1126,53 @@ export function CelloVisualEditor({
           role="grid"
           tabIndex={0}
           aria-label={labels.workbook}
+          aria-multiselectable="true"
+          aria-activedescendant={selectedDefaultCol === null && visibleRowCount > 0 && visibleColumnCount > 0 ? getGridCellId(selected) : undefined}
           aria-rowcount={visibleRowCount}
           aria-colcount={visibleColumnCount}
           onKeyDown={handleGridKeyDown}
           onPaste={handleGridPaste}
+          onMouseMove={(event) => {
+            if (!draggingSelectionRef.current) {
+              return;
+            }
+            scrollSelectionNearEdge(event.currentTarget, event.clientX, event.clientY);
+          }}
         >
-          <table className="celloVisualGrid">
+          {visibleRowCount === 0 || visibleColumnCount === 0 ? (
+            <div className="celloVisualEmptySheet">
+              <strong>Empty sheet</strong>
+              <span>Add a row to start this table.</span>
+              <button type="button" className="celloVisualButton celloVisualPrimaryAction" onClick={() => commit((current) => addRow(current, activeSheetIndex))}>
+                {labels.newRow}
+              </button>
+            </div>
+          ) : <table className="celloVisualGrid">
             <thead>
               <tr role="row">
-                <th className="celloVisualCorner" />
+                <th
+                  className={`celloVisualCorner ${selection.kind === "cells" && getCellRangeSize(selectedRange).cells === visibleRowCount * visibleColumnCount ? "selectedHeader" : ""}`}
+                  onClick={() => {
+                    const anchor = { sheetIndex: activeSheetIndex, rowIndex: 0, colIndex: 0 };
+                    const active = { sheetIndex: activeSheetIndex, rowIndex: visibleRowCount - 1, colIndex: visibleColumnCount - 1 };
+                    setSelection({ kind: "cells", anchor, active });
+                    setEditingDraft(null);
+                    focusGrid();
+                  }}
+                />
                 {Array.from({ length: visibleColumnCount }, (_, colIndex) => (
                   <th
                     key={colIndex}
                     role="columnheader"
                     aria-colindex={colIndex + 1}
-                    className="celloVisualColumnHeader"
+                    aria-selected={colIndex >= selectedRange.startCol && colIndex <= selectedRange.endCol}
+                    className={[
+                      "celloVisualColumnHeader",
+                      colIndex >= selectedRange.startCol && colIndex <= selectedRange.endCol ? "selectedHeader" : "",
+                      selected.colIndex === colIndex ? "activeHeader" : ""
+                    ].filter(Boolean).join(" ")}
                     style={withMeasuredFitWidth(getVisualColumnStyle(workbookContext, activeSheet, selected.rowIndex, colIndex), measuredFitColumnWidths[colIndex])}
+                    onClick={(event) => selectColumn(colIndex, event.shiftKey)}
                   >
                     {getColumnName(colIndex)}
                   </th>
@@ -1012,6 +1191,7 @@ export function CelloVisualEditor({
                   labels={labels}
                   modifierScope={modifierScope}
                   rowIndex={rowIndex}
+                  selectionKind={selection.kind}
                   selected={selected}
                   selectedRange={selectedRange}
                   selectedDefaultCol={selectedDefaultCol}
@@ -1019,20 +1199,17 @@ export function CelloVisualEditor({
                   commit={commit}
                   gridMode={gridMode}
                   handleGridKeyDown={handleGridKeyDown}
-                  handleGridPaste={handleGridPaste}
-                  layout={layout}
-                  editingCellKey={editingCellKey}
                   draftCell={draftCell}
                   enterEditMode={enterEditMode}
-                  focusCellAddress={focusCellAddress}
                   selectCell={selectCell}
+                  selectRow={selectRow}
                   selectDefaultCell={selectDefaultCell}
+                  draggingSelectionRef={draggingSelectionRef}
                   setEditingDraft={setEditingDraft}
-                  setEditingCellKey={setEditingCellKey}
                 />
               ))}
             </tbody>
-          </table>
+          </table>}
           <span className="celloVisualLiveRegion" aria-live="polite">{liveMessage}</span>
           <div ref={fitMeasureRef} className="celloVisualFitMeasure" aria-hidden="true">
             {fitMeasureEntries.map((entry) => (
@@ -1054,24 +1231,22 @@ function VisualDataRows({
   computedValues,
   commit,
   draftCell,
-  editingCellKey,
+  draggingSelectionRef,
   labels,
-  layout,
   measuredFitColumnWidths,
   modifierScope,
   rowIndex,
+  selectionKind,
   selectCell,
+  selectRow,
   selectDefaultCell,
-  setEditingCellKey,
   setEditingDraft,
   selected,
   selectedRange,
   selectedDefaultCol,
   gridMode,
   handleGridKeyDown,
-  handleGridPaste,
   enterEditMode,
-  focusCellAddress,
   visibleColumnCount
 }: {
   activeSheet: EditorSheet;
@@ -1079,21 +1254,19 @@ function VisualDataRows({
   aliases: EditorWorkbook["aliases"];
   computedValues: ComputedCellValues;
   commit: (update: (current: EditorWorkbook) => EditorWorkbook) => boolean;
-  editingCellKey: string | null;
   draftCell: DraftCell;
+  draggingSelectionRef: RefObject<boolean>;
   labels: CelloVisualEditorLabels;
-  layout: EditorLayoutOptions | undefined;
   measuredFitColumnWidths: FitColumnWidths;
   modifierScope: ModifierScope;
   rowIndex: number;
+  selectionKind: SelectionKind;
   gridMode: GridMode;
   handleGridKeyDown: (event: ReactKeyboardEvent) => void;
-  handleGridPaste: (event: ReactClipboardEvent) => void;
-  enterEditMode: (address: CellAddress, mode: "preserve" | "replace", value?: string) => void;
-  focusCellAddress: (address: CellAddress) => void;
-  selectCell: (rowIndex: number, colIndex: number) => void;
+  enterEditMode: (address: CellAddress, entry: EditingDraft["entry"], value?: string) => void;
+  selectCell: (rowIndex: number, colIndex: number, extendRange?: boolean) => void;
+  selectRow: (rowIndex: number, extendRange: boolean) => void;
   selectDefaultCell: (colIndex: number) => void;
-  setEditingCellKey: (key: string | null) => void;
   setEditingDraft: (draft: EditingDraft | null) => void;
   selected: CellAddress;
   selectedRange: CellRange;
@@ -1102,7 +1275,18 @@ function VisualDataRows({
 }) {
   const rows = [
     <tr key={rowIndex} role="row" aria-rowindex={rowIndex + 1} className={activeSheet.rows[rowIndex]?.kind === "header" ? "celloVisualHeaderRow" : undefined}>
-      <th role="rowheader" aria-rowindex={rowIndex + 1} className={`celloVisualRowHeader ${modifierScope === "row" && selectedDefaultCol === null && selected.rowIndex === rowIndex ? "selectedRow" : ""}`}>
+      <th
+        role="rowheader"
+        aria-rowindex={rowIndex + 1}
+        aria-selected={rowIndex >= selectedRange.startRow && rowIndex <= selectedRange.endRow}
+        className={[
+          "celloVisualRowHeader",
+          rowIndex >= selectedRange.startRow && rowIndex <= selectedRange.endRow ? "selectedHeader" : "",
+          selected.rowIndex === rowIndex ? "activeHeader" : "",
+          modifierScope === "row" && selectedDefaultCol === null && selected.rowIndex === rowIndex ? "selectedRow" : ""
+        ].filter(Boolean).join(" ")}
+        onClick={(event) => selectRow(rowIndex, event.shiftKey)}
+      >
         <span>{rowIndex + 1}</span>
         {activeSheet.rows[rowIndex]?.kind === "header" ? <span className="celloVisualHeaderBadge">{labels.headerRow}</span> : null}
       </th>
@@ -1118,7 +1302,7 @@ function VisualDataRows({
         const cellKey = getCellAddressKey({ sheetIndex: activeSheetIndex, rowIndex, colIndex });
         const workbookContext = aliases ? { aliases } : {};
         const toneClass = getCellToneClass(activeSheet, rowIndex, colIndex, workbookContext);
-        const isEditing = editingCellKey === cellKey || draftCell?.key === cellKey;
+        const isEditing = draftCell?.key === cellKey;
         const computed = computedValues[cellKey];
         const displayValue = getCellFormattedDisplayText(activeSheet, rowIndex, colIndex, computed, workbookContext);
         const inputValue = draftCell?.key === cellKey ? draftCell.value : displayValue;
@@ -1129,23 +1313,46 @@ function VisualDataRows({
         delete editorStyle.minWidth;
         delete editorStyle.maxWidth;
         const shouldHighlightFormula = inputValue.startsWith("=") && isEditing;
-        const showDisplayOverlay = !isEditing && displayValue !== "";
         return (
           <td
             key={colIndex}
             role="gridcell"
+            id={getGridCellId(address)}
+            aria-label={`${getColumnName(colIndex)}${rowIndex + 1}`}
             aria-colindex={colIndex + 1}
             aria-rowindex={rowIndex + 1}
             aria-selected={isInRange}
-            className={[isSelected ? "selected activeCell" : "", isInRange && !isSelected ? "rangeSelected" : "", toneClass, span.colspan > 1 || span.rowspan > 1 ? "merged" : ""].filter(Boolean).join(" ")}
+            data-cell-address={cellKey}
+            className={[
+              isSelected ? "selected activeCell" : "",
+              isInRange && !isSelected ? "rangeSelected" : "",
+              isInRange && rowIndex === selectedRange.startRow ? "rangeTop" : "",
+              isInRange && rowIndex + span.rowspan - 1 === selectedRange.endRow ? "rangeBottom" : "",
+              isInRange && colIndex === selectedRange.startCol ? "rangeLeft" : "",
+              isInRange && colIndex + span.colspan - 1 === selectedRange.endCol ? "rangeRight" : "",
+              selectionKind === "cells" && selected.rowIndex === rowIndex ? "activeRowGuide" : "",
+              selectionKind === "cells" && selected.colIndex === colIndex ? "activeColumnGuide" : "",
+              toneClass,
+              span.colspan > 1 || span.rowspan > 1 ? "merged" : ""
+            ].filter(Boolean).join(" ")}
             style={cellStyle}
             colSpan={span.colspan}
             rowSpan={span.rowspan}
-            onClick={() => selectCell(rowIndex, colIndex)}
-            onDoubleClick={() => enterEditMode(address, "preserve")}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              draggingSelectionRef.current = true;
+              selectCell(rowIndex, colIndex, event.shiftKey);
+            }}
+            onMouseEnter={() => {
+              if (draggingSelectionRef.current) {
+                selectCell(rowIndex, colIndex, true);
+              }
+            }}
+            onClick={(event) => selectCell(rowIndex, colIndex, event.shiftKey)}
+            onDoubleClick={() => enterEditMode(address, "pointer")}
           >
-            <div className={`celloVisualCellEditor ${shouldHighlightFormula ? "hasFormulaHighlight" : ""} ${showDisplayOverlay ? "hasDisplayOverlay" : ""}`} style={contentStyle}>
-              {showDisplayOverlay ? (
+            <div className={`celloVisualCellEditor ${shouldHighlightFormula ? "hasFormulaHighlight" : ""}`} style={contentStyle}>
+              {!isEditing ? (
                 <div className="celloVisualCellDisplay" style={{ ...editorStyle, ...contentStyle }} aria-hidden="true">
                   {renderInlineDisplay(displayValue)}
                 </div>
@@ -1155,36 +1362,28 @@ function VisualDataRows({
                   {renderFormulaHighlight(inputValue)}
                 </div>
               ) : null}
-              <textarea
+              {isEditing ? <textarea
                 aria-label={`${getColumnName(colIndex)}${rowIndex + 1}`}
                 value={inputValue}
                 style={{ ...editorStyle, ...contentStyle }}
                 rows={1}
-                readOnly={!isEditing}
                 onKeyDown={(event) => {
                   event.stopPropagation();
                   handleGridKeyDown(event);
                 }}
                 onPaste={(event) => {
                   event.stopPropagation();
-                  handleGridPaste(event);
-                }}
-                onDoubleClick={() => enterEditMode(address, "preserve")}
-                onFocus={() => {
-                  focusCellAddress(address);
                 }}
                 onBlur={() => {
                   if (gridMode === "edit" && isEditing) {
-                    commit((current) => updateCellRaw(current, address, inputValue, layout));
-                    setEditingCellKey(null);
+                    commit((current) => updateCellRaw(current, address, inputValue));
                     setEditingDraft(null);
                   }
                 }}
                 onChange={(event) => {
-                  focusCellAddress(address);
-                  setEditingDraft({ address, original: getCellContentText(cell), value: event.target.value });
+                  setEditingDraft({ address, entry: "pointer", original: getCellContentText(cell), value: event.target.value });
                 }}
-              />
+              /> : null}
             </div>
           </td>
         );
@@ -1452,13 +1651,61 @@ function formatInheritedModifier(modifier: { key: string; raw: string; value?: s
   return modifier.key === "default" && modifier.value ? `[${modifier.value}]` : `[${modifier.raw}]`;
 }
 
-function clampAddress(address: CellAddress, workbook: EditorWorkbook, layout: EditorLayoutOptions | undefined): CellAddress {
-  const sheetIndex = Math.min(address.sheetIndex, workbook.sheets.length - 1);
+function getSelectionModifierSources(sheet: EditorSheet, range: CellRange, scope: ModifierScope): string[] {
+  if (scope === "row") {
+    return Array.from({ length: range.endRow - range.startRow + 1 }, (_, offset) =>
+      formatModifierSource(sheet.rows[range.startRow + offset]?.modifiers ?? [])
+    );
+  }
+  if (scope === "column") {
+    const header = sheet.rows.find((row) => row.kind === "header");
+    return Array.from({ length: range.endCol - range.startCol + 1 }, (_, offset) =>
+      formatModifierSource(header?.cells[range.startCol + offset]?.modifiers ?? [])
+    );
+  }
+  return getRangeAddresses(range).map((address) =>
+    getCellModifierSourceText(getCellAt(sheet, address.rowIndex, address.colIndex))
+  );
+}
+
+function formatModifierSource(modifiers: Array<{ raw: string }>): string {
+  return modifiers.map((modifier) => `[${modifier.raw}]`).join("");
+}
+
+function getCommonValue(values: string[]): string | undefined {
+  const first = values[0];
+  return first !== undefined && values.every((value) => value === first) ? first : undefined;
+}
+
+function scrollSelectionNearEdge(container: HTMLElement, clientX: number, clientY: number): void {
+  const bounds = container.getBoundingClientRect();
+  const threshold = 28;
+  const step = 18;
+  if (clientX < bounds.left + threshold) {
+    container.scrollLeft -= step;
+  } else if (clientX > bounds.right - threshold) {
+    container.scrollLeft += step;
+  }
+  if (clientY < bounds.top + threshold) {
+    container.scrollTop -= step;
+  } else if (clientY > bounds.bottom - threshold) {
+    container.scrollTop += step;
+  }
+}
+
+function getGridCellId(address: CellAddress): string {
+  return `cello-grid-cell-${address.sheetIndex}-${address.rowIndex}-${address.colIndex}`;
+}
+
+function clampAddress(address: CellAddress, workbook: EditorWorkbook): CellAddress {
+  const sheetIndex = Math.max(0, Math.min(address.sheetIndex, workbook.sheets.length - 1));
   const sheet = workbook.sheets[sheetIndex];
+  const rowCount = getVisibleRowCount(sheet);
+  const columnCount = getVisibleColumnCount(sheet);
   return {
     sheetIndex,
-    rowIndex: Math.max(0, Math.min(address.rowIndex, getVisibleRowCount(sheet, layout) - 1)),
-    colIndex: Math.max(0, Math.min(address.colIndex, getVisibleColumnCount(sheet, layout) - 1))
+    rowIndex: Math.max(0, Math.min(address.rowIndex, Math.max(0, rowCount - 1))),
+    colIndex: Math.max(0, Math.min(address.colIndex, Math.max(0, columnCount - 1)))
   };
 }
 

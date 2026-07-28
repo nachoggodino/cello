@@ -359,6 +359,8 @@
 
 .celloVisualModifiersPanel,
 .celloVisualInheritedPanel {
+  box-sizing: border-box;
+  height: var(--cello-visual-control-height);
   min-height: var(--cello-visual-control-height);
   border: 1px solid var(--cello-visual-line);
   border-radius: var(--cello-visual-radius-control);
@@ -373,7 +375,7 @@
   align-items: center;
   gap: var(--cello-visual-space-6);
   min-width: 180px;
-  padding: var(--cello-visual-space-5) var(--cello-visual-space-7);
+  padding-inline: var(--cello-visual-space-7);
 }
 
 .celloVisualInheritedPanel {
@@ -383,7 +385,7 @@
   align-items: center;
   gap: var(--cello-visual-space-6);
   min-width: 240px;
-  padding: var(--cello-visual-space-5) var(--cello-visual-space-7);
+  padding-inline: var(--cello-visual-space-7);
 }
 
 .celloVisualModifiersPanel > span,
@@ -403,6 +405,11 @@
   font-family: var(--cello-visual-font-code);
   font-size: var(--cello-visual-font-size-small);
   outline: none;
+}
+
+.celloVisualModifiersPanel:focus-within {
+  border-color: var(--cello-visual-accent);
+  box-shadow: 0 0 0 1px var(--cello-visual-accent);
 }
 
 .celloVisualInheritedPanel > div {
@@ -630,12 +637,24 @@
 
 .celloVisualColumnHeader {
   height: 32px;
+  cursor: pointer;
 }
 
 .celloVisualRowHeader {
   width: 72px;
   min-width: 72px;
   height: 36px;
+  cursor: pointer;
+}
+
+.celloVisualGrid th.selectedHeader {
+  color: var(--cello-visual-accent-dark);
+  background: var(--cello-visual-accent-selection);
+}
+
+.celloVisualGrid th.activeHeader {
+  color: var(--cello-visual-warm-white);
+  background: var(--cello-visual-accent);
 }
 
 .celloVisualHeaderBadge {
@@ -657,12 +676,14 @@
 }
 
 .celloVisualGrid td {
+  position: relative;
   height: 36px;
   padding: 0;
   border-right: 1px solid var(--cello-visual-line);
   border-bottom: 1px solid var(--cello-visual-line);
   background: var(--cello-visual-cell);
   vertical-align: middle;
+  cursor: pointer;
 }
 
 .celloVisualGrid td.merged input,
@@ -673,19 +694,53 @@
 }
 
 .celloVisualGrid td.selected {
-  position: relative;
   z-index: 3;
-  box-shadow: inset 0 0 0 2px var(--cello-visual-accent);
 }
 
 .celloVisualGrid td.rangeSelected {
-  position: relative;
   z-index: 1;
-  background: var(--cello-visual-accent-selection);
 }
 
 .celloVisualGrid td.activeCell {
   z-index: 4;
+}
+
+.celloVisualGrid td[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  border: 0 solid var(--cello-visual-accent);
+  background: var(--cello-visual-accent-selection);
+  pointer-events: none;
+}
+
+.celloVisualGrid td.rangeTop::after { border-top-width: 1px; }
+.celloVisualGrid td.rangeRight::after { border-right-width: 1px; }
+.celloVisualGrid td.rangeBottom::after { border-bottom-width: 1px; }
+.celloVisualGrid td.rangeLeft::after { border-left-width: 1px; }
+
+.celloVisualGrid td.activeCell::after {
+  border: 2px solid var(--cello-visual-accent);
+  background: rgba(231, 102, 47, 0.12);
+}
+
+.celloVisualGrid td:focus-within::after {
+  z-index: 1;
+  background: transparent;
+}
+
+.celloVisualGrid td:focus-within textarea {
+  position: relative;
+  z-index: 3;
+}
+
+.celloVisualGrid td.activeRowGuide {
+  border-bottom-color: var(--cello-visual-accent-border);
+}
+
+.celloVisualGrid td.activeColumnGuide {
+  border-right-color: var(--cello-visual-accent-border);
 }
 
 .celloVisualCellEditor {
@@ -723,6 +778,7 @@
   overflow: auto;
   resize: none;
   field-sizing: content;
+  cursor: text;
 }
 
 .celloVisualFitMeasure {
@@ -757,7 +813,7 @@
   caret-color: var(--cello-visual-ink);
   background: transparent !important;
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
 
 .celloVisualCellEditor.hasDisplayOverlay textarea {
@@ -781,6 +837,7 @@
 
 .celloVisualCellFormulaHighlight {
   position: absolute;
+  z-index: 2;
   inset: 0;
   padding: var(--cello-visual-cell-padding-block) var(--cello-visual-cell-padding-inline);
   overflow: hidden;
@@ -796,6 +853,7 @@
   background: rgba(255, 250, 244, 0.34);
 }
 
+.celloVisualValueOptions button.celloVisualTone-ok,
 .celloVisualTone-ok,
 .celloVisualTone-ok input,
 .celloVisualTone-ok textarea {
@@ -803,6 +861,7 @@
   background: var(--cello-tone-ok-background, #dcfce7);
 }
 
+.celloVisualValueOptions button.celloVisualTone-warn,
 .celloVisualTone-warn,
 .celloVisualTone-warn input,
 .celloVisualTone-warn textarea {
@@ -810,6 +869,7 @@
   background: var(--cello-tone-warn-background, #ffedd5);
 }
 
+.celloVisualValueOptions button.celloVisualTone-error,
 .celloVisualTone-error,
 .celloVisualTone-error input,
 .celloVisualTone-error textarea {
@@ -817,6 +877,7 @@
   background: var(--cello-tone-error-background, #fee2e2);
 }
 
+.celloVisualValueOptions button.celloVisualTone-info,
 .celloVisualTone-info,
 .celloVisualTone-info input,
 .celloVisualTone-info textarea {
@@ -824,6 +885,7 @@
   background: var(--cello-tone-info-background, #dbeafe);
 }
 
+.celloVisualValueOptions button.celloVisualTone-muted,
 .celloVisualTone-muted,
 .celloVisualTone-muted input,
 .celloVisualTone-muted textarea {
@@ -831,6 +893,7 @@
   background: var(--cello-tone-muted-background, #e2e8f0);
 }
 
+.celloVisualValueOptions button.celloVisualTone-accent,
 .celloVisualTone-accent,
 .celloVisualTone-accent input,
 .celloVisualTone-accent textarea {
@@ -846,6 +909,16 @@
 .celloVisualHeaderRow input,
 .celloVisualHeaderRow textarea {
   font-weight: var(--cello-visual-font-weight-heavy);
+}
+
+.celloVisualEmptySheet {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--cello-visual-space-8);
+  min-width: 320px;
+  min-height: 220px;
+  color: var(--cello-visual-muted);
 }
 
 @media (max-width: 1080px) {

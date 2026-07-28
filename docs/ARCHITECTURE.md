@@ -44,6 +44,7 @@
 - `packages/editor-react/src/`
   - Exposes `CelloVisualEditor` for React applications
   - Imports editor-core commands/selectors and core renderer/evaluator helpers
+  - Keeps finite-table cell, row, column, and merged-range selection logic in `selection.ts`
   - Ships its stylesheet through the `@nachoggodino/cello/editor-react/styles.css` export
 
 - `packages/language-support/`

@@ -7,10 +7,9 @@ export function serializeEditorWorkbook(workbook: EditorWorkbook): string {
   const aliasLines = (workbook.aliases ?? []).map((alias) => `@${alias.namespace} ${alias.name} ${stringifyModifiers(alias.modifiers)}`);
   const sheetText = workbook.sheets
     .map((sheet) => {
-      const normalizedRows = trimTrailingEmptyRows(sheet.rows).map(trimTrailingEmptyCells);
       const lines = [serializeEditorSheetDeclaration(sheet)];
 
-      for (const row of normalizedRows) {
+      for (const row of sheet.rows) {
         lines.push(serializeEditorRow(row));
         if (row.kind === "header") {
           const defaults = serializeEditorDefaultsRow(sheet);
@@ -20,7 +19,7 @@ export function serializeEditorWorkbook(workbook: EditorWorkbook): string {
         }
       }
 
-      if (!normalizedRows.some((row) => row.kind === "header")) {
+      if (!sheet.rows.some((row) => row.kind === "header")) {
         const defaults = serializeEditorDefaultsRow(sheet);
         if (defaults) {
           lines.push(defaults);
@@ -31,33 +30,6 @@ export function serializeEditorWorkbook(workbook: EditorWorkbook): string {
     })
     .join("\n\n");
   return aliasLines.length > 0 ? `${aliasLines.join("\n")}\n\n${sheetText}` : sheetText;
-}
-
-function trimTrailingEmptyRows(rows: EditorRow[]): EditorRow[] {
-  let end = rows.length;
-  while (end > 0 && isEmptyRow(rows[end - 1])) {
-    end -= 1;
-  }
-  return rows.slice(0, end);
-}
-
-function trimTrailingEmptyCells(row: EditorRow): EditorRow {
-  let end = row.cells.length;
-  while (end > 0 && isEmptyCell(row.cells[end - 1])) {
-    end -= 1;
-  }
-  return {
-    ...row,
-    cells: row.cells.slice(0, end)
-  };
-}
-
-function isEmptyRow(row: EditorRow | undefined): boolean {
-  return Boolean(row) && row?.kind === "data" && row.modifiers.length === 0 && row.cells.every(isEmptyCell);
-}
-
-function isEmptyCell(cell: EditorCell | undefined): boolean {
-  return Boolean(cell) && cell?.raw.trim() === "" && cell.modifiers.length === 0;
 }
 
 export function serializeEditorSheetDeclaration(sheet: EditorWorkbook["sheets"][number]): string {
@@ -93,11 +65,23 @@ export function serializeEditorCell(cell: EditorCell): string {
 }
 
 export function serializeEditorDefaultsRow(sheet: EditorWorkbook["sheets"][number]): string | undefined {
-  const defaults = trimTrailingEmptyCells({ kind: "data", modifiers: [], cells: sheet.defaults ?? [] }).cells;
+  const defaults = trimTrailingEmptyDefaults(sheet.defaults ?? []);
   if (defaults.length === 0) {
     return undefined;
   }
   return serializeEditorCellsAsRow(defaults, "defaults");
+}
+
+function trimTrailingEmptyDefaults(cells: EditorCell[]): EditorCell[] {
+  let end = cells.length;
+  while (end > 0) {
+    const cell = cells[end - 1];
+    if (!cell || cell.raw.trim() !== "" || cell.modifiers.length > 0) {
+      break;
+    }
+    end -= 1;
+  }
+  return cells.slice(0, end);
 }
 
 function sanitizeCellRaw(value: string): string {

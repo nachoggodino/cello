@@ -41,7 +41,6 @@ import {
   rejectExternalSource,
   removeSheet,
   renameSheet,
-  resolveEditorLayoutOptions,
   serializeEditorWorkbook,
   setCellColorModifier,
   setCellToneModifier,
@@ -247,9 +246,9 @@ describe("editor core", () => {
 
   it("inserts rows and columns after the selected cell", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| A | B |\n| C | D |");
-    const updated = addColumn(addRow(workbook, 0, undefined, 0), 0, 0);
+    const updated = addColumn(addRow(workbook, 0, 0), 0, 0);
 
-    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| A |  | B |\n|  |\n| C |  | D |");
+    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| A |  | B |\n|  |  |  |\n| C |  | D |");
   });
 
   it("generates the next available sheet name", () => {
@@ -401,31 +400,30 @@ describe("editor core", () => {
     expect(getCellDisplayText({ raw: "<", modifiers: [] })).toBe("");
   });
 
-  it("does not serialize virtual padding rows or columns", () => {
+  it("materializes the addressed rectangular table area", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| Ada | 5 |");
     const updated = updateCellSource(workbook, { sheetIndex: 0, rowIndex: 4, colIndex: 3 }, "Tail[color:#111111]");
 
     expect(serializeEditorWorkbook(workbook)).toBe("@sheet Report\n| Ada | 5 |");
     expect(serializeEditorWorkbook(updated)).toContain("|  |  |  | Tail[color:#111111] |");
-    expect(serializeEditorWorkbook(updated)).not.toContain("|  |  |  |  |");
+    expect(serializeEditorWorkbook(updated)).toContain("|  |  |  |  |");
   });
 
-  it("applies configurable visible layout defaults", () => {
+  it("uses source-defined table bounds", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| Ada |");
     const sheet = workbook.sheets[0];
 
-    expect(resolveEditorLayoutOptions({ minimumVisibleRows: 2 })).toEqual({ minimumVisibleRows: 2, minimumVisibleColumns: 5 });
-    expect(getVisibleRowCount(sheet, { minimumVisibleRows: 2 })).toBe(2);
-    expect(getVisibleColumnCount(sheet, { minimumVisibleColumns: 8 })).toBe(8);
-    expect(addRow(workbook, 0, { minimumVisibleColumns: 8 }).sheets[0]?.rows[1]?.cells).toHaveLength(7);
-    expect(getRowAt(undefined, 0, { minimumVisibleColumns: 3 }).cells).toHaveLength(2);
+    expect(getVisibleRowCount(sheet)).toBe(1);
+    expect(getVisibleColumnCount(sheet)).toBe(1);
+    expect(addRow(workbook, 0).sheets[0]?.rows[1]?.cells).toHaveLength(1);
+    expect(getRowAt(undefined, 0).cells).toHaveLength(0);
     expect(getCellAt(undefined, 0, 0)).toEqual({ raw: "", modifiers: [] });
   });
 
   it("counts trailing default columns as visible editor columns", () => {
     const workbook = createEditorWorkbook("@sheet Report\n@header | Name |\n@defaults | Pending | Review | Done |\n| Ada |");
 
-    expect(getVisibleColumnCount(workbook.sheets[0], { minimumVisibleColumns: 1 })).toBe(4);
+    expect(getVisibleColumnCount(workbook.sheets[0])).toBe(3);
   });
 
   it("sanitizes cell pipes when serializing", () => {

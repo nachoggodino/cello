@@ -1,8 +1,7 @@
 import type { CellAddress, EditorWorkbook } from "./model.js";
-import type { EditorLayoutOptions } from "./options.js";
 import { getCellAt } from "./selectors.js";
 import { getCellSourceText } from "./source.js";
-import { updateCellRaw } from "./commands.js";
+import { updateCellRaw, updateCellSource } from "./commands.js";
 
 export interface CellRange {
   sheetIndex: number;
@@ -60,17 +59,16 @@ export function parseClipboardMatrix(text: string): string[][] {
 export function pasteMatrixAt(
   workbook: EditorWorkbook,
   start: CellAddress,
-  matrix: string[][],
-  options?: EditorLayoutOptions
+  matrix: string[][]
 ): EditorWorkbook {
   let next = workbook;
   for (const [rowOffset, row] of matrix.entries()) {
     for (const [colOffset, value] of row.entries()) {
-      next = updateCellRaw(next, {
+      next = updateCellSource(next, {
         sheetIndex: start.sheetIndex,
         rowIndex: start.rowIndex + rowOffset,
         colIndex: start.colIndex + colOffset
-      }, value, options);
+      }, value);
     }
   }
   return next;
@@ -78,13 +76,32 @@ export function pasteMatrixAt(
 
 export function clearRange(
   workbook: EditorWorkbook,
-  range: CellRange,
-  options?: EditorLayoutOptions
+  range: CellRange
 ): EditorWorkbook {
   let next = workbook;
   for (let rowIndex = range.startRow; rowIndex <= range.endRow; rowIndex += 1) {
     for (let colIndex = range.startCol; colIndex <= range.endCol; colIndex += 1) {
-      next = updateCellRaw(next, { sheetIndex: range.sheetIndex, rowIndex, colIndex }, "", options);
+      next = updateCellRaw(next, { sheetIndex: range.sheetIndex, rowIndex, colIndex }, "");
+    }
+  }
+  return next;
+}
+
+export function clearRangeAll(workbook: EditorWorkbook, range: CellRange): EditorWorkbook {
+  let next = workbook;
+  for (let rowIndex = range.startRow; rowIndex <= range.endRow; rowIndex += 1) {
+    for (let colIndex = range.startCol; colIndex <= range.endCol; colIndex += 1) {
+      next = updateCellSource(next, { sheetIndex: range.sheetIndex, rowIndex, colIndex }, "");
+    }
+  }
+  return next;
+}
+
+export function fillRange(workbook: EditorWorkbook, range: CellRange, source: string): EditorWorkbook {
+  let next = workbook;
+  for (let rowIndex = range.startRow; rowIndex <= range.endRow; rowIndex += 1) {
+    for (let colIndex = range.startCol; colIndex <= range.endCol; colIndex += 1) {
+      next = updateCellSource(next, { sheetIndex: range.sheetIndex, rowIndex, colIndex }, source);
     }
   }
   return next;

@@ -25,17 +25,15 @@ export type {
   TextTone,
   ToggleModifierKey
 } from "./model.js";
-export type { CreateEditorWorkbookOptions, EditorLayoutOptions, ResolvedEditorLayoutOptions } from "./options.js";
+export type { CreateEditorWorkbookOptions } from "./options.js";
 export type { EvaluateEditorWorkbookOptions } from "./evaluation.js";
 export type { CellRange } from "./ranges.js";
 
 export { TEXT_TONES } from "./model.js";
 export {
-  DEFAULT_EDITOR_LAYOUT_OPTIONS,
   DEFAULT_SHEET_NAME,
   GENERATED_SHEET_NAME_PREFIX,
-  rejectExternalSource,
-  resolveEditorLayoutOptions
+  rejectExternalSource
 } from "./options.js";
 export { createBlankCell, createBlankRow, createBlankSheet, createEditorWorkbook, createHeaderRow } from "./workbook.js";
 export { applyWorkbookPatch, createEditorDocument } from "./document.js";
@@ -82,6 +80,7 @@ export {
   setCellToneModifier,
   setColumnWidth,
   setColumnColorModifier,
+  setColumnToneModifier,
   setRowHeight,
   setRowColorModifier,
   setRowToneModifier,
@@ -93,13 +92,17 @@ export {
   toggleRowWrap,
   toggleRowModifier,
   updateDefaultCellSource,
+  updateColumnModifierSource,
   updateCellRaw,
-  updateCellSource
+  updateCellSource,
+  updateRowModifierSource
 } from "./commands.js";
 export { evaluateEditorWorkbookSource, getCellAddressKey } from "./evaluation.js";
 export {
   clearRange,
+  clearRangeAll,
   copyRangeAsTsv,
+  fillRange,
   getCellRangeSize,
   isAddressInRange,
   normalizeCellRange,
