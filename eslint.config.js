@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["coverage", "dist", "eslint.config.js", "node_modules", "playground/dist"]
+    ignores: ["coverage", "dist", "eslint.config.js", "node_modules", "apps/playground/dist", "apps/vscode/dist", "apps/vscode/node_modules"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

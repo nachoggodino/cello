@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWorkbookRefIndex, translateFormulaForEngine } from "../../../src/evaluator/formula.js";
+import { buildWorkbookRefIndex, translateFormulaForEngine } from "../../../packages/core/src/evaluator/formula.js";
 import { dataRow, sheet, valueCell, workbook } from "../../helpers/ast.js";
 
 function createWorkbook(defs: Array<{ name: string; columns?: string[]; dataRows?: Array<Array<string | number | boolean>> }>) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { evaluate } from "../../../src/evaluator/evaluate.js";
-import { parse } from "../../../src/parser/parse.js";
+import { evaluate } from "../../../packages/core/src/evaluator/evaluate.js";
+import { parse } from "../../../packages/core/src/parser/parse.js";
 
 describe("evaluate", () => {
   it("evaluates simple formulas", async () => {

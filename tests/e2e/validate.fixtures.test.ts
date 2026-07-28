@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { validate } from "../../src/validator/validate.js";
+import { validate } from "../../packages/core/src/validator/validate.js";
 
 const fixturesDir = join("tests", "e2e", "fixtures");
 

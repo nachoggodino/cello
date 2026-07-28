@@ -15,6 +15,7 @@ The npm package is `@nachoggodino/cello`. It is licensed as GPLv3 because formul
 - JSON AST output for tooling.
 - Validation diagnostics that return proper process exit codes.
 - Library API and `cello` CLI.
+- Optional editor packages for source-preserving editor integrations and a React visual editor.
 
 ## Install
 
@@ -67,7 +68,7 @@ Rendered preview:
 | --- | ---: |
 | Revenue | 8.7 |
 
-For a larger example with named references, slices, and cross-sheet formulas, see [examples/advanced_kpi.cel](examples/advanced_kpi.cel).
+For a larger example with named references, slices, and cross-sheet formulas, see [docs/examples/advanced_kpi.cel](docs/examples/advanced_kpi.cel).
 
 ## CLI
 
@@ -128,6 +129,14 @@ Primary exports:
 - `render(input, options?)`
 - `serialize(ast)`
 
+Editor package exports:
+
+- `@nachoggodino/cello/editor-core` provides source-preserving workbook models, commands, selectors, serialization helpers, and editor evaluation helpers.
+- `@nachoggodino/cello/editor-react` exports `CelloVisualEditor` for React hosts.
+- `@nachoggodino/cello/editor-react/styles.css` provides the visual editor stylesheet.
+
+For editor package usage, see [docs/EDITOR_PACKAGES.md](docs/EDITOR_PACKAGES.md).
+
 ## Format Overview
 
 Native Cello sheets use pipe-delimited rows:
@@ -154,10 +163,13 @@ Rendered preview:
 Useful syntax:
 
 - `@sheet Name [format]` starts a sheet.
+- `@sheet Name [columns:fit][rows:wrap]` persists sheet-level layout defaults.
 - `@header | Column | Names |` declares named columns.
+- `@header | Column[width:large] |` persists column width; `[fit]` sizes a column from visible content.
 - `@defaults | | | =Formula |` declares non-rendered column default formulas.
 - `| cell | cell |` declares rows.
-- `[bold] | ... |` applies row-level modifiers.
+- `[bold] | ... |`, `[wrap] | ... |`, and `[height:3] | ... |` apply row-level modifiers.
+- `@tone`, `@width`, and `@height` declare namespaced aliases for reusable tone, width, and height modifiers.
 - `=A1+B1`, `=SUM(Revenue)`, and `=Sales!Amount` create formulas.
 - `!!Amount` references a named column on the first sheet.
 - `<` merges with the cell on the left; `^` merges with the cell above.
@@ -173,9 +185,8 @@ The npm package publishes only the built library/CLI output and user-facing meta
 
 - `dist/`
 - `docs/`
-- `examples/`
-- `skills/`
-- `syntaxes/`
+- `packages/language-support/`
+- `packages/write-cel-code-skill/`
 - `BYLAWS.md`
 - `README.md`
 - `CHANGELOG.md`
@@ -188,22 +199,31 @@ npm run build
 npm run typecheck
 npm test
 npm run coverage
+npm run playground:build
 ```
 
 Repository layout:
 
-- `src/parser/` parses workbooks into ASTs.
-- `src/evaluator/` computes formulas.
-- `src/formatter/` pretty-prints native Cello pipe tables.
-- `src/validator/` reports parse/evaluation diagnostics.
-- `src/renderer/` creates self-contained HTML.
-- `src/serializer/` converts ASTs back to `.cel`.
-- `src/cli/` exposes the command-line interface.
+- `packages/core/src/parser/` parses workbooks into ASTs.
+- `packages/core/src/evaluator/` computes formulas.
+- `packages/core/src/formatter/` pretty-prints native Cello pipe tables.
+- `packages/core/src/validator/` reports parse/evaluation diagnostics.
+- `packages/core/src/renderer/` creates self-contained HTML.
+- `packages/core/src/serializer/` converts ASTs back to `.cel`.
+- `packages/cli/src/` exposes the command-line interface.
+- `packages/editor-core/src/` exposes source-preserving editor commands and selectors.
+- `packages/editor-react/src/` exposes the React visual editor component and stylesheet.
+- `packages/language-support/` contains reusable TextMate grammar and language configuration assets.
+- `packages/write-cel-code-skill/` contains the packaged Cello authoring skill.
+- `apps/playground/` contains the web playground and current visual editor.
+- `apps/vscode/` contains the VS Code extension.
 - `tests/` covers unit, integration, and fixture behavior.
 
 ## Versioning
 
 This project uses Semantic Versioning. See [CHANGELOG.md](CHANGELOG.md) for release history.
+
+Release preparation notes live in [docs/RELEASE.md](docs/RELEASE.md).
 
 ## License
 

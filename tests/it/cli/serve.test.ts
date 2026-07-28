@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { startServe, type ServeHandle } from "../../../src/cli/serve.js";
+import { startServe, type ServeHandle } from "../../../packages/cli/src/serve.js";
 
 const tempDirs: string[] = [];
 const handles: ServeHandle[] = [];
@@ -52,8 +52,8 @@ describe("serve", () => {
     const html = await response.text();
 
     expect(response.status).toBe(200);
-    expect(html).toContain("<td >=A1+B1</td>");
-    expect(html).not.toContain("<td >3</td>");
+    expect(html).toContain('<span class="cello-cell-content">=A1+B1</span>');
+    expect(html).not.toContain('<span class="cello-cell-content">3</span>');
   });
 
   it("returns 404 for non-workbook routes", async () => {

@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
-import { parse } from "../../src/parser/parse.js";
-import { render } from "../../src/renderer/render.js";
-import type { CellNode, WorkbookAst } from "../../src/shared/types.js";
+import { parse } from "../../packages/core/src/parser/parse.js";
+import { render } from "../../packages/core/src/renderer/render.js";
+import type { CellNode, WorkbookAst } from "../../packages/core/src/shared/types.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "fixtures");
@@ -26,11 +26,46 @@ export async function renderFixture(caseDef: RenderFixtureCase): Promise<{ actua
 
 export function assertRenderFixture(caseDef: RenderFixtureCase, html: string): void {
   for (const snippet of caseDef.contains ?? []) {
-    expect(html).toContain(snippet);
+    expect(containsSnippet(html, snippet), `expected rendered HTML to contain ${snippet}`).toBe(true);
   }
   for (const snippet of caseDef.notContains ?? []) {
-    expect(html).not.toContain(snippet);
+    expect(containsSnippet(html, snippet), `expected rendered HTML not to contain ${snippet}`).toBe(false);
   }
+}
+
+function containsSnippet(html: string, snippet: string): boolean {
+  if (html.includes(snippet)) {
+    return true;
+  }
+  return legacyCellSnippetAlternatives(snippet).some((alternative) => html.includes(alternative));
+}
+
+function legacyCellSnippetAlternatives(snippet: string): string[] {
+  const bareCell = snippet.match(/^<(td|th) >(.+)<\/\1>$/);
+  if (bareCell) {
+    const [, tag, content] = bareCell;
+    return [
+      `<${tag} class="cello-wrap"><span class="cello-cell-content">${content}</span></${tag}>`,
+      `<${tag} class="cello-ellipsis"><span class="cello-cell-content">${content}</span></${tag}>`
+    ];
+  }
+
+  const styledCell = snippet.match(/^<(td|th) style="([^"]+)">(.+)<\/\1>$/);
+  if (styledCell) {
+    const [, tag, style, content] = styledCell;
+    return [
+      `<${tag} class="cello-wrap" style="${style}"><span class="cello-cell-content">${content}</span></${tag}>`,
+      `<${tag} class="cello-ellipsis" style="${style}"><span class="cello-cell-content">${content}</span></${tag}>`
+    ];
+  }
+
+  const closingCell = snippet.match(/^>(.+)<\/(td|th)>$/);
+  if (closingCell) {
+    const [, content, tag] = closingCell;
+    return [`>${content}</span></${tag}>`];
+  }
+
+  return [];
 }
 
 export function assertRenderShape(actual: string, workbook: WorkbookAst): void {

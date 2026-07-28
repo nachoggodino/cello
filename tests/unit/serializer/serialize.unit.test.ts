@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../../../src/parser/parse.js";
-import { serialize } from "../../../src/serializer/serialize.js";
-import type { WorkbookAst } from "../../../src/shared/types.js";
+import { parse } from "../../../packages/core/src/parser/parse.js";
+import { serialize } from "../../../packages/core/src/serializer/serialize.js";
+import type { WorkbookAst } from "../../../packages/core/src/shared/types.js";
 import { dataRow, headerRow, sheet, valueCell, workbook } from "../../helpers/ast.js";
 
 function createWorkbook(format: WorkbookAst["sheets"][number]["format"], rows: WorkbookAst["sheets"][number]["rows"]) {
@@ -66,5 +66,26 @@ describe("serialize (unit-focused behavior)", () => {
     );
     const out = serialize(ast);
     expect(out).toContain("| TRUE | 42 |");
+  });
+
+  it("serializes layout aliases and sheet modifiers", () => {
+    const out = serialize(parse("@tone notes [color:#334155][bg:#f8fafc]\n@width description [width:large]\n\n@sheet Roadmap [columns:fit][rows:wrap]\n@header | Status[width:xshort] | Description[width:description] |\n[wrap][height:3] | ok | Long content |"));
+
+    expect(out).toContain("@tone notes [color:#334155][bg:#f8fafc]");
+    expect(out).toContain("@width description [width:large]");
+    expect(out).toContain("@sheet Roadmap [columns:fit][rows:wrap]");
+    expect(out).toContain("@header | Status[width:xshort] | Description[width:description] |");
+    expect(out).toContain("[wrap][height:3] | ok | Long content |");
+  });
+
+  it("round-trips layout declarations through the parser", () => {
+    const source = "@tone notes [color:#334155][bg:#f8fafc]\n@width description [width:large]\n@height note [height:3]\n\n@sheet Roadmap [columns:fit][rows:wrap]\n@header | Status[width:xshort] | Description[width:description] |\n[wrap][height:note] | ok[tone:notes] | Long content |";
+    const first = parse(source);
+    const second = parse(serialize(first));
+
+    expect(second.aliases).toEqual(first.aliases);
+    expect(second.sheets[0]?.layout).toEqual(first.sheets[0]?.layout);
+    expect(second.sheets[0]?.columns.map((column) => column.modifiers)).toEqual(first.sheets[0]?.columns.map((column) => column.modifiers));
+    expect(second.sheets[0]?.rows.map((row) => row.modifiers)).toEqual(first.sheets[0]?.rows.map((row) => row.modifiers));
   });
 });

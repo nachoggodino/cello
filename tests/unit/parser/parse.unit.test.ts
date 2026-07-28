@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../../../src/parser/parse.js";
+import { parse } from "../../../packages/core/src/parser/parse.js";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -26,6 +26,48 @@ describe("parse (unit-focused edge cases)", () => {
     expect(row.modifiers).toHaveLength(2);
     expect(row.modifiers[0].key).toBe("bold");
     expect(row.modifiers[1]).toMatchObject({ key: "bg", value: "#eee" });
+  });
+
+  it("parses project aliases and sheet layout modifiers", () => {
+    const ast = parse(
+      "@tone notes [color:#334155][bg:#f8fafc]\n@width description [width:large]\n@height note [height:3]\n@sheet Roadmap [columns:fit][rows:wrap]\n@header | Status[width:xshort] | Description[width:description] |\n[wrap][height:note] | ok | Long content |"
+    );
+
+    expect(ast.aliases).toEqual([
+      {
+        namespace: "tone",
+        name: "notes",
+        modifiers: [
+          { raw: "color:#334155", key: "color", value: "#334155" },
+          { raw: "bg:#f8fafc", key: "bg", value: "#f8fafc" }
+        ]
+      },
+      { namespace: "width", name: "description", modifiers: [{ raw: "width:large", key: "width", value: "large" }] },
+      { namespace: "height", name: "note", modifiers: [{ raw: "height:3", key: "height", value: "3" }] }
+    ]);
+    expect(ast.sheets[0]).toMatchObject({ name: "Roadmap", layout: { columns: "fit", rows: "wrap" } });
+    expect(ast.sheets[0].columns[1]?.modifiers).toEqual([{ raw: "width:description", key: "width", value: "description" }]);
+    expect(ast.sheets[0].rows[1]?.modifiers).toEqual([
+      { raw: "wrap", key: "wrap" },
+      { raw: "height:note", key: "height", value: "note" }
+    ]);
+  });
+
+  it("warns for invalid alias declarations", () => {
+    const ast = parse("@tone notes\n@width [width:large]\n@sheet S\n| A |");
+
+    expect(ast.aliases).toHaveLength(0);
+    expect(ast.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      "Invalid @tone alias declaration.",
+      "Invalid @width alias declaration."
+    ]);
+  });
+
+  it("parses sheet format and layout modifiers together", () => {
+    const ast = parse("@sheet Data [csv][columns:fit][rows:wrap]\nname,amount\nAda,5");
+
+    expect(ast.sheets[0]?.format).toMatchObject({ kind: "delimited", delimiter: ",", alias: "csv" });
+    expect(ast.sheets[0]?.layout).toEqual({ columns: "fit", rows: "wrap" });
   });
 
   it("does not treat text before the first pipe as a row reference", () => {
@@ -83,6 +125,60 @@ describe("parse (unit-focused edge cases)", () => {
     expect(cell.kind).toBe("formula");
     expect(cell.formula).toBe("=A1+B1");
     expect(cell.modifiers).toEqual([{ key: "bold", raw: "bold" }]);
+  });
+
+  it("parses bare named color modifiers on formula cells", () => {
+    const ast = parse("@sheet S\n| =A1[red] | =B1[color:blue] |");
+
+    expect(ast.sheets[0].rows[0].cells[0]).toMatchObject({
+      kind: "formula",
+      formula: "=A1",
+      modifiers: [{ key: "red", raw: "red" }]
+    });
+    expect(ast.sheets[0].rows[0].cells[1]).toMatchObject({
+      kind: "formula",
+      formula: "=B1",
+      modifiers: [{ key: "color", value: "blue", raw: "color:blue" }]
+    });
+    expect(ast.diagnostics).toEqual([]);
+  });
+
+  it("keeps unknown trailing formula bracket tokens as formula text without diagnostics", () => {
+    const ast = parse("@sheet S\n| =A1[hello] |");
+    const cell = ast.sheets[0].rows[0].cells[0];
+
+    expect(cell).toMatchObject({ kind: "formula", formula: "=A1[hello]" });
+    expect(cell.modifiers).toEqual([]);
+    expect(ast.diagnostics).toEqual([]);
+  });
+
+  it("warns for known layout modifiers in trailing formula cell position", () => {
+    const ast = parse("@sheet S\n| =A1[width:24] | =B1[height:3] | =C1[wrap] | =D1[fit] |");
+
+    expect(ast.sheets[0].rows[0].cells.map((cell) => cell.formula)).toEqual([
+      "=A1[width:24]",
+      "=B1[height:3]",
+      "=C1[wrap]",
+      "=D1[fit]"
+    ]);
+    expect(ast.sheets[0].rows[0].cells.flatMap((cell) => cell.modifiers)).toEqual([]);
+    expect(ast.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      "Formula cell modifier [width:24] is a known Cello modifier, but it is not valid on cells. Keeping it as formula text.",
+      "Formula cell modifier [height:3] is a known Cello modifier, but it is not valid on cells. Keeping it as formula text.",
+      "Formula cell modifier [wrap] is a known Cello modifier, but it is not valid on cells. Keeping it as formula text.",
+      "Formula cell modifier [fit] is a known Cello modifier, but it is not valid on cells. Keeping it as formula text."
+    ]);
+  });
+
+  it("warns for known layout modifiers in default-applied formula cells", () => {
+    const ast = parse("@sheet S\n@header | Total |\n@defaults | =A1[width:24] |\n| |");
+    const cell = ast.sheets[0].rows[1].cells[0];
+
+    expect(cell).toMatchObject({ kind: "formula", formula: "=A1[width:24]" });
+    expect(cell.modifiers).toEqual([]);
+    expect(ast.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      "Formula cell modifier [width:24] is a known Cello modifier, but it is not valid on cells. Keeping it as formula text."
+    ]);
   });
 
   it("warns and skips non-row lines in native cello sheets", () => {

@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../../../package.json" with { type: "json" };
-import { createCliDeps, isDirectCliExecution, runCli, runMain } from "../../../src/cli/cli.js";
-import { VERSION } from "../../../src/version.js";
+import { createCliDeps, isDirectCliExecution, runCli, runMain } from "../../../packages/cli/src/cli.js";
+import { VERSION } from "../../../packages/core/src/version.js";
 
 const tempDirs: string[] = [];
 
@@ -236,8 +236,8 @@ describe("cli", () => {
       source: "@sheet S\n| 1 | 2 | =A1+B1 |",
       assert: ({ code, stdout }: { code: number; stdout: string }) => {
         expect(code).toBe(0);
-        expect(stdout).toContain("<td >=A1+B1</td>");
-        expect(stdout).not.toContain("<td >3</td>");
+        expect(stdout).toContain('<span class="cello-cell-content">=A1+B1</span>');
+        expect(stdout).not.toContain('<span class="cello-cell-content">3</span>');
       }
     },
     {
