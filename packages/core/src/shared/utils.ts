@@ -1,4 +1,6 @@
 import type { Modifier, SheetFormat, WorkbookAst } from "./types.js";
+import { isNamedColorModifier } from "./colors.js";
+import { isLayoutModifierKey } from "./layout.js";
 
 export function columnLetter(index: number): string {
   let n = index;
@@ -64,6 +66,41 @@ export function parseModifier(raw: string): Modifier {
   }
 
   return { raw, key: raw.trim().toLowerCase() };
+}
+
+export function isCellModifier(modifier: Modifier): boolean {
+  return (
+    modifier.key === "bold" ||
+    modifier.key === "italic" ||
+    modifier.key === "strike" ||
+    modifier.key === "hidden" ||
+    modifier.key === "%" ||
+    modifier.key === "€" ||
+    modifier.key === "$" ||
+    modifier.key === "£" ||
+    modifier.key === "tone" ||
+    modifier.key === "bg" ||
+    modifier.key === "bgfg" ||
+    modifier.key === "color" ||
+    modifier.key.startsWith("#") ||
+    /^\d+d$/.test(modifier.key) ||
+    isNamedColorModifier(modifier.key)
+  );
+}
+
+export function isKnownModifier(modifier: Modifier): boolean {
+  return isCellModifier(modifier) || isLayoutModifierKey(modifier.key) || modifier.key === "default";
+}
+
+export function isSheetFormatModifier(modifier: Modifier): boolean {
+  const raw = modifier.raw.toLowerCase();
+  if (modifier.value !== undefined) {
+    return ["csv", "tsv", "excel", "json"].includes(modifier.key) || modifier.raw.includes(":noheader");
+  }
+  if (["markdown", "json", "csv", "tsv", "excel", "\\t"].includes(raw)) {
+    return true;
+  }
+  return raw.length === 1;
 }
 
 export function inferType(value: string): { inferredType: "number" | "date" | "boolean" | "text" | "empty"; parsed: string | number | boolean | null } {

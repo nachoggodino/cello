@@ -1,3 +1,4 @@
+import { isCellModifier, parseModifier } from "../../core/src/index.js";
 import type { Modifier } from "../../core/src/index.js";
 import type { EditorCell } from "./model.js";
 
@@ -9,7 +10,7 @@ export function getCellSourceText(cell: EditorCell): string {
 }
 
 export function parseCellSource(source: string): EditorCell {
-  const { base, modifiers } = splitTrailingModifiers(source);
+  const { base, modifiers } = source.startsWith("=") ? splitTrailingCellModifiers(source) : splitTrailingModifiers(source);
   return {
     raw: base,
     modifiers: isMergeToken(base) ? [] : modifiers
@@ -17,8 +18,11 @@ export function parseCellSource(source: string): EditorCell {
 }
 
 export function toBaseRaw(raw: string, kind: string): string {
-  if (kind === "formula" || kind === "merge-left" || kind === "merge-up") {
+  if (kind === "merge-left" || kind === "merge-up") {
     return raw;
+  }
+  if (kind === "formula") {
+    return splitTrailingCellModifiers(raw).base;
   }
   return splitTrailingModifiers(raw).base;
 }
@@ -51,19 +55,26 @@ function splitTrailingModifiers(value: string): { base: string; modifiers: Modif
   return { base: rest, modifiers };
 }
 
-function parseModifier(raw: string): Modifier {
-  if (raw.startsWith("#bg:")) {
-    const [background = "", foreground = ""] = raw
-      .slice(4)
-      .split(":")
-      .map((part) => part.trim());
-    return { raw, key: "bgfg", value: `${background}:${foreground}` };
+function splitTrailingCellModifiers(value: string): { base: string; modifiers: Modifier[] } {
+  let rest = value.trimEnd();
+  const modifiers: Modifier[] = [];
+
+  while (rest.endsWith("]")) {
+    const open = rest.lastIndexOf("[");
+    if (open < 0) {
+      break;
+    }
+    const rawContent = rest.slice(open + 1, -1);
+    if (rawContent.includes("[") || rawContent.includes("]")) {
+      break;
+    }
+    const modifier = parseModifier(rawContent);
+    if (!isCellModifier(modifier)) {
+      break;
+    }
+    modifiers.unshift(modifier);
+    rest = rest.slice(0, open).trimEnd();
   }
 
-  if (raw.includes(":")) {
-    const [key, ...rest] = raw.split(":");
-    return { raw, key: (key ?? "").trim().toLowerCase(), value: rest.join(":").trim() };
-  }
-
-  return { raw, key: raw.trim().toLowerCase() };
+  return { base: rest, modifiers };
 }

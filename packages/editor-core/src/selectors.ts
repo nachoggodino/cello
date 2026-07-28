@@ -1,4 +1,4 @@
-import type { Modifier } from "../../core/src/index.js";
+import { isNamedColorModifier, type Modifier } from "../../core/src/index.js";
 import { TEXT_TONES } from "./model.js";
 import type { CellAddress, ComputedCellValue, EditorCell, EditorCellStyle, EditorRow, EditorSheet, ModifierScope } from "./model.js";
 import type { EditorLayoutOptions } from "./options.js";
@@ -89,6 +89,9 @@ export function getCellStyle(sheet: EditorSheet | undefined, rowIndex: number, c
     if (modifier.key === "color" && modifier.value) {
       style.color = modifier.value;
     }
+    if (isNamedColorModifier(modifier.key)) {
+      style.color = modifier.key;
+    }
   }
   return style;
 }
@@ -114,6 +117,22 @@ export function getScopedColorValue(
 
 export function getScopedToneValue(sheet: EditorSheet | undefined, address: CellAddress, scope: ModifierScope): string | undefined {
   return getScopeModifiers(sheet, address, scope).find((modifier) => modifier.key === "tone")?.value;
+}
+
+export function getColumnWidthValue(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): string {
+  return getColumnModifiers(sheet, rowIndex, colIndex).find((modifier) => modifier.key === "width")?.value ?? "";
+}
+
+export function isColumnFit(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): boolean {
+  return getColumnModifiers(sheet, rowIndex, colIndex).some((modifier) => modifier.key === "fit");
+}
+
+export function isRowWrap(sheet: EditorSheet | undefined, rowIndex: number): boolean {
+  return Boolean(sheet?.rows[rowIndex]?.modifiers.some((modifier) => modifier.key === "wrap"));
+}
+
+export function getRowHeightValue(sheet: EditorSheet | undefined, rowIndex: number): string {
+  return sheet?.rows[rowIndex]?.modifiers.find((modifier) => modifier.key === "height")?.value ?? "";
 }
 
 export function getCellHeadingPrefix(cell: EditorCell): string | undefined {

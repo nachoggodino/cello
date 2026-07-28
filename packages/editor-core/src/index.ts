@@ -5,12 +5,23 @@ export type {
   ComputedCellValues,
   EditorCell,
   EditorCellStyle,
+  EditorCommandFailure,
+  EditorCommandResult,
+  EditorCommandSuccess,
+  EditorDiagnostic,
+  EditorDocument,
   EditorRow,
   EditorSheet,
+  EditorSheetSourceLocation,
+  EditorSourceMap,
+  EditorSourceSpan,
+  EditorExternalSource,
   EditorWorkbook,
   HeaderRowResolution,
   MergeDirection,
   ModifierScope,
+  SheetColumnsMode,
+  SheetRowsMode,
   TextTone,
   ToggleModifierKey
 } from "./model.js";
@@ -26,6 +37,7 @@ export {
   resolveEditorLayoutOptions
 } from "./options.js";
 export { createBlankCell, createBlankRow, createBlankSheet, createEditorWorkbook, createHeaderRow } from "./workbook.js";
+export { applyWorkbookPatch, createEditorDocument } from "./document.js";
 export { getCellSourceText, isMergeToken, parseCellSource, toBaseRaw } from "./source.js";
 export { serializeEditorWorkbook } from "./serialization.js";
 export {
@@ -35,16 +47,20 @@ export {
   getCellToneClass,
   getDefaultCellAt,
   getCellStyle,
+  getColumnWidthValue,
   getColumnName,
   getInheritedModifierGroups,
   getRowAt,
+  getRowHeightValue,
   getScopedColorValue,
   getScopedToneValue,
   getSelectedCell,
   getVisualCellSpan,
   getVisibleColumnCount,
   getVisibleRowCount,
-  hasScopedModifier
+  hasScopedModifier,
+  isColumnFit,
+  isRowWrap
 } from "./selectors.js";
 export {
   addColumn,
@@ -56,14 +72,29 @@ export {
   renameSheet,
   setCellColorModifier,
   setCellToneModifier,
+  setColumnWidth,
   setColumnColorModifier,
+  setRowHeight,
   setRowColorModifier,
   setRowToneModifier,
+  setSheetColumnsMode,
+  setSheetRowsMode,
   toggleCellModifier,
   toggleColumnModifier,
+  toggleColumnFit,
+  toggleRowWrap,
   toggleRowModifier,
   updateDefaultCellSource,
   updateCellRaw,
   updateCellSource
 } from "./commands.js";
 export { evaluateEditorWorkbookSource, getCellAddressKey } from "./evaluation.js";
+export {
+  ROW_HEIGHT_PRESETS,
+  DEFAULT_COLUMN_WIDTH,
+  DEFAULT_ROW_LAYOUT,
+  SHEET_LAYOUT_DEFAULT_SENTINEL,
+  SHEET_COLUMNS_MODES,
+  SHEET_ROWS_MODES,
+  WIDTH_PRESET_NAMES
+} from "../../core/src/index.js";

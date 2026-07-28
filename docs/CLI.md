@@ -1,6 +1,6 @@
 # CLI Reference
 
-The package exposes a `cello` CLI binary from `dist/cli/cli.js`.
+The package exposes a `cello` CLI binary from `dist/cli/src/cli.js`.
 
 ## Commands
 

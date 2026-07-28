@@ -1,4 +1,4 @@
-import type { Modifier } from "../../core/src/index.js";
+import type { AliasDeclaration, Diagnostic, Modifier, SheetLayout } from "../../core/src/index.js";
 
 export interface EditorCell {
   raw: string;
@@ -13,13 +13,89 @@ export interface EditorRow {
 
 export interface EditorSheet {
   name: string;
+  layout?: SheetLayout;
+  externalSource?: EditorExternalSource;
   rows: EditorRow[];
   defaults: EditorCell[];
 }
 
 export interface EditorWorkbook {
+  aliases?: AliasDeclaration[];
   sheets: EditorSheet[];
 }
+
+export interface EditorExternalSource {
+  path: string;
+  status: "unresolved" | "loaded" | "unsupported" | "error";
+  message?: string;
+}
+
+export interface EditorSourceSpan {
+  start: number;
+  end: number;
+}
+
+export interface EditorCellSourceLocation {
+  span: EditorSourceSpan;
+}
+
+export interface EditorRowSourceLocation {
+  line: number;
+  sourceKind: "row" | "header" | "defaults";
+  lineSpan: EditorSourceSpan;
+  cells: EditorCellSourceLocation[];
+}
+
+export interface EditorSheetSourceLocation {
+  declaration?: {
+    line: number;
+    lineSpan: EditorSourceSpan;
+    nameSpan: EditorSourceSpan;
+  };
+  sheetSpan: EditorSourceSpan;
+  rows: EditorRowSourceLocation[];
+  defaults?: EditorRowSourceLocation;
+  externalSources: Array<{
+    path: string;
+    line: number;
+    lineSpan: EditorSourceSpan;
+  }>;
+  editable: boolean;
+}
+
+export interface EditorSourceMap {
+  sheets: EditorSheetSourceLocation[];
+}
+
+export type EditorDiagnostic = Diagnostic & {
+  code?: string;
+};
+
+export interface EditorDocument {
+  source: string;
+  workbook: EditorWorkbook;
+  sourceMap: EditorSourceMap;
+  diagnostics: EditorDiagnostic[];
+}
+
+export interface EditorCommandFailure {
+  ok: false;
+  reason:
+    | "unsupported-source-region"
+    | "stale-source-map"
+    | "ambiguous-cell-location"
+    | "external-source-unavailable";
+  message: string;
+  document: EditorDocument;
+}
+
+export interface EditorCommandSuccess {
+  ok: true;
+  source: string;
+  document: EditorDocument;
+}
+
+export type EditorCommandResult = EditorCommandSuccess | EditorCommandFailure;
 
 export interface CellAddress {
   sheetIndex: number;
@@ -36,6 +112,8 @@ export interface HeaderRowResolution {
 export type ModifierScope = "cell" | "row" | "column";
 export type ToggleModifierKey = "bold" | "italic" | "strike";
 export type ColorModifierKey = "bg" | "color";
+export type SheetColumnsMode = "normal" | "fit";
+export type SheetRowsMode = "ellipsis" | "wrap";
 export type MergeDirection = "left" | "up";
 export type ComputedCellValue = string | number | boolean | null;
 export type ComputedCellValues = Record<string, ComputedCellValue>;

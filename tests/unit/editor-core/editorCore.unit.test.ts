@@ -3,6 +3,8 @@ import {
   addColumn,
   addRow,
   addSheet,
+  applyWorkbookPatch,
+  createEditorDocument,
   createEditorWorkbook,
   DEFAULT_SHEET_NAME,
   ensureColumnHeaderRow,
@@ -13,9 +15,11 @@ import {
   getCellSourceText,
   getCellStyle,
   getCellToneClass,
+  getColumnWidthValue,
   getColumnName,
   getDefaultCellAt,
   getInheritedModifierGroups,
+  getRowHeightValue,
   getRowAt,
   getScopedColorValue,
   getSelectedCell,
@@ -23,6 +27,8 @@ import {
   getVisibleRowCount,
   getVisualCellSpan,
   hasScopedModifier,
+  isColumnFit,
+  isRowWrap,
   isMergeToken,
   mergeCell,
   parseCellSource,
@@ -33,12 +39,18 @@ import {
   serializeEditorWorkbook,
   setCellColorModifier,
   setCellToneModifier,
+  setColumnWidth,
   setColumnColorModifier,
+  setRowHeight,
   setRowColorModifier,
   setRowToneModifier,
+  setSheetColumnsMode,
+  setSheetRowsMode,
   toggleCellModifier,
+  toggleColumnFit,
   toggleColumnModifier,
   toggleRowModifier,
+  toggleRowWrap,
   updateDefaultCellSource,
   updateCellRaw,
   updateCellSource
@@ -52,6 +64,39 @@ describe("editor core", () => {
     expect(serializeEditorWorkbook(updated)).toContain("@header | Name | Amount");
     expect(serializeEditorWorkbook(updated)).toContain("| Ada | 7");
     expect(serializeEditorWorkbook(updated)).toContain("| Total | =SUM(Amount)");
+  });
+
+  it("loads and edits persisted layout controls", () => {
+    const workbook = createEditorWorkbook("@sheet Report [columns:fit][rows:wrap]\n@header | Name | Notes[width:large] |\n[wrap][height:3] | Ada | Long note |");
+    const sheet = workbook.sheets[0];
+
+    expect(sheet?.layout).toEqual({ columns: "fit", rows: "wrap" });
+    expect(getColumnWidthValue(sheet, 1, 1)).toBe("large");
+    expect(isRowWrap(sheet, 1)).toBe(true);
+    expect(getRowHeightValue(sheet, 1)).toBe("3");
+
+    const header = ensureColumnHeaderRow(workbook, 0);
+    const updated = setSheetRowsMode(
+      setSheetColumnsMode(
+        setRowHeight(
+          toggleRowWrap(
+            setColumnWidth(toggleColumnFit(header.workbook, 0, header.headerRowIndex, 0), 0, header.headerRowIndex, 1, "24"),
+            { sheetIndex: 0, rowIndex: 1, colIndex: 0 }
+          ),
+          { sheetIndex: 0, rowIndex: 1, colIndex: 0 },
+          "5"
+        ),
+        0,
+        "normal"
+      ),
+      0,
+      "ellipsis"
+    );
+
+    expect(isColumnFit(updated.sheets[0], 1, 0)).toBe(true);
+    expect(serializeEditorWorkbook(updated)).toContain("@sheet Report [columns:normal][rows:ellipsis]");
+    expect(serializeEditorWorkbook(updated)).toContain("@header | Name[fit] | Notes[width:24] |");
+    expect(serializeEditorWorkbook(updated)).toContain("[height:5] | Ada | Long note |");
   });
 
   it("loads all workbook sheets into the visual model", () => {
@@ -77,7 +122,7 @@ describe("editor core", () => {
   });
 
   it("creates a blank sheet for empty source", () => {
-    expect(createEditorWorkbook("").sheets).toEqual([{ name: "Sheet1", rows: [], defaults: [] }]);
+    expect(createEditorWorkbook("").sheets).toEqual([{ name: "Sheet1", layout: {}, rows: [], defaults: [] }]);
   });
 
   it("uses host-provided parse options for anonymous sheets and external sources", () => {
@@ -140,6 +185,16 @@ describe("editor core", () => {
       raw: "Total",
       modifiers: [{ raw: "#bg:#111:#fff", key: "bgfg", value: "#111:#fff" }]
     });
+    expect(parseCellSource("=A1[bold]")).toEqual({
+      raw: "=A1",
+      modifiers: [{ raw: "bold", key: "bold" }]
+    });
+    expect(parseCellSource("=A1[red]")).toEqual({
+      raw: "=A1",
+      modifiers: [{ raw: "red", key: "red" }]
+    });
+    expect(parseCellSource("=A1[hello]")).toEqual({ raw: "=A1[hello]", modifiers: [] });
+    expect(parseCellSource("=A1[width:24]")).toEqual({ raw: "=A1[width:24]", modifiers: [] });
     expect(parseCellSource("<[bold]")).toEqual({ raw: "<", modifiers: [] });
     expect(parseCellSource("Ada]")).toEqual({ raw: "Ada]", modifiers: [] });
     expect(parseCellSource("Ada[bad[modifier]]")).toEqual({ raw: "Ada[bad[modifier]]", modifiers: [] });
@@ -339,6 +394,130 @@ describe("editor core", () => {
     const updated = updateCellRaw(workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 }, "A|B");
 
     expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| A B |");
+  });
+
+  it("applies source-preserving patches without removing comments or spacing", () => {
+    const source = [
+      "// keep this",
+      "@sheet Report",
+      "",
+      "| Ada | 5 |",
+      "// keep this too"
+    ].join("\n");
+    const document = createEditorDocument(source);
+    const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 1 }, "7");
+    const result = applyWorkbookPatch(document, nextWorkbook);
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe([
+      "// keep this",
+      "@sheet Report",
+      "",
+      "| Ada | 7 |",
+      "// keep this too"
+    ].join("\n"));
+  });
+
+  it("keeps source-map sheets aligned when aliases appear before the first sheet", () => {
+    const source = [
+      "@tone notes [color:#334155][bg:#f8fafc]",
+      "@width description [width:large]",
+      "",
+      "@sheet Report",
+      "| Ada | 5 |"
+    ].join("\n");
+    const document = createEditorDocument(source);
+    const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 1 }, "7");
+    const result = applyWorkbookPatch(document, nextWorkbook);
+
+    expect(document.sourceMap.sheets).toHaveLength(1);
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe([
+      "@tone notes [color:#334155][bg:#f8fafc]",
+      "@width description [width:large]",
+      "",
+      "@sheet Report",
+      "| Ada | 7 |"
+    ].join("\n"));
+  });
+
+  it("rejects alias-only mutations instead of returning a false successful patch", () => {
+    const document = createEditorDocument("@tone notes [color:#334155]\n\n@sheet Report\n| Ada |");
+    const result = applyWorkbookPatch(document, { ...document.workbook, aliases: [] });
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "unsupported-source-region",
+      message: "Alias edits cannot be source-preserved in visual mode yet."
+    });
+  });
+
+  it("patches the intended sheet when comments and aliases sit between sheets", () => {
+    const source = [
+      "@tone notes [color:#334155]",
+      "",
+      "@sheet First",
+      "| A | 1 |",
+      "// between sheets",
+      "@width description [width:large]",
+      "",
+      "@sheet Second",
+      "| B | 2 |"
+    ].join("\n");
+    const document = createEditorDocument(source);
+    const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 1, rowIndex: 0, colIndex: 1 }, "3");
+    const result = applyWorkbookPatch(document, nextWorkbook);
+
+    expect(document.sourceMap.sheets).toHaveLength(2);
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe([
+      "@tone notes [color:#334155]",
+      "",
+      "@sheet First",
+      "| A | 1 |",
+      "// between sheets",
+      "@width description [width:large]",
+      "",
+      "@sheet Second",
+      "| B | 3 |"
+    ].join("\n"));
+  });
+
+  it("preserves comments and aliases between sheets when removing a sheet", () => {
+    const source = [
+      "@sheet First",
+      "| A | 1 |",
+      "// keep between",
+      "@width description [width:large]",
+      "",
+      "@sheet Second",
+      "| B | 2 |"
+    ].join("\n");
+    const document = createEditorDocument(source);
+    const result = applyWorkbookPatch(document, removeSheet(document.workbook, 0));
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe([
+      "// keep between",
+      "@width description [width:large]",
+      "",
+      "@sheet Second",
+      "| B | 2 |"
+    ].join("\n"));
+  });
+
+  it("fails controlled instead of normalizing unavailable external source sheets", () => {
+    const source = "@sheet Imported\n-> data.cel";
+    const document = createEditorDocument(source);
+    const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 }, "Ada");
+    const result = applyWorkbookPatch(document, nextWorkbook);
+
+    expect(document.diagnostics.some((diagnostic) => diagnostic.code === "external-source-unsupported")).toBe(true);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "external-source-unavailable",
+      message: "Sheet \"Imported\" cannot be edited source-preservingly in visual mode."
+    });
   });
 
   it("converts spreadsheet column indexes to names", () => {

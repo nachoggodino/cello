@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
+
 import { describe, expect, it } from "vitest";
-import { serializeCopiedRowsAsHtml, serializeCopiedRowsAsText } from "./previewClipboard";
+import { buildActiveSheetClipboardPayloadFromHtml, serializeCopiedRowsAsHtml, serializeCopiedRowsAsText } from "./previewClipboard";
 
 describe("preview clipboard", () => {
   it("serializes table rows as clipboard-friendly html", () => {
@@ -42,5 +44,38 @@ describe("preview clipboard", () => {
     ]);
 
     expect(text).toBe("Name\tAmount\nAda\t5");
+  });
+
+  it("removes the row-index colgroup column from rich clipboard html", () => {
+    const payload = buildActiveSheetClipboardPayloadFromHtml(`
+      <section class="cello-sheet active" data-sheet="Report">
+        <table>
+          <colgroup>
+            <col style="width:36px">
+            <col style="width:100px">
+            <col style="width:120px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="cello-corner-index"></th>
+              <th class="cello-column-index">A</th>
+              <th class="cello-column-index">B</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th class="cello-row-index" scope="row">1</th>
+              <td>Ada</td>
+              <td>5</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    `);
+
+    expect(payload?.plainText).toBe("Ada\t5");
+    expect(payload?.html).not.toContain("width:36px");
+    expect(payload?.html).toContain("width:100px");
+    expect(payload?.html).toContain("width:120px");
   });
 });

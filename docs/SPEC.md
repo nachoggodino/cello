@@ -19,6 +19,7 @@ The reference implementation is the GPLv3 npm package `@nachoggodino/cello`. For
 5. [Columns](#5-columns)
 6. [Column Header Rows](#6-column-header-rows)
 7. [Row-Level Formatting](#7-row-level-formatting)
+   - [Persisted Layout Controls](#71-persisted-layout-controls)
 8. [Data Types](#8-data-types)
 9. [Formulas](#9-formulas)
 10. [Merges](#10-merges)
@@ -228,6 +229,41 @@ Modifier blocks placed **before the first `|`** apply to every cell in that row.
 ```
 [bold][bg:#f5f5f5] | TOTAL | < | < | =SUM(Total) |
 ```
+
+---
+
+## 7.1 Persisted Layout Controls
+
+Default layout is normal fixed-width columns and ellipsis rows with one visible line. Native sheet declarations can set sheet defaults:
+
+```
+@sheet Roadmap [columns:fit][rows:wrap]
+@sheet Compact [columns:normal][rows:ellipsis]
+```
+
+Column widths are header modifiers. Values accept presets (`xshort`, `short`, `normal`, `large`, `xlarge`), bare numbers as `ch`, explicit `ch`, explicit `px`, aliases, or `[fit]`.
+
+```
+@header | Status[width:xshort] | Title[width:normal] | Description[fit] |
+```
+
+Row display controls are row-prefix modifiers. `[wrap]` implies auto height unless `[height:...]` is also present.
+
+```
+[wrap] | ok | Long content |
+[wrap][height:3] | yes | Clamped long content |
+[ellipsis][height:1] | no | Compact clipped row |
+```
+
+Aliases are project-level and namespace-scoped:
+
+```
+@tone notes [color:#334155][bg:#f8fafc]
+@width description [width:large]
+@height note [height:3]
+```
+
+They are used as `[tone:notes]`, `[width:description]`, and `[height:note]`; bare alias use is invalid. Precedence is column/row modifier, then sheet default, then renderer/editor default.
 
 ---
 
@@ -534,17 +570,18 @@ Marta,25,Barcelona,95
 
 ### 17.1 Library architecture
 
-The reference implementation is a TypeScript/JavaScript npm package called `@nachoggodino/cello`. It exposes five core functions:
+The reference implementation is a TypeScript/JavaScript npm package called `@nachoggodino/cello`. It exposes six core functions:
 
 ```typescript
 parse(text: string, options?): AST
 evaluate(ast: AST, options?): Promise<AST>
+format(text: string): string
 validate(text: string, options?): Promise<{ valid: boolean, diagnostics: Diagnostic[] }>
 render(input: string | AST, options?: { strict?, title?, baseDir?, evaluate?, format?: "document" | "fragment" }): Promise<string>
 serialize(ast: AST): string
 ```
 
-There are no built-in AST mutation helpers in current public API.
+The package also exports editor-oriented helpers from `@nachoggodino/cello/editor-core` and a React visual editor from `@nachoggodino/cello/editor-react`.
 
 ### 17.2 Parser design
 
@@ -635,12 +672,13 @@ Rules:
 
 | Component | Description | Priority |
 |-----------|-------------|----------|
-| `@nachoggodino/cello` (npm) | GPLv3 core library: parse, evaluate, validate, render, serialize | v1 |
+| `@nachoggodino/cello` (npm) | GPLv3 core library: parse, evaluate, format, validate, render, serialize | v1 |
 | `cello` CLI | CLI tool: `cello render file.cel > out.html`; `cello serve file.cel` for live previews | v1 |
 | `cello-playground` | Web playground: split-view editor + live preview | v1 |
+| `@nachoggodino/cello/editor-core` | Source-preserving workbook editing model, commands, selectors, and evaluation helpers | v1 |
+| `@nachoggodino/cello/editor-react` | React visual editor component and stylesheet for Cello workbooks | v1 |
 | `cello-python` | Python port of parser + renderer | v2 |
 | `cello-vscode` | VSCode extension with live preview | v2 |
-| `cello-react` | React component wrapper | v2 |
 
 ### 17.7 Format converters
 

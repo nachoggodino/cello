@@ -39,7 +39,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "npm run clean && tsc -p tsconfig.json && npm run copy:assets",
+    "build": "npm run clean && tsc -p tsconfig.json && npm run copy:assets && npm run smoke:package",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "copy:assets": "node -e \"const fs=require('node:fs');fs.mkdirSync('dist/editor-react/src',{recursive:true});fs.copyFileSync('packages/editor-react/src/styles.css','dist/editor-react/src/styles.css')\"",
     "dev": "tsc -w -p tsconfig.json",
@@ -50,6 +50,7 @@
     "playground:typecheck": "tsc -p apps/playground/tsconfig.json --noEmit",
     "lint": "eslint \"apps/playground/**/*.{ts,tsx}\"",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/playground/tsconfig.json --noEmit",
+    "smoke:package": "node tests/package-smoke.mjs",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit apps/playground/src/**/*.test.ts",
     "test:it": "vitest run tests/it",
@@ -79,6 +80,10 @@
   },
   "dependencies": {
     "hyperformula": "^3.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18 <20",
+    "react-dom": ">=18 <20"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.18.7",

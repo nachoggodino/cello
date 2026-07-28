@@ -87,6 +87,34 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada |\n|  |  |  | Tail |");
   });
 
+  it("persists sheet, column, and row layout controls", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n| Ada | Long note |", onSourceChange);
+
+    changeSelect(screenSelect("Columns"), "fit");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit]\n| Ada | Long note |");
+
+    changeSelect(screenSelect("Rows"), "wrap");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:wrap]\n| Ada | Long note |");
+
+    focusInput(screenInput("B1"));
+    clickButton("Fit");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:wrap]\n@header |  | [fit] |\n| Ada | Long note |");
+
+    changeInput(screenInput("Width"), "24");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:wrap]\n@header |  | [width:24] |\n| Ada | Long note |");
+
+    clickButton("Wrap");
+    changeInput(screenInput("Height"), "3");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:wrap]\n@header |  | [width:24] |\n[wrap][height:3] | Ada | Long note |");
+
+    changeSelect(screenSelect("Columns"), "default");
+    changeSelect(screenSelect("Rows"), "default");
+    changeInput(screenInput("Width"), "");
+    changeInput(screenInput("Height"), "");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header |  |\n[wrap] | Ada | Long note |");
+  });
+
   it("applies row-scoped formatting and merge-up commands", async () => {
     const onSourceChange = vi.fn();
     renderEditor("@sheet Report\n| Ada | 5 |\n| Ops | 2 |", onSourceChange);
@@ -216,6 +244,18 @@ describe("CelloVisualEditor", () => {
 
     expect(screenInput("B2").value).toBe("5");
   });
+
+  it("shows computed formula values until the formula cell is focused", async () => {
+    renderEditor("@sheet Report\n@header | Amount |\n| 5 |\n| 7 |\n| =SUM(Amount) |", vi.fn());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screenInput("A4").value).toBe("12");
+    focusInput(screenInput("A4"));
+    expect(screenInput("A4").value).toBe("=SUM(Amount)");
+  });
 });
 
 function renderEditor(
@@ -241,6 +281,12 @@ function screenTextArea(label: string): HTMLTextAreaElement {
   const textarea = document.querySelector<HTMLTextAreaElement>(`textarea[aria-label="${label}"]`);
   expect(textarea).toBeTruthy();
   return textarea!;
+}
+
+function screenSelect(label: string): HTMLSelectElement {
+  const select = document.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
+  expect(select).toBeTruthy();
+  return select!;
 }
 
 function screenButton(label: string): HTMLButtonElement {
@@ -299,6 +345,13 @@ function changeInput(input: HTMLInputElement | HTMLTextAreaElement, value: strin
     setNativeValue(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function changeSelect(select: HTMLSelectElement, value: string): void {
+  act(() => {
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 

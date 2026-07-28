@@ -1,5 +1,5 @@
 import type { Modifier } from "../../core/src/index.js";
-import type { CellAddress, ColorModifierKey, EditorCell, EditorRow, EditorSheet, EditorWorkbook, HeaderRowResolution, MergeDirection, TextTone, ToggleModifierKey } from "./model.js";
+import type { CellAddress, ColorModifierKey, EditorCell, EditorRow, EditorSheet, EditorWorkbook, HeaderRowResolution, MergeDirection, SheetColumnsMode, SheetRowsMode, TextTone, ToggleModifierKey } from "./model.js";
 import type { EditorLayoutOptions } from "./options.js";
 import { GENERATED_SHEET_NAME_PREFIX } from "./options.js";
 import { getVisibleColumnCount } from "./selectors.js";
@@ -49,6 +49,53 @@ export function toggleColumnModifier(workbook: EditorWorkbook, sheetIndex: numbe
   return updateCell(workbook, { sheetIndex, rowIndex: headerRowIndex, colIndex }, options, (cell) => ({
     ...cell,
     modifiers: toggleModifier(cell.modifiers, key)
+  }));
+}
+
+export function setSheetColumnsMode(workbook: EditorWorkbook, sheetIndex: number, mode: SheetColumnsMode | undefined): EditorWorkbook {
+  return updateSheet(workbook, sheetIndex, (sheet) => ({
+    ...sheet,
+    layout: mode === undefined ? withoutLayoutKey(sheet.layout, "columns") : { ...(sheet.layout ?? {}), columns: mode }
+  }));
+}
+
+export function setSheetRowsMode(workbook: EditorWorkbook, sheetIndex: number, mode: SheetRowsMode | undefined): EditorWorkbook {
+  return updateSheet(workbook, sheetIndex, (sheet) => ({
+    ...sheet,
+    layout: mode === undefined ? withoutLayoutKey(sheet.layout, "rows") : { ...(sheet.layout ?? {}), rows: mode }
+  }));
+}
+
+export function toggleColumnFit(workbook: EditorWorkbook, sheetIndex: number, headerRowIndex: number, colIndex: number, options?: EditorLayoutOptions): EditorWorkbook {
+  return updateCell(workbook, { sheetIndex, rowIndex: headerRowIndex, colIndex }, options, (cell) => ({
+    ...cell,
+    modifiers: toggleExclusiveLayoutModifier(cell.modifiers, "fit", ["fit", "width"])
+  }));
+}
+
+export function setColumnWidth(workbook: EditorWorkbook, sheetIndex: number, headerRowIndex: number, colIndex: number, value: string | undefined, options?: EditorLayoutOptions): EditorWorkbook {
+  return updateCell(workbook, { sheetIndex, rowIndex: headerRowIndex, colIndex }, options, (cell) => ({
+    ...cell,
+    modifiers: value ? setModifierValue(cell.modifiers.filter((modifier) => modifier.key !== "fit"), "width", value) : cell.modifiers.filter((modifier) => modifier.key !== "width")
+  }));
+}
+
+export function toggleRowWrap(workbook: EditorWorkbook, address: CellAddress, options?: EditorLayoutOptions): EditorWorkbook {
+  return updateRow(workbook, address.sheetIndex, address.rowIndex, options, (row) => {
+    const hasWrap = row.modifiers.some((modifier) => modifier.key === "wrap");
+    return {
+      ...row,
+      modifiers: hasWrap
+        ? row.modifiers.filter((modifier) => modifier.key !== "wrap")
+        : [...row.modifiers.filter((modifier) => modifier.key !== "ellipsis"), { raw: "wrap", key: "wrap" }]
+    };
+  });
+}
+
+export function setRowHeight(workbook: EditorWorkbook, address: CellAddress, value: string | undefined, options?: EditorLayoutOptions): EditorWorkbook {
+  return updateRow(workbook, address.sheetIndex, address.rowIndex, options, (row) => ({
+    ...row,
+    modifiers: value ? setModifierValue(row.modifiers, "height", value) : row.modifiers.filter((modifier) => modifier.key !== "height")
   }));
 }
 
@@ -135,6 +182,7 @@ export function addSheet(workbook: EditorWorkbook): EditorWorkbook {
   }
 
   return {
+    ...workbook,
     sheets: [...workbook.sheets, createBlankSheet(name)]
   };
 }
@@ -145,6 +193,7 @@ export function removeSheet(workbook: EditorWorkbook, sheetIndex: number): Edito
   }
 
   return {
+    ...workbook,
     sheets: workbook.sheets.filter((_, index) => index !== sheetIndex)
   };
 }
@@ -220,6 +269,7 @@ function updateRow(
 
 function updateSheet(workbook: EditorWorkbook, sheetIndex: number, update: (sheet: EditorSheet) => EditorSheet): EditorWorkbook {
   return {
+    ...workbook,
     sheets: workbook.sheets.map((sheet, index) => index === sheetIndex ? update(sheet) : sheet)
   };
 }
@@ -254,7 +304,7 @@ function toggleModifier(modifiers: Modifier[], key: ToggleModifierKey): Modifier
     : [...modifiers, { raw: key, key }];
 }
 
-function setModifierValue(modifiers: Modifier[], key: ColorModifierKey | "tone", value: string): Modifier[] {
+function setModifierValue(modifiers: Modifier[], key: ColorModifierKey | "tone" | "width" | "height", value: string): Modifier[] {
   if (key === "tone" && modifiers.some((existing) => existing.key === key && existing.value === value)) {
     return modifiers.filter((existing) => existing.key !== key);
   }
@@ -264,6 +314,19 @@ function setModifierValue(modifiers: Modifier[], key: ColorModifierKey | "tone",
     value
   };
   return [...modifiers.filter((existing) => existing.key !== key), modifier];
+}
+
+function toggleExclusiveLayoutModifier(modifiers: Modifier[], key: "fit", exclusiveKeys: string[]): Modifier[] {
+  const hasModifier = modifiers.some((modifier) => modifier.key === key);
+  return hasModifier
+    ? modifiers.filter((modifier) => modifier.key !== key)
+    : [...modifiers.filter((modifier) => !exclusiveKeys.includes(modifier.key)), { raw: key, key }];
+}
+
+function withoutLayoutKey<T extends "columns" | "rows">(layout: EditorSheet["layout"], key: T): NonNullable<EditorSheet["layout"]> {
+  const next = { ...(layout ?? {}) };
+  delete next[key];
+  return next;
 }
 
 function insertAt<T>(values: T[], index: number, value: T): T[] {

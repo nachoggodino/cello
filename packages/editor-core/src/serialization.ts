@@ -1,12 +1,15 @@
+import { sheetLayoutToToken, stringifyModifiers } from "../../core/src/index.js";
 import type { EditorCell, EditorRow, EditorWorkbook } from "./model.js";
 import { DEFAULT_SHEET_NAME } from "./options.js";
 import { isMergeToken } from "./source.js";
 
 export function serializeEditorWorkbook(workbook: EditorWorkbook): string {
-  return workbook.sheets
+  const aliasLines = (workbook.aliases ?? []).map((alias) => `@${alias.namespace} ${alias.name} ${stringifyModifiers(alias.modifiers)}`);
+  const sheetText = workbook.sheets
     .map((sheet) => {
       const normalizedRows = trimTrailingEmptyRows(sheet.rows).map(trimTrailingEmptyCells);
-      const lines = [`@sheet ${sanitizeSheetName(sheet.name)}`];
+      const layoutToken = sheetLayoutToToken(sheet.layout);
+      const lines = [`@sheet ${sanitizeSheetName(sheet.name)}${layoutToken ? ` ${layoutToken}` : ""}`];
 
       for (const row of normalizedRows) {
         lines.push(serializeRow(row));
@@ -28,6 +31,7 @@ export function serializeEditorWorkbook(workbook: EditorWorkbook): string {
       return lines.join("\n");
     })
     .join("\n\n");
+  return aliasLines.length > 0 ? `${aliasLines.join("\n")}\n\n${sheetText}` : sheetText;
 }
 
 function trimTrailingEmptyRows(rows: EditorRow[]): EditorRow[] {

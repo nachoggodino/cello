@@ -195,7 +195,15 @@ export function App() {
           </main>
         </>
       ) : (
-        <CelloVisualEditor source={source} onSourceChange={setSource} onRequestSourceView={() => navigateToPage("source")} />
+        <CelloVisualEditor
+          source={source}
+          onSourceChange={setSource}
+          onCommandFailure={(failure) => setActionMessage(failure.message)}
+          onRequestSourceView={() => navigateToPage("source")}
+          readExternalSource={(path) => {
+            throw new Error(`External file sources are not available in the browser playground: ${path}`);
+          }}
+        />
       )}
 
       <footer className="siteFooter">

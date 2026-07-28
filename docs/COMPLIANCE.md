@@ -36,8 +36,13 @@ Status legend:
 
 5a. Column default formulas (`@defaults | ... |`)
 - Status: `implemented`
-- Code: `packages/core/src/parser/parse.ts` (`tryHandleDefaultsDirective`, `getColumnDefaultFormula`)
+- Code: `packages/core/src/parser/parse.ts` (`tryHandleDefaultsDirective`, `applyDefaults`, `getColumnDefaultToken`)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/it/evaluator/evaluate.test.ts`, `tests/it/renderer/render.test.ts`
+
+5b. Persisted layout controls and aliases (`[columns:fit]`, `[rows:wrap]`, `[width:...]`, `[height:...]`, `@tone`, `@width`, `@height`)
+- Status: `implemented`
+- Code: `packages/core/src/parser/parse.ts` (`tryHandleAliasDeclaration`, `parseSheetLayout`), `packages/core/src/shared/layout.ts`, `packages/core/src/renderer/render.ts`, `packages/core/src/serializer/serialize.ts`, `packages/editor-core/src/commands.ts`
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/unit/serializer/serialize.unit.test.ts`, `tests/it/renderer/render.test.ts`, `tests/unit/editor-core/editorCore.unit.test.ts`, `tests/unit/editor-react/CelloVisualEditor.unit.test.tsx`
 
 6. Formula parsing + evaluation engine integration
 - Status: `implemented`

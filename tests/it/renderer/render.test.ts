@@ -63,6 +63,30 @@ describe("render", () => {
     expect(html).toContain('<td class="cello-tone-accent cello-tone-info" style="background:black">info</td>');
   });
 
+  it("renders layout aliases, column widths, fit columns, and row wrapping", async () => {
+    const html = await render(
+      "@tone notes [color:#334155][bg:#f8fafc]\n@width description [width:large]\n@height note [height:3]\n@sheet Roadmap [columns:fit][rows:wrap]\n@header | Status[width:xshort] | Description[width:description] | Fit[fit] |\n[wrap][height:note] | ok[tone:notes] | Long content | Wider content for fit |"
+    );
+
+    expect(html).toContain("width:calc(3ch + 16px)");
+    expect(html).toContain("width:calc(36ch + 16px)");
+    expect(html).toContain("cello-wrap cello-line-clamp");
+    expect(html).toContain("--cello-line-clamp:3");
+    expect(html).toContain("color:#334155");
+    expect(html).toContain("background:#f8fafc");
+  });
+
+  it("falls back for unknown layout values and supports multi-line ellipsis clamps", async () => {
+    const html = await render("@sheet S\n@header | A[width:unknown] |\n[ellipsis][height:3] | Long content that should be clamped across lines |\n[wrap][height:unknown] | Unknown height falls back |");
+
+    expect(html).toContain("width:calc(12ch + 16px)");
+    expect(html).toContain(".cello-ellipsis:not(.cello-line-clamp) .cello-cell-content");
+    expect(html).toContain('class="cello-ellipsis cello-line-clamp"');
+    expect(html).toContain("--cello-line-clamp:3");
+    expect(html).toContain("--cello-line-clamp:1");
+    expect(html).not.toContain(".cello-ellipsis .cello-cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }");
+  });
+
   it("renders numeric display modifiers from columns, rows and cells", async () => {
     const html = await render(
       "@sheet S\n@header | Item | Price[€][2d] | Margin[%][1d] | Units[0d] |\n" +

@@ -1,13 +1,22 @@
 import type { CellNode, Modifier, SheetFormat, SheetNode, WorkbookAst } from "../shared/types.js";
+import { sheetLayoutToToken, stringifyModifiers } from "../shared/serialization.js";
 
 export function serialize(ast: WorkbookAst): string {
   const chunks: string[] = [];
+
+  for (const alias of ast.aliases ?? []) {
+    chunks.push(`@${alias.namespace} ${alias.name} ${stringifyModifiers(alias.modifiers)}`);
+  }
+
+  if ((ast.aliases ?? []).length > 0 && ast.sheets.length > 0) {
+    chunks.push("");
+  }
 
   for (const [sheetIndex, sheet] of ast.sheets.entries()) {
     if (sheetIndex > 0) {
       chunks.push("");
     }
-    chunks.push(`@sheet ${sheet.name}${formatToToken(sheet.format)}`);
+    chunks.push(`@sheet ${sheet.name}${formatAndLayoutToToken(sheet)}`);
 
     for (const row of sheet.rows) {
       chunks.push(stringifyRow(row));
@@ -21,6 +30,15 @@ export function serialize(ast: WorkbookAst): string {
   }
 
   return chunks.join("\n");
+}
+
+function formatAndLayoutToToken(sheet: SheetNode): string {
+  const formatToken = formatToToken(sheet.format);
+  const layoutToken = sheetLayoutToToken(sheet.layout);
+  if (!layoutToken) {
+    return formatToken;
+  }
+  return formatToken ? `${formatToken}${layoutToken}` : ` ${layoutToken}`;
 }
 
 function stringifyRow(row: WorkbookAst["sheets"][number]["rows"][number]): string {
@@ -96,13 +114,6 @@ function stringifyCellBase(cell: CellNode): string {
     return cell.formula;
   }
   return stringifyScalar(cell.value);
-}
-
-function stringifyModifiers(modifiers: Array<{ raw: string }>): string {
-  if (modifiers.length === 0) {
-    return "";
-  }
-  return modifiers.map((m) => `[${m.raw}]`).join("");
 }
 
 function stringifyScalar(value: unknown): string {

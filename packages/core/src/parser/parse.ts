@@ -6,6 +6,7 @@ import type {
   Diagnostic,
   Modifier,
   ParseOptions,
+  SheetLayout,
   RowNode,
   SheetNode,
   WorkbookAst
@@ -13,10 +14,14 @@ import type {
 import {
   columnLetter,
   inferType,
+  isCellModifier,
+  isKnownModifier,
+  isSheetFormatModifier,
   parseSheetFormat,
   parseTrailingModifiers,
   splitDelimitedLine
 } from "../shared/utils.js";
+import { isSheetColumnsMode, isSheetRowsMode } from "../shared/layout.js";
 
 const DEFAULT_ANON_SHEET_NAME = "Sheet1";
 
@@ -32,6 +37,12 @@ interface HeaderDef {
   modifiers: Modifier[];
 }
 
+interface FormulaParseContext {
+  lineNumber: number;
+  pushDiagnostic?: (diagnostic: Diagnostic) => void;
+  sheetName?: string;
+}
+
 interface ParseRuntime {
   workbook: WorkbookAst;
   options: ParseOptions;
@@ -44,6 +55,7 @@ interface ParseRuntime {
 export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
   const workbook: WorkbookAst = {
     version: "1.0",
+    aliases: [],
     sheets: [],
     diagnostics: []
   };
@@ -84,6 +96,10 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     }
 
     if (tryHandleSheetDeclaration(runtime, trimmed, lineNumber)) {
+      continue;
+    }
+
+    if (tryHandleAliasDeclaration(runtime, trimmed, lineNumber)) {
       continue;
     }
 
@@ -141,7 +157,7 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
 
 function ensureSheet(workbook: WorkbookAst, state: MutableParseState, options: ParseOptions): SheetNode {
   if (!state.currentSheet) {
-    state.currentSheet = createSheet(options.anonymousSheetName ?? DEFAULT_ANON_SHEET_NAME, undefined);
+    state.currentSheet = createSheet(options.anonymousSheetName ?? DEFAULT_ANON_SHEET_NAME);
     workbook.sheets.push(state.currentSheet);
     resetSheetTracking(state);
   }
@@ -165,22 +181,44 @@ function resetRowTracking(state: MutableParseState): void {
 }
 
 function tryHandleSheetDeclaration(runtime: ParseRuntime, trimmed: string, lineNumber: number): boolean {
-  const sheetMatch = trimmed.match(/^@sheet\s+(.+?)(?:\s+\[(.+)\])?$/);
+  const sheetMatch = trimmed.match(/^@sheet\s+(.+)$/);
   if (!sheetMatch) {
     return false;
   }
 
-  const rawName = sheetMatch[1];
-  const rawFormat = sheetMatch[2];
+  const parsed = parseTrailingModifiers(sheetMatch[1] ?? "");
+  const rawName = parsed.base;
   if (!rawName) {
     runtime.pushDiagnostic({ level: "warning", line: lineNumber, message: "Invalid @sheet declaration." });
     return true;
   }
 
-  const nextSheet = createSheet(rawName.trim(), rawFormat?.trim());
+  const nextSheet = createSheet(rawName.trim(), parsed.modifiers);
   runtime.workbook.sheets.push(nextSheet);
   runtime.state.currentSheet = nextSheet;
   resetSheetTracking(runtime.state);
+  return true;
+}
+
+function tryHandleAliasDeclaration(runtime: ParseRuntime, trimmed: string, lineNumber: number): boolean {
+  const aliasMatch = trimmed.match(/^@(tone|width|height)\s+(.+)$/);
+  if (!aliasMatch) {
+    return false;
+  }
+
+  const namespace = aliasMatch[1] as "tone" | "width" | "height";
+  const parsed = parseTrailingModifiers(aliasMatch[2] ?? "");
+  const name = parsed.base.trim();
+  if (!name || parsed.modifiers.length === 0) {
+    runtime.pushDiagnostic({
+      level: "warning",
+      line: lineNumber,
+      message: `Invalid @${namespace} alias declaration.`
+    });
+    return true;
+  }
+
+  runtime.workbook.aliases.push({ namespace, name, modifiers: parsed.modifiers });
   return true;
 }
 
@@ -295,13 +333,28 @@ function finalizeJsonSheets(runtime: ParseRuntime): void {
   }
 }
 
-function createSheet(name: string, rawFormat?: string): SheetNode {
+function createSheet(name: string, modifiers: Modifier[] = []): SheetNode {
+  const formatModifier = modifiers.find((modifier) => isSheetFormatModifier(modifier));
   return {
     name,
-    format: parseSheetFormat(rawFormat),
+    format: parseSheetFormat(formatModifier?.raw),
+    layout: parseSheetLayout(modifiers),
     rows: [],
     columns: []
   };
+}
+
+function parseSheetLayout(modifiers: Modifier[]): SheetLayout {
+  const layout: SheetLayout = {};
+  for (const modifier of modifiers) {
+    if (modifier.key === "columns" && isSheetColumnsMode(modifier.value)) {
+      layout.columns = modifier.value;
+    }
+    if (modifier.key === "rows" && isSheetRowsMode(modifier.value)) {
+      layout.rows = modifier.value;
+    }
+  }
+  return layout;
 }
 
 function tryHandleHeaderDirective(
@@ -450,7 +503,8 @@ function handleNativeLine(runtime: ParseRuntime, sheet: SheetNode, rawLine: stri
     lineNumber,
     runtime.state.previousRowByColumn,
     runtime.state.currentHeaders,
-    rowModifiers
+    rowModifiers,
+    runtime.pushDiagnostic
   );
 }
 
@@ -494,6 +548,8 @@ function parseDataCells(
     rowModifiers: Modifier[];
     previousRowByColumn: Map<number, CellNode>;
     currentHeaders: HeaderDef[];
+    pushDiagnostic?: (diagnostic: Diagnostic) => void;
+    sheetName?: string;
   }
 ): RowNode {
   const parsedCells: CellNode[] = [];
@@ -530,14 +586,14 @@ function parseDataCells(
     }
 
     if (token.length === 0 && defaultToken) {
-      const cell = createCellFromDefault(context.rowIndex, col, defaultToken);
+      const cell = createCellFromDefault(context.rowIndex, col, defaultToken, context);
       parsedCells.push(cell);
       currentByColumn.set(col, cell);
       continue;
     }
 
     if (token.startsWith("=")) {
-      const formulaCell = createFormulaCellFromToken(context.rowIndex, col, token);
+      const formulaCell = createFormulaCellFromToken(context.rowIndex, col, token, context);
       parsedCells.push(formulaCell);
       currentByColumn.set(col, formulaCell);
       continue;
@@ -560,14 +616,17 @@ function appendDataRow(
   lineNumber: number,
   previousRowByColumn: Map<number, CellNode>,
   currentHeaders: HeaderDef[],
-  rowModifiers: Modifier[] = []
+  rowModifiers: Modifier[] = [],
+  pushDiagnostic?: (diagnostic: Diagnostic) => void
 ): Map<number, CellNode> {
   const row = parseDataCells(cells, {
     rowIndex: sheet.rows.length + 1,
     lineNumber,
     rowModifiers,
     previousRowByColumn,
-    currentHeaders
+    currentHeaders,
+    sheetName: sheet.name,
+    ...(pushDiagnostic ? { pushDiagnostic } : {})
   });
   sheet.rows.push(row);
   registerColumns(sheet, row.cells, currentHeaders);
@@ -691,9 +750,14 @@ function createValueCell(
   };
 }
 
-function createCellFromDefault(row: number, col: number, token: string): CellNode {
+function createCellFromDefault(
+  row: number,
+  col: number,
+  token: string,
+  context?: FormulaParseContext
+): CellNode {
   if (token.startsWith("=")) {
-    return createFormulaCellFromToken(row, col, token);
+    return createFormulaCellFromToken(row, col, token, context);
   }
 
   const extracted = parseTrailingModifiers(token);
@@ -701,10 +765,24 @@ function createCellFromDefault(row: number, col: number, token: string): CellNod
   return createValueCell(row, col, inferred.parsed, extracted.modifiers, inferred.inferredType, token);
 }
 
-function createFormulaCellFromToken(row: number, col: number, token: string): CellNode {
+function createFormulaCellFromToken(
+  row: number,
+  col: number,
+  token: string,
+  context?: FormulaParseContext
+): CellNode {
   const extracted = parseTrailingModifiers(token);
   if (extracted.modifiers.length > 0 && extracted.modifiers.every(isCellModifier)) {
     return createFormulaCell(row, col, extracted.base, extracted.modifiers, token);
+  }
+  const wrongScope = extracted.modifiers.find((modifier) => isKnownModifier(modifier) && !isCellModifier(modifier));
+  if (wrongScope) {
+    context?.pushDiagnostic?.({
+      level: "warning",
+      line: context.lineNumber,
+      ...(context.sheetName ? { sheet: context.sheetName } : {}),
+      message: `Formula cell modifier [${wrongScope.raw}] is a known Cello modifier, but it is not valid on cells. Keeping it as formula text.`
+    });
   }
 
   return createFormulaCell(row, col, token, [], token);
@@ -723,26 +801,6 @@ function createFormulaCell(row: number, col: number, formula: string, modifiers:
     colspan: 1,
     rowspan: 1
   };
-}
-
-function isCellModifier(modifier: Modifier): boolean {
-  return (
-    modifier.key === "bold" ||
-    modifier.key === "italic" ||
-    modifier.key === "strike" ||
-    modifier.key === "hidden" ||
-    modifier.key === "%" ||
-    modifier.key === "€" ||
-    modifier.key === "$" ||
-    modifier.key === "£" ||
-    modifier.key === "tone" ||
-    modifier.key === "bg" ||
-    modifier.key === "bgfg" ||
-    modifier.key === "color" ||
-    modifier.key.startsWith("#") ||
-    /^\d+d$/.test(modifier.key) ||
-    /^[a-z]+$/.test(modifier.key)
-  );
 }
 
 function createMergeCell(row: number, col: number, kind: "merge-left" | "merge-up"): CellNode {

@@ -143,6 +143,7 @@ function inlineClipboardStyles(originalRoot: Element, cloneRoot: Element): void 
 
 function stripPresentationChrome(table: HTMLTableElement): void {
   table.querySelectorAll(".cello-corner-index, .cello-column-index, .cello-row-index").forEach((node) => node.remove());
+  table.querySelector("colgroup col")?.remove();
   table.querySelectorAll("tr").forEach((row) => {
     if (row.children.length === 0) {
       row.remove();

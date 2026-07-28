@@ -128,6 +128,12 @@ Primary exports:
 - `render(input, options?)`
 - `serialize(ast)`
 
+Editor package exports:
+
+- `@nachoggodino/cello/editor-core` provides source-preserving workbook models, commands, selectors, serialization helpers, and editor evaluation helpers.
+- `@nachoggodino/cello/editor-react` exports `CelloVisualEditor` for React hosts.
+- `@nachoggodino/cello/editor-react/styles.css` provides the visual editor stylesheet.
+
 ## Format Overview
 
 Native Cello sheets use pipe-delimited rows:
@@ -154,10 +160,13 @@ Rendered preview:
 Useful syntax:
 
 - `@sheet Name [format]` starts a sheet.
+- `@sheet Name [columns:fit][rows:wrap]` persists sheet-level layout defaults.
 - `@header | Column | Names |` declares named columns.
+- `@header | Column[width:large] |` persists column width; `[fit]` sizes a column from visible content.
 - `@defaults | | | =Formula |` declares non-rendered column default formulas.
 - `| cell | cell |` declares rows.
-- `[bold] | ... |` applies row-level modifiers.
+- `[bold] | ... |`, `[wrap] | ... |`, and `[height:3] | ... |` apply row-level modifiers.
+- `@tone`, `@width`, and `@height` declare namespaced aliases for reusable tone, width, and height modifiers.
 - `=A1+B1`, `=SUM(Revenue)`, and `=Sales!Amount` create formulas.
 - `!!Amount` references a named column on the first sheet.
 - `<` merges with the cell on the left; `^` merges with the cell above.

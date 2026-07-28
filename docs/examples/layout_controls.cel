@@ -1,0 +1,10 @@
+@tone notes [color:#334155][bg:#f8fafc]
+@width description [width:large]
+@height note [height:3]
+
+@sheet Roadmap [columns:fit][rows:wrap]
+@header | Status[width:xshort] | Title[width:normal] | Description[width:description] |
+[wrap] | ok | Parser | Sheet defaults and aliases are parsed into the workbook AST. |
+[wrap][height:note] | yes | Renderer | Fit columns size from visible content, then wrapped rows expand or clamp. |
+[ellipsis][height:1] | no | Editor | Compact rows stay clipped when ellipsis is explicit. |
+| note[tone:notes] | Alias | Tone, width, and height aliases resolve only in their own namespaces. |

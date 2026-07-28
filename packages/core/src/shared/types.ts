@@ -16,6 +16,21 @@ export interface Modifier {
   value?: string;
 }
 
+export type AliasNamespace = "tone" | "width" | "height";
+export type SheetColumnsDefault = "normal" | "fit";
+export type SheetRowsDefault = "ellipsis" | "wrap";
+
+export interface AliasDeclaration {
+  namespace: AliasNamespace;
+  name: string;
+  modifiers: Modifier[];
+}
+
+export interface SheetLayout {
+  columns?: SheetColumnsDefault;
+  rows?: SheetRowsDefault;
+}
+
 export interface CellNode {
   row: number;
   col: number;
@@ -49,6 +64,7 @@ export interface ColumnNode {
 export interface SheetNode {
   name: string;
   format: SheetFormat;
+  layout: SheetLayout;
   rows: RowNode[];
   columns: ColumnNode[];
 }
@@ -64,6 +80,7 @@ export interface Diagnostic {
 
 export interface WorkbookAst {
   version: CelloVersion;
+  aliases: AliasDeclaration[];
   sheets: SheetNode[];
   diagnostics: Diagnostic[];
 }

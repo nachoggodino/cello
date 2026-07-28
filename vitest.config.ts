@@ -6,7 +6,8 @@ export default defineConfig({
     alias: {
       "@cello/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)),
       "@cello/editor-core": fileURLToPath(new URL("./packages/editor-core/src/index.ts", import.meta.url)),
-      "@cello/editor-react": fileURLToPath(new URL("./packages/editor-react/src/index.ts", import.meta.url))
+      "@cello/editor-react": fileURLToPath(new URL("./packages/editor-react/src/index.ts", import.meta.url)),
+      "@nachoggodino/cello/editor-core": fileURLToPath(new URL("./packages/editor-core/src/index.ts", import.meta.url))
     }
   },
   test: {

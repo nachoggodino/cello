@@ -3,6 +3,8 @@ import {
   columnLetter,
   escapeHtml,
   inferType,
+  isCellModifier,
+  isKnownModifier,
   parseModifier,
   parseSheetFormat,
   parseTrailingModifiers,
@@ -41,6 +43,25 @@ describe("utils", () => {
     expect(parseModifier("default:=Qty*Price")).toMatchObject({ key: "default", value: "=Qty*Price", raw: "default:=Qty*Price" });
     expect(parseModifier("bg:#eee")).toMatchObject({ key: "bg", value: "#eee" });
     expect(parseModifier("#bg:#111:#fff")).toMatchObject({ key: "bgfg", value: "#111:#fff" });
+  });
+
+  it("classifies known modifiers by valid scope", () => {
+    expect(isCellModifier(parseModifier("bold"))).toBe(true);
+    expect(isCellModifier(parseModifier("tone:warn"))).toBe(true);
+    expect(isCellModifier(parseModifier("red"))).toBe(true);
+    expect(isCellModifier(parseModifier("rebeccapurple"))).toBe(true);
+    expect(isCellModifier(parseModifier("width:24"))).toBe(false);
+    expect(isCellModifier(parseModifier("height:3"))).toBe(false);
+    expect(isCellModifier(parseModifier("wrap"))).toBe(false);
+    expect(isCellModifier(parseModifier("fit"))).toBe(false);
+
+    expect(isKnownModifier(parseModifier("bold"))).toBe(true);
+    expect(isKnownModifier(parseModifier("red"))).toBe(true);
+    expect(isKnownModifier(parseModifier("width:24"))).toBe(true);
+    expect(isKnownModifier(parseModifier("height:3"))).toBe(true);
+    expect(isKnownModifier(parseModifier("wrap"))).toBe(true);
+    expect(isKnownModifier(parseModifier("fit"))).toBe(true);
+    expect(isKnownModifier(parseModifier("hello"))).toBe(false);
   });
 
   it("infers scalar types", () => {

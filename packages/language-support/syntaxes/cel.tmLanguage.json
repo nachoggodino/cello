@@ -6,6 +6,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#sheet-declaration" },
+    { "include": "#alias-declaration" },
     { "include": "#external-source" },
     { "include": "#header-row" },
     { "include": "#defaults-row" },
@@ -23,23 +24,26 @@
     },
     "sheet-declaration": {
       "name": "meta.sheet.declaration.cel",
-      "match": "^\\s*(@sheet)\\b(?:\\s+([^\\[\\r\\n]+?))?(?:\\s+(\\[)([^\\]\\r\\n]+)(\\]))?\\s*$",
-      "captures": {
+      "begin": "^\\s*(@sheet)\\b(?:\\s+([^\\[\\r\\n]+?))?(?=\\s*(?:\\[|$))",
+      "beginCaptures": {
         "1": { "name": "keyword.control.sheet.cel" },
         "2": {
           "name": "entity.name.section.sheet.cel",
           "patterns": [{ "include": "#identifiers" }]
-        },
-        "3": { "name": "punctuation.definition.format.begin.cel" },
-        "4": {
-          "name": "storage.type.format.cel",
-          "patterns": [
-            { "match": "\\b(?:csv|tsv|excel|markdown|json|noheader)\\b", "name": "support.constant.format.cel" },
-            { "match": "\\\\t|[,;|:]", "name": "constant.character.delimiter.cel" }
-          ]
-        },
-        "5": { "name": "punctuation.definition.format.end.cel" }
-      }
+        }
+      },
+      "end": "$",
+      "patterns": [{ "include": "#modifiers" }]
+    },
+    "alias-declaration": {
+      "name": "meta.alias.declaration.cel",
+      "begin": "^\\s*(@(?:tone|width|height))\\b\\s+([^\\[\\r\\n]+?)(?=\\s*(?:\\[|$))",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.alias.cel" },
+        "2": { "name": "entity.name.alias.cel" }
+      },
+      "end": "$",
+      "patterns": [{ "include": "#modifiers" }]
     },
     "external-source": {
       "name": "meta.external-source.cel",
@@ -167,9 +171,13 @@
         "0": { "name": "punctuation.definition.modifier.end.cel" }
       },
       "patterns": [
-        { "match": "\\b(?:bold|italic|hidden)\\b", "name": "storage.modifier.style.cel" },
-        { "match": "\\b(?:tone)(:)(?:ok|warn|error|info|muted|accent)\\b", "name": "support.constant.tone.cel", "captures": { "1": { "name": "punctuation.separator.key-value.cel" } } },
-        { "match": "\\b(?:bg|default)(:)", "name": "support.type.modifier-key.cel", "captures": { "1": { "name": "punctuation.separator.key-value.cel" } } },
+        { "match": "\\b(?:bold|italic|strike|hidden)\\b", "name": "storage.modifier.style.cel" },
+        { "match": "\\b(?:fit|wrap|ellipsis)\\b", "name": "support.type.layout.cel" },
+        { "match": "\\b(?:csv|tsv|excel|markdown|json|noheader)\\b", "name": "support.constant.format.cel" },
+        { "match": "\\\\t|[,;|]", "name": "constant.character.delimiter.cel" },
+        { "match": "\\b(tone)(:)([A-Za-z_][\\w.-]*)\\b", "name": "support.constant.tone.cel", "captures": { "1": { "name": "support.type.modifier-key.cel" }, "2": { "name": "punctuation.separator.key-value.cel" }, "3": { "name": "entity.name.alias.cel" } } },
+        { "match": "\\b(?:columns|rows|width|height)(:)", "name": "support.type.layout.cel", "captures": { "1": { "name": "punctuation.separator.key-value.cel" } } },
+        { "match": "\\b(?:bg|color|default)(:)", "name": "support.type.modifier-key.cel", "captures": { "1": { "name": "punctuation.separator.key-value.cel" } } },
         { "match": "#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})\\b", "name": "constant.other.color.rgb-value.cel" },
         { "match": "#bg:", "name": "support.type.color-shorthand.cel" },
         { "match": "[€$£%]", "name": "constant.character.currency.cel" },

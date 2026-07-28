@@ -12,7 +12,7 @@ TextMate grammars are supported directly by VS Code and can be consumed by Shiki
 
 ## VS Code Contribution
 
-Use this contribution block in a VS Code extension package:
+The reusable source files above can be copied or vendored into an editor integration. A packaged VS Code extension should contribute the copied files from its extension output. The Cello VS Code extension copies them to `dist/syntaxes`, so its contribution block uses:
 
 ```json
 {
@@ -22,14 +22,14 @@ Use this contribution block in a VS Code extension package:
         "id": "cel",
         "aliases": ["Cello", "cel"],
         "extensions": [".cel"],
-        "configuration": "./packages/language-support/syntaxes/cel.language-configuration.json"
+        "configuration": "./dist/syntaxes/cel.language-configuration.json"
       }
     ],
     "grammars": [
       {
         "language": "cel",
         "scopeName": "source.cel",
-        "path": "./packages/language-support/syntaxes/cel.tmLanguage.json"
+        "path": "./dist/syntaxes/cel.tmLanguage.json"
       }
     ]
   }
@@ -42,7 +42,8 @@ Use this contribution block in a VS Code extension package:
 |---|---|
 | `@sheet` | `keyword.control.sheet.cel` |
 | Sheet name | `entity.name.section.sheet.cel` |
-| Sheet format | `storage.type.format.cel` |
+| Sheet format | `support.constant.format.cel` |
+| Alias directive `@tone`, `@width`, `@height` | `keyword.control.alias.cel` |
 | `@header` | `keyword.control.header.cel` |
 | `@defaults` | `keyword.control.defaults.cel` |
 | External source `->` | `keyword.operator.source.cel` |
@@ -57,6 +58,7 @@ Use this contribution block in a VS Code extension package:
 | Merge token `<` or `^` | `keyword.operator.merge.cel` |
 | Modifier block | `meta.modifier.cel` |
 | Tone modifier | `support.constant.tone.cel` |
+| Layout modifier | `support.type.layout.cel` |
 | Color literal | `constant.other.color.rgb-value.cel` |
 | Forced text string | `string.quoted.double.cel` |
 | ISO date | `constant.other.date.iso.cel` |
@@ -73,7 +75,7 @@ Themes that want a distinctive Cello look can add these VS Code `tokenColors`. T
 [
   { "scope": "keyword.control.sheet.cel, keyword.control.header.cel, keyword.control.defaults.cel", "settings": { "foreground": "#D97706", "fontStyle": "bold" } },
   { "scope": "entity.name.section.sheet.cel", "settings": { "foreground": "#0F766E", "fontStyle": "bold" } },
-  { "scope": "storage.type.format.cel, support.constant.format.cel", "settings": { "foreground": "#2563EB" } },
+  { "scope": "support.constant.format.cel", "settings": { "foreground": "#2563EB" } },
   { "scope": "meta.formula.cel", "settings": { "foreground": "#BE123C" } },
   { "scope": "support.function.formula.cel", "settings": { "foreground": "#9333EA", "fontStyle": "bold" } },
   { "scope": "variable.other.sheet-reference.cel, variable.other.identifier.cel", "settings": { "foreground": "#15803D" } },

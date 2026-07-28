@@ -13,6 +13,7 @@ type Scalar = string | number | boolean | null;
 export function workbook(sheets: SheetNode[]): WorkbookAst {
   return {
     version: "1.0",
+    aliases: [],
     diagnostics: [],
     sheets
   };
@@ -32,6 +33,7 @@ export function sheet(options: {
   return {
     name,
     format,
+    layout: {},
     columns: columnNames.map((columnName, index) => ({
       index: index + 1,
       letter: String.fromCharCode(65 + index),
