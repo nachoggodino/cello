@@ -308,7 +308,7 @@ describe("editor core", () => {
   });
 
   it("derives display style and scoped toolbar values", () => {
-    const workbook = createEditorWorkbook("@sheet Report\n@header | Name[italic][color:#222222] |\n[bold][bg:#abcdef] | Ada[color:#111111] |");
+    const workbook = createEditorWorkbook("@sheet Report\n@header | Name[italic][color:#222222] |\n[bold][bg:#abcdef] | Ada[#111111] |");
     const sheet = workbook.sheets[0];
     const address = { sheetIndex: 0, rowIndex: 1, colIndex: 0 };
 
@@ -320,12 +320,12 @@ describe("editor core", () => {
     });
     expect(hasScopedModifier(sheet, address, "row", "bold")).toBe(true);
     expect(hasScopedModifier(sheet, address, "column", "italic")).toBe(true);
-    expect(getScopedColorValue(sheet, address, "cell", "color", "#000000")).toBe("#111111");
+    expect(getScopedColorValue(sheet, address, "cell", "color", "#000000")).toBe("#000000");
     expect(getScopedColorValue(sheet, address, "row", "color", "#000000")).toBe("#000000");
   });
 
   it("derives visual display for inline text styles and tones", () => {
-    const workbook = createEditorWorkbook("@sheet Report\n@header | Name[tone:accent] | State |\n[tone:muted] | ## Total[strike] | ok[tone:ok] |");
+    const workbook = createEditorWorkbook("@tone notes [tone:accent]\n@sheet Report\n@header | Name[tone:notes] | State |\n[tone:muted] | ## Total[strike] | ok[tone:ok] |");
     const sheet = workbook.sheets[0];
 
     expect(getCellDisplayText(getCellAt(sheet, 1, 0))).toBe("Total");
@@ -333,8 +333,8 @@ describe("editor core", () => {
     expect(getCellDisplayText({ raw: "_Italic_", modifiers: [] })).toBe("Italic");
     expect(getCellStyle({ name: "S", rows: [{ kind: "data", modifiers: [], cells: [{ raw: "_Italic_", modifiers: [] }, { raw: "*Bold*", modifiers: [] }] }], defaults: [] }, 0, 0)).toEqual({ fontStyle: "italic" });
     expect(getCellStyle({ name: "S", rows: [{ kind: "data", modifiers: [], cells: [{ raw: "_Italic_", modifiers: [] }, { raw: "*Bold*", modifiers: [] }] }], defaults: [] }, 0, 1)).toEqual({ fontWeight: 700 });
-    expect(getCellToneClass(sheet, 1, 0)).toBe("celloVisualTone-muted");
-    expect(getCellToneClass(sheet, 1, 1)).toBe("celloVisualTone-ok");
+    expect(getCellToneClass(sheet, 1, 0, workbook)).toBe("celloVisualTone-accent celloVisualTone-muted");
+    expect(getCellToneClass(sheet, 1, 1, workbook)).toBe("celloVisualTone-muted celloVisualTone-ok");
     expect(getCellDisplayText({ raw: "~~Done~~", modifiers: [] })).toBe("Done");
 
     const tonedCell = setCellToneModifier(workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 0 }, "warn");
@@ -420,6 +420,12 @@ describe("editor core", () => {
     expect(addRow(workbook, 0, { minimumVisibleColumns: 8 }).sheets[0]?.rows[1]?.cells).toHaveLength(7);
     expect(getRowAt(undefined, 0, { minimumVisibleColumns: 3 }).cells).toHaveLength(2);
     expect(getCellAt(undefined, 0, 0)).toEqual({ raw: "", modifiers: [] });
+  });
+
+  it("counts trailing default columns as visible editor columns", () => {
+    const workbook = createEditorWorkbook("@sheet Report\n@header | Name |\n@defaults | Pending | Review | Done |\n| Ada |");
+
+    expect(getVisibleColumnCount(workbook.sheets[0], { minimumVisibleColumns: 1 })).toBe(4);
   });
 
   it("sanitizes cell pipes when serializing", () => {

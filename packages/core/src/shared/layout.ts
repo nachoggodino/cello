@@ -238,11 +238,12 @@ function isRealCellModifier(modifier: Modifier): boolean {
     modifier.key === "tone" ||
     modifier.key === "bg" ||
     modifier.key === "bgfg" ||
-    modifier.key === "color" ||
-    modifier.key.startsWith("#") ||
-    /^\d+d$/.test(modifier.key) ||
-    isNamedColorModifier(modifier.key)
-  );
+	    modifier.key === "color" ||
+	    modifier.key.startsWith("#") ||
+	    /^\d+d$/.test(modifier.key) ||
+	    isLayoutModifierKey(modifier.key) ||
+	    isNamedColorModifier(modifier.key)
+	  );
 }
 
 export function isSheetColumnsMode(value: string | undefined): value is "normal" | "fit" {

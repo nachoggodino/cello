@@ -360,7 +360,7 @@ async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest,
   };
 
   const handlers: Record<NonServeCliCommand, () => Promise<number>> = {
-    parse: async () => writeStdoutJson(getAst(), deps.stdoutWrite),
+    parse: () => Promise.resolve(writeStdoutJson(getAst(), deps.stdoutWrite)),
     evaluate: async () => writeStdoutJson(await evaluate(getAst()), deps.stdoutWrite),
     format: async () => writeFormattedOutput(formatCello(text), text, request, deps),
     validate: async () => writeValidationResult(await validate(text, { baseDir: dirname(request.inputPath) }), deps.stdoutWrite),

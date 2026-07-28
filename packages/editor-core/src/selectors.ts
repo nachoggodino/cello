@@ -1,14 +1,16 @@
 import {
-  DEFAULT_COLUMN_WIDTH,
   CELLO_HEADING_STYLES,
+  DEFAULT_COLUMN_WIDTH,
+  cleanInlineDisplayText,
   expandAliasModifiers,
   fitCandidateValue,
   formatDisplayValue,
+  getInlineTextStyle,
+  getModifierStyle,
+  getToneClasses,
   heightContentToCss,
   heightOuterToCss,
   isFitCandidateCell,
-  isNamedColorModifier,
-  sanitizeCssColor,
   resolveColumnWidth,
   resolveRowLayout,
   widthOuterToCss,
@@ -17,19 +19,12 @@ import {
   type ResolvedWidth,
   type SheetNode
 } from "../../core/src/index.js";
-import { TEXT_TONES } from "./model.js";
 import type { CellAddress, ComputedCellValue, EditorCell, EditorCellStyle, EditorRow, EditorSheet, EditorWorkbook, ModifierScope } from "./model.js";
 import type { CellKind } from "../../core/src/index.js";
 import type { EditorLayoutOptions } from "./options.js";
 import { resolveEditorLayoutOptions } from "./options.js";
 import { createBlankCell, createBlankRow } from "./workbook.js";
 import { isMergeToken } from "./source.js";
-
-const headingPattern = /^#{1,3}\s+/;
-const inlineStrikeMarker = "~~";
-const inlineBoldPattern = /^\*[^*]+\*$/;
-const inlineItalicPattern = /^_[^_]+_$/;
-const headingFontSizes = new Map(CELLO_HEADING_STYLES.map((heading) => [heading.prefix, heading.fontSize]));
 
 export function getSelectedCell(workbook: { sheets: EditorSheet[] }, address: CellAddress): EditorCell {
   return getCellAt(workbook.sheets[address.sheetIndex], address.rowIndex, address.colIndex);
@@ -65,67 +60,16 @@ export function getVisibleRowCount(sheet: EditorSheet | undefined, options?: Edi
 
 export function getVisibleColumnCount(sheet: EditorSheet | undefined, options?: EditorLayoutOptions): number {
   const { minimumVisibleColumns } = resolveEditorLayoutOptions(options);
-  const actual = sheet ? Math.max(0, ...sheet.rows.map((row) => row.cells.length)) : 0;
+  const actual = sheet ? Math.max(sheet.defaults.length, ...sheet.rows.map((row) => row.cells.length)) : 0;
   return Math.max(minimumVisibleColumns, actual + 1);
 }
 
 export function getCellStyle(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number, workbook?: Pick<EditorWorkbook, "aliases">): EditorCellStyle {
-  const style: EditorCellStyle = {};
   const raw = getCellAt(sheet, rowIndex, colIndex).raw;
-  if (headingPattern.test(raw)) {
-    style.fontWeight = 700;
-    const fontSize = getHeadingFontSize(raw);
-    if (fontSize) {
-      style.fontSize = fontSize;
-    }
-  }
-  if (inlineBoldPattern.test(raw)) {
-    style.fontWeight = 700;
-  }
-  if (inlineItalicPattern.test(raw)) {
-    style.fontStyle = "italic";
-  }
-  if (isWrapped(raw, inlineStrikeMarker)) {
-    style.textDecoration = "line-through";
-  }
-  for (const modifier of getEffectiveModifiers(sheet, rowIndex, colIndex, workbook)) {
-    if (modifier.key === "bold") {
-      style.fontWeight = 700;
-    }
-    if (modifier.key === "italic") {
-      style.fontStyle = "italic";
-    }
-    if (modifier.key === "strike") {
-      style.textDecoration = "line-through";
-    }
-    if (modifier.key === "bg" && modifier.value) {
-      const color = sanitizeCssColor(modifier.value);
-      if (color) {
-        style.background = color;
-      }
-    }
-    if (modifier.key === "bgfg" && modifier.value) {
-      const [background = "", foreground = ""] = modifier.value.split(":");
-      const backgroundColor = sanitizeCssColor(background);
-      const foregroundColor = sanitizeCssColor(foreground);
-      if (backgroundColor) {
-        style.background = backgroundColor;
-      }
-      if (foregroundColor) {
-        style.color = foregroundColor;
-      }
-    }
-    if (modifier.key === "color" && modifier.value) {
-      const color = sanitizeCssColor(modifier.value);
-      if (color) {
-        style.color = color;
-      }
-    }
-    if (isNamedColorModifier(modifier.key)) {
-      style.color = modifier.key;
-    }
-  }
-  return style;
+  return {
+    ...getInlineTextStyle(raw),
+    ...getModifierStyle(getEffectiveModifiers(sheet, rowIndex, colIndex, workbook))
+  };
 }
 
 export function getVisualCellStyle(
@@ -141,9 +85,8 @@ export function getVisualCellStyle(
   };
 }
 
-export function getCellToneClass(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): string {
-  const tone = [...getEffectiveModifiers(sheet, rowIndex, colIndex)].reverse().find((modifier) => modifier.key === "tone")?.value;
-  return tone && TEXT_TONES.some((candidate) => candidate === tone) ? `celloVisualTone-${tone}` : "";
+export function getCellToneClass(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number, workbook?: Pick<EditorWorkbook, "aliases">): string {
+  return getToneClasses(getEffectiveModifiers(sheet, rowIndex, colIndex, workbook), "celloVisualTone").join(" ");
 }
 
 export function getVisualColumnStyle(
@@ -241,7 +184,7 @@ export function getRowHeightValue(sheet: EditorSheet | undefined, rowIndex: numb
 }
 
 export function getCellHeadingPrefix(cell: EditorCell): string | undefined {
-  return Array.from(headingFontSizes.keys()).find((prefix) => cell.raw.startsWith(prefix));
+  return CELLO_HEADING_STYLES.find((heading) => cell.raw.startsWith(heading.prefix))?.prefix;
 }
 
 export function getInheritedModifierGroups(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): Array<{ scope: "default" | "column" | "row"; modifiers: Modifier[] }> {
@@ -278,16 +221,7 @@ export function getCellDisplayText(cell: EditorCell, computed?: ComputedCellValu
   if (cell.raw.startsWith("=")) {
     return computed === null || computed === undefined ? cell.raw : String(computed);
   }
-  if (isWrapped(cell.raw, inlineStrikeMarker)) {
-    return cell.raw.slice(inlineStrikeMarker.length, -inlineStrikeMarker.length);
-  }
-  if (inlineBoldPattern.test(cell.raw) || inlineItalicPattern.test(cell.raw)) {
-    return cell.raw.slice(1, -1);
-  }
-  if (headingPattern.test(cell.raw)) {
-    return cell.raw.replace(headingPattern, "");
-  }
-  return cell.raw;
+  return cleanInlineDisplayText(cell.raw, cell.raw);
 }
 
 export function getCellFormattedDisplayText(
@@ -303,7 +237,7 @@ export function getCellFormattedDisplayText(
   }
   const displayValue = getRawDisplayValue(cell, computed);
   const formatted = formatDisplayValue(displayValue, getEffectiveModifiers(sheet, rowIndex, colIndex, workbook));
-  return cleanInlineDisplayText(cell, formatted);
+  return cleanInlineDisplayText(cell.raw, formatted);
 }
 
 export function getCellFitMeasureText(
@@ -330,14 +264,6 @@ export function getCellFitMeasureText(
     candidate,
     getEffectiveModifiers(sheet, rowIndex, colIndex, workbook)
   );
-}
-
-function getHeadingFontSize(raw: string): string | undefined {
-  return Array.from(headingFontSizes.entries()).find(([prefix]) => raw.startsWith(prefix))?.[1];
-}
-
-function isWrapped(value: string, marker: string): boolean {
-  return value.startsWith(marker) && value.endsWith(marker) && value.length > marker.length * 2;
 }
 
 function getEffectiveModifiers(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number, workbook?: Pick<EditorWorkbook, "aliases">): Modifier[] {
@@ -404,44 +330,25 @@ function getRawDisplayValue(cell: EditorCell, computed?: ComputedCellValue): str
   return cell.raw;
 }
 
-function cleanInlineDisplayText(cell: EditorCell, formatted: string): string {
-  if (cell.raw.startsWith("=")) {
-    return formatted;
-  }
-  if (isWrapped(formatted, inlineStrikeMarker)) {
-    return formatted.slice(inlineStrikeMarker.length, -inlineStrikeMarker.length);
-  }
-  if (inlineBoldPattern.test(formatted) || inlineItalicPattern.test(formatted)) {
-    return formatted.slice(1, -1);
-  }
-  if (headingPattern.test(formatted)) {
-    return formatted.replace(headingPattern, "");
-  }
-  return formatted;
-}
-
 function getResolvedVisualColumnWidth(
   workbook: Pick<EditorWorkbook, "aliases"> | undefined,
   sheet: EditorSheet | undefined,
   rowIndex: number,
   colIndex: number
 ): ResolvedWidth {
-  const width = resolveColumnWidth(
-    workbook ?? {},
-    {
-      name: sheet?.name ?? "",
-      format: sheet?.format ?? { kind: "cello" },
-      layout: sheet?.layout ?? {},
-      rows: [],
-      columns: Array.from({ length: colIndex + 1 }, (_, index) => ({
-        index: index + 1,
-        letter: "",
-        modifiers: index === colIndex ? getColumnModifiers(sheet, rowIndex, colIndex) : [],
-        hidden: false
-      }))
-    } satisfies Pick<SheetNode, "name" | "format" | "layout" | "rows" | "columns"> as SheetNode,
-    colIndex
-  );
+  const visualSheet: SheetNode = {
+    name: sheet?.name ?? "",
+    format: sheet?.format ?? { kind: "cello" },
+    layout: sheet?.layout ?? {},
+    rows: [],
+    columns: Array.from({ length: colIndex + 1 }, (_, index) => ({
+      index: index + 1,
+      letter: "",
+      modifiers: index === colIndex ? getColumnModifiers(sheet, rowIndex, colIndex) : [],
+      hidden: false
+    }))
+  };
+  const width = resolveColumnWidth(workbook ?? {}, visualSheet, colIndex);
   return width;
 }
 
@@ -458,15 +365,16 @@ function getResolvedVisualRowLayout(
   sheet: EditorSheet | undefined,
   rowIndex: number
 ): ResolvedRowLayout {
+  const visualSheet: SheetNode = {
+    name: sheet?.name ?? "",
+    format: sheet?.format ?? { kind: "cello" },
+    layout: sheet?.layout ?? {},
+    rows: [],
+    columns: []
+  };
   return resolveRowLayout(
     workbook ?? {},
-    {
-      name: sheet?.name ?? "",
-      format: sheet?.format ?? { kind: "cello" },
-      layout: sheet?.layout ?? {},
-      rows: [],
-      columns: []
-    } as SheetNode,
+    visualSheet,
     sheet?.rows[rowIndex]?.modifiers ?? []
   );
 }

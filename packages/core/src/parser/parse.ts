@@ -289,7 +289,7 @@ function finalizeJsonSheets(runtime: ParseRuntime): void {
     }
 
     try {
-      const parsed = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(raw);
       if (!Array.isArray(parsed) || (parsed[0] && typeof parsed[0] !== "object")) {
         throw new Error("JSON sheet expects an array of flat objects.");
       }

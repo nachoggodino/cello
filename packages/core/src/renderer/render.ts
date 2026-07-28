@@ -1,19 +1,17 @@
 import { evaluate } from "../evaluator/evaluate.js";
 import { parse } from "../parser/parse.js";
-import { isNamedColorModifier, sanitizeCssColor } from "../shared/colors.js";
 import { CELLO_HEADING_STYLES, CELLO_TONE_COLORS, CELLO_TONE_NAMES, formatDisplayValue } from "../shared/display.js";
 import {
   CELL_LAYOUT_METRICS,
   DEFAULT_COLUMN_WIDTH,
   expandAliasModifiers,
   fitCandidateValue,
-  heightContentToCss,
-  heightOuterToCss,
   isFitCandidateCell,
   resolveColumnWidth,
   resolveRowLayout,
   widthOuterToCss
 } from "../shared/layout.js";
+import { getModifierStyleRules, getRowLayoutClasses, getRowLayoutStyleRules, getToneClasses } from "../shared/presentation.js";
 import type { ResolvedRowLayout, ResolvedWidth } from "../shared/layout.js";
 import type { CellNode, Modifier, RenderOptions, RowNode, SheetNode, WorkbookAst } from "../shared/types.js";
 import { columnLetter, escapeHtml, workbookHasFormulas } from "../shared/utils.js";
@@ -74,13 +72,13 @@ function renderStyles(): string {
     .cello-sheet { display: none; }
     .cello-sheet.active { display: block; }
     table { border-collapse: collapse; width: max-content; max-width: none; table-layout: auto; }
-    th, td { border: 1px solid #e5e7eb; padding: var(--cello-cell-padding-block) var(--cello-cell-padding-inline); text-align: left; vertical-align: top; white-space: nowrap; box-sizing: border-box; line-height: var(--cello-line-height); }
+    th, td { border: 1px solid #e5e7eb; padding: var(--cello-cell-padding-block) var(--cello-cell-padding-inline); text-align: left; vertical-align: middle; white-space: nowrap; box-sizing: border-box; line-height: var(--cello-line-height); }
     .cello-cell-content { display: block; min-width: 0; }
     .cello-ellipsis:not(.cello-line-clamp) .cello-cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cello-wrap .cello-cell-content { white-space: normal; overflow-wrap: anywhere; }
     .cello-fixed-height .cello-cell-content { max-height: var(--cello-content-height); overflow: auto; }
     .cello-line-clamp.cello-ellipsis .cello-cell-content { display: -webkit-box; line-height: var(--cello-line-height); -webkit-box-orient: vertical; -webkit-line-clamp: var(--cello-line-clamp); overflow: hidden; }
-    .cello-fit-measure-row { height: 0; visibility: hidden; }
+    .cello-fit-measure-row { visibility: collapse; }
     .cello-fit-measure-row th { height: 0; padding-block: 0; border-block: 0; line-height: 0; }
     .cello-fit-measure-row .cello-cell-content { line-height: var(--cello-line-height); }
     th[colspan], th[rowspan], td[colspan], td[rowspan] { text-align: center; vertical-align: middle; }
@@ -125,19 +123,6 @@ function renderScript(): string {
     }
     const tabs = Array.from(root.querySelectorAll(".cello-tab"));
     const sheets = Array.from(root.querySelectorAll(".cello-sheet"));
-    const activeSheetStorageKey = "cello:active-sheet:" + window.location.pathname;
-    function readStoredSheet() {
-      try {
-        return window.localStorage.getItem(activeSheetStorageKey);
-      } catch {
-        return null;
-      }
-    }
-    function writeStoredSheet(id) {
-      try {
-        window.localStorage.setItem(activeSheetStorageKey, id);
-      } catch {}
-    }
     function activateSheet(id) {
       const nextTab = tabs.find((tab) => tab.getAttribute("data-sheet") === id) ?? tabs[0];
       if (!nextTab) {
@@ -146,19 +131,13 @@ function renderScript(): string {
       const nextId = nextTab.getAttribute("data-sheet");
       tabs.forEach((tab) => tab.classList.toggle("active", tab === nextTab));
       sheets.forEach((sheet) => sheet.classList.toggle("active", sheet.getAttribute("data-sheet") === nextId));
-      if (nextId) {
-        writeStoredSheet(nextId);
-        try {
-          window.parent?.postMessage({ type: "cello:active-sheet", sheet: nextId }, "*");
-        } catch {}
-      }
     }
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => {
         activateSheet(tab.getAttribute("data-sheet"));
       });
     });
-    activateSheet(readStoredSheet());
+    activateSheet(tabs.find((tab) => tab.classList.contains("active"))?.getAttribute("data-sheet"));
     })();
   </script>`;
 }
@@ -302,18 +281,13 @@ function formatInline(raw: string): string {
 }
 
 function buildStyleAttribute(modifiers: Modifier[], rowLayout: ResolvedRowLayout): string {
-  const style = [...modifiers.map(toStyleRule), rowLayoutToCss(rowLayout)].filter(Boolean).join(";");
+  const style = [...getModifierStyleRules(modifiers), ...getRowLayoutStyleRules(rowLayout)].filter(Boolean).join(";");
 
   return style ? `style="${style}"` : "";
 }
 
 function buildClassAttribute(modifiers: Modifier[], rowLayout: ResolvedRowLayout): string {
-  const classes = [
-    rowLayout.mode === "wrap" ? "cello-wrap" : "cello-ellipsis",
-    rowLayout.height.kind !== "auto" ? "cello-fixed-height" : "",
-    rowLayout.mode === "ellipsis" && rowLayout.height.kind === "lines" ? "cello-line-clamp" : "",
-    ...modifiers.map(toClassName)
-  ].filter(Boolean);
+  const classes = [...getRowLayoutClasses(rowLayout), ...getToneClasses(modifiers)];
   return classes.length > 0 ? `class="${classes.join(" ")}"` : "";
 }
 
@@ -333,70 +307,10 @@ function getSheetColumnCount(sheet: SheetNode): number {
   return Math.max(sheet.columns.length, maxRenderedColumn);
 }
 
-function toStyleRule(mod: Modifier): string {
-  if (mod.key === "bold") {
-    return "font-weight:700";
-  }
-  if (mod.key === "italic") {
-    return "font-style:italic";
-  }
-  if (mod.key === "strike") {
-    return "text-decoration:line-through";
-  }
-  if (mod.key === "bg" && mod.value) {
-    const color = sanitizeCssColor(mod.value);
-    return color ? `background:${color}` : "";
-  }
-  if (mod.key === "bgfg" && mod.value) {
-    const [background = "", foreground = ""] = mod.value.split(":");
-    const backgroundColor = sanitizeCssColor(background);
-    const foregroundColor = sanitizeCssColor(foreground);
-    return [backgroundColor ? `background:${backgroundColor}` : "", foregroundColor ? `color:${foregroundColor}` : ""].filter(Boolean).join(";");
-  }
-  if (mod.key.startsWith("#")) {
-    const color = sanitizeCssColor(mod.key);
-    return color ? `color:${color}` : "";
-  }
-  if (mod.key === "color" && mod.value) {
-    const color = sanitizeCssColor(mod.value);
-    return color ? `color:${color}` : "";
-  }
-  if (mod.key === "tone") {
-    return "";
-  }
-  if (isNamedColorModifier(mod.key)) {
-    return `color:${mod.key}`;
-  }
-  return "";
-}
-
 function columnWidthToCss(width: ResolvedWidth): string {
   const resolved = width.kind === "fit" ? DEFAULT_COLUMN_WIDTH : width;
   if (!resolved || resolved.kind === "fit") {
     return columnWidthToCss(DEFAULT_COLUMN_WIDTH);
   }
   return `width:${widthOuterToCss(resolved)}`;
-}
-
-function rowLayoutToCss(rowLayout: ResolvedRowLayout): string {
-  const height = rowLayout.height;
-  const contentHeight = heightContentToCss(height);
-  const outerHeight = heightOuterToCss(height);
-  if (!contentHeight || !outerHeight) {
-    return "";
-  }
-  const lineClamp = height.kind === "lines" && height.value !== undefined ? `;--cello-line-clamp:${height.value}` : "";
-  return `height:${outerHeight};max-height:${outerHeight};--cello-content-height:${contentHeight}${lineClamp}`;
-}
-
-function toClassName(mod: Modifier): string {
-  if (mod.key !== "tone" || !mod.value) {
-    return "";
-  }
-
-  return isToneName(mod.value) ? `cello-tone-${mod.value}` : "";
-}
-
-function isToneName(value: string): boolean {
-  return (CELLO_TONE_NAMES as readonly string[]).includes(value);
 }

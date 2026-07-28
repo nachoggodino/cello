@@ -48,7 +48,7 @@
     "playground:build": "vite build --config apps/playground/vite.config.ts",
     "playground:preview": "vite preview --config apps/playground/vite.config.ts",
     "playground:typecheck": "tsc -p apps/playground/tsconfig.json --noEmit",
-    "lint": "eslint \"apps/playground/**/*.{ts,tsx}\"",
+    "lint": "eslint \"packages/**/*.{ts,tsx}\" \"apps/playground/**/*.{ts,tsx}\"",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/playground/tsconfig.json --noEmit",
     "smoke:package": "node tests/package-smoke.mjs",
     "test": "vitest run",

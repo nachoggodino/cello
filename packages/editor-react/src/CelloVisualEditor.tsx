@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import {
   addColumn,
   addRow,
@@ -780,8 +780,8 @@ function VisualDataRows({
         const cell = getCellAt(activeSheet, rowIndex, colIndex);
         const isSelected = selected.sheetIndex === activeSheetIndex && selectedDefaultCol === null && selected.rowIndex === rowIndex && selected.colIndex === colIndex;
         const cellKey = getCellAddressKey({ sheetIndex: activeSheetIndex, rowIndex, colIndex });
-        const toneClass = getCellToneClass(activeSheet, rowIndex, colIndex);
         const workbookContext = aliases ? { aliases } : {};
+        const toneClass = getCellToneClass(activeSheet, rowIndex, colIndex, workbookContext);
         const isEditing = editingCellKey === cellKey || draftCell?.key === cellKey;
         const computed = computedValues[cellKey];
         const displayValue = getCellFormattedDisplayText(activeSheet, rowIndex, colIndex, computed, workbookContext);
@@ -793,9 +793,15 @@ function VisualDataRows({
         delete editorStyle.minWidth;
         delete editorStyle.maxWidth;
         const shouldHighlightFormula = inputValue.startsWith("=") && isEditing;
+        const showDisplayOverlay = !isEditing && displayValue !== "";
         return (
           <td key={colIndex} className={[isSelected ? "selected" : "", toneClass, span.colspan > 1 || span.rowspan > 1 ? "merged" : ""].filter(Boolean).join(" ")} style={cellStyle} colSpan={span.colspan} rowSpan={span.rowspan}>
-            <div className={`celloVisualCellEditor ${shouldHighlightFormula ? "hasFormulaHighlight" : ""}`} style={contentStyle}>
+            <div className={`celloVisualCellEditor ${shouldHighlightFormula ? "hasFormulaHighlight" : ""} ${showDisplayOverlay ? "hasDisplayOverlay" : ""}`} style={contentStyle}>
+              {showDisplayOverlay ? (
+                <div className="celloVisualCellDisplay" style={{ ...editorStyle, ...contentStyle }} aria-hidden="true">
+                  {renderInlineDisplay(displayValue)}
+                </div>
+              ) : null}
               {shouldHighlightFormula ? (
                 <div className="celloVisualCellFormulaHighlight" aria-hidden="true">
                   {renderFormulaHighlight(inputValue)}
@@ -1115,6 +1121,28 @@ function renderFormulaHighlight(source: string) {
     return source;
   }
   return tokenizeFormula(source).map((token, index) => <span key={`${token.text}-${index}`} className={`formula-${token.kind}`}>{token.text}</span>);
+}
+
+function renderInlineDisplay(source: string): ReactNode {
+  const nodes: ReactNode[] = [];
+  const pattern = /(\*([^*]+)\*)|(_([^_]+)_)|(~~([^~]+)~~)/g;
+  let cursor = 0;
+  for (const match of source.matchAll(pattern)) {
+    if (match.index === undefined) {
+      continue;
+    }
+    if (match.index > cursor) {
+      nodes.push(source.slice(cursor, match.index));
+    }
+    const text = match[2] ?? match[4] ?? match[6] ?? "";
+    const style = match[2] ? { fontWeight: 700 } : match[4] ? { fontStyle: "italic" } : { textDecoration: "line-through" };
+    nodes.push(<span key={`${match.index}-${text}`} style={style}>{text}</span>);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < source.length) {
+    nodes.push(source.slice(cursor));
+  }
+  return nodes.length > 0 ? nodes : source;
 }
 
 function tokenizeFormula(source: string): Array<{ kind: string; text: string }> {

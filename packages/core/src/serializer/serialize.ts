@@ -21,7 +21,7 @@ export function serialize(ast: WorkbookAst): string {
     for (const row of sheet.rows) {
       chunks.push(stringifyRow(row));
       if (row.kind === "header") {
-        const defaultsRow = stringifyDefaultsRow(sheet, row);
+        const defaultsRow = stringifyDefaultsRow(sheet);
         if (defaultsRow) {
           chunks.push(defaultsRow);
         }
@@ -62,7 +62,7 @@ function stringifyDataRow(row: WorkbookAst["sheets"][number]["rows"][number]): s
   return `${rowPrefix}| ${cells} |`;
 }
 
-function stringifyDefaultsRow(sheet: SheetNode, row: WorkbookAst["sheets"][number]["rows"][number]): string | undefined {
+function stringifyDefaultsRow(sheet: SheetNode): string | undefined {
   const cells = sheet.columns.map((column) => {
     const columnDefault = findDefaultModifier(column.modifiers);
     if (!columnDefault) {
@@ -129,5 +129,13 @@ function stringifyScalar(value: unknown): string {
   if (typeof value === "boolean") {
     return value ? "TRUE" : "FALSE";
   }
-  return String(value);
+  return stringifyUnknownValue(value);
+}
+
+function stringifyUnknownValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return Object.prototype.toString.call(value);
+  }
 }

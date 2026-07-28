@@ -20,11 +20,6 @@ const CodeEditor = lazy(async () => ({ default: (await import("./CodeEditor")).C
 type MobilePanel = "editor" | "preview" | "syntax";
 type PlaygroundPage = "source" | "visual";
 
-interface ActiveSheetMessage {
-  type: "cello:active-sheet";
-  sheet: string;
-}
-
 const mobilePanels: Array<{ id: MobilePanel; label: string }> = [
   { id: "editor", label: "Editor" },
   { id: "preview", label: "Preview" },
@@ -70,19 +65,6 @@ export function App() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (!isActiveSheetMessage(event.data)) {
-        return;
-      }
-      setActiveSheetName(event.data.sheet);
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, []);
-
 
   const selectedExample = getExample(selectedExampleId);
   const issueCount = diagnostics.length;
@@ -185,6 +167,7 @@ export function App() {
                 previewHtml={previewHtml}
                 renderState={renderState}
                 activeSheetName={activeSheetName}
+                onActiveSheetChange={setActiveSheetName}
                 onCopyPayload={(payload, label) => void copyPayload(payload, label)}
                 onDownload={downloadHtml}
                 setActionMessage={setActionMessage}
@@ -225,17 +208,6 @@ export function App() {
         <a href={bylawsUrl} target="_blank" rel="noreferrer">Read the BYLAWS</a>
       </footer>
     </div>
-  );
-}
-
-function isActiveSheetMessage(value: unknown): value is ActiveSheetMessage {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    "type" in value &&
-    value.type === "cello:active-sheet" &&
-    "sheet" in value &&
-    typeof value.sheet === "string"
   );
 }
 
@@ -398,6 +370,7 @@ function PreviewPane({
   previewHtml,
   renderState,
   activeSheetName,
+  onActiveSheetChange,
   onCopyPayload,
   onDownload,
   setActionMessage
@@ -408,6 +381,7 @@ function PreviewPane({
   previewHtml: string;
   renderState: "idle" | "rendering" | "failed";
   activeSheetName?: string;
+  onActiveSheetChange: (sheetName: string) => void;
   onCopyPayload: (payload: { html: string; plainText: string }, label: string) => void;
   onDownload: () => void;
   setActionMessage: (message: string) => void;
@@ -434,6 +408,25 @@ function PreviewPane({
     }
     activateRenderedSheet(frameDocument, activeSheetName);
   }, [activeSheetName]);
+
+  const bindPreviewSheetTabs = useCallback(() => {
+    const frameDocument = previewFrameRef.current?.contentDocument;
+    if (!frameDocument) {
+      return;
+    }
+    for (const tab of frameDocument.querySelectorAll<HTMLElement>(".cello-tab")) {
+      if (tab.dataset.playgroundSheetBound === "true") {
+        continue;
+      }
+      tab.dataset.playgroundSheetBound = "true";
+      tab.addEventListener("click", () => {
+        const sheet = tab.getAttribute("data-sheet");
+        if (sheet) {
+          onActiveSheetChange(sheet);
+        }
+      });
+    }
+  }, [onActiveSheetChange]);
 
   const resizePreviewFrame = useCallback(() => {
     const frame = previewFrameRef.current;
@@ -463,8 +456,9 @@ function PreviewPane({
 
   useEffect(() => {
     syncPreviewSheet();
+    bindPreviewSheetTabs();
     resizePreviewFrame();
-  }, [lastGoodHtml, mobileVisible, previewHtml, resizePreviewFrame, syncPreviewSheet]);
+  }, [bindPreviewSheetTabs, lastGoodHtml, mobileVisible, previewHtml, resizePreviewFrame, syncPreviewSheet]);
 
   return (
     <div className="previewRegion">
@@ -489,6 +483,7 @@ function PreviewPane({
             srcDoc={previewHtml || lastGoodHtml}
             sandbox="allow-scripts allow-same-origin"
             onLoad={() => {
+              bindPreviewSheetTabs();
               syncPreviewSheet();
               resizePreviewFrame();
             }}

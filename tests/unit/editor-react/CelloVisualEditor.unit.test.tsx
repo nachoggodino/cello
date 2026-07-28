@@ -189,6 +189,18 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada |");
   });
 
+  it("renders partial inline formatting in display mode and preserves source while editing", async () => {
+    renderEditor("@sheet Report\n| Hello *world* |", vi.fn());
+
+    const display = document.querySelector<HTMLElement>(".celloVisualCellDisplay span");
+    expect(display?.textContent).toBe("world");
+    expect(display?.style.fontWeight).toBe("700");
+
+    focusInput(screenInput("A1"));
+    expect(screenInput("A1").value).toBe("Hello *world*");
+    expect(document.querySelector(".celloVisualCellDisplay")).toBeNull();
+  });
+
   it("keeps formatting toolbar commands away from selected defaults", async () => {
     const onSourceChange = vi.fn();
     renderEditor("@sheet Report\n@header | Name |\n@defaults | Pending |\n| Ada |", onSourceChange);
@@ -319,6 +331,18 @@ describe("CelloVisualEditor", () => {
     focusInput(screenInput("A2"));
     expect(screenInput("A2").value).toBe("=SUM(2+2)");
     expect(screenInput("A2").closest("td")?.getAttribute("style")).toContain("width: 28px");
+  });
+
+  it("measures column-level fit without counting the fit modifier text", async () => {
+    mockMeasuredTextWidths();
+    renderEditor("@sheet Report\n@header | [fit] |\n| ok |", vi.fn());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screenInput("A2").closest("td")?.getAttribute("style")).toContain("width: 38px");
+    expect(screenButton("Width").textContent).toBe("fit: 38px");
   });
 
   it("syntax-highlights formulas in grid edit mode", async () => {

@@ -22,18 +22,6 @@
   --cello-visual-formula-operator: #7c3aed;
   --cello-visual-formula-sheet: #047857;
   --cello-visual-formula-range: #b45309;
-  --cello-visual-tone-ok-color: #166534;
-  --cello-visual-tone-ok-background: #dcfce7;
-  --cello-visual-tone-warn-color: #9a3412;
-  --cello-visual-tone-warn-background: #ffedd5;
-  --cello-visual-tone-error-color: #991b1b;
-  --cello-visual-tone-error-background: #fee2e2;
-  --cello-visual-tone-info-color: #1d4ed8;
-  --cello-visual-tone-info-background: #dbeafe;
-  --cello-visual-tone-muted-color: #475569;
-  --cello-visual-tone-muted-background: #e2e8f0;
-  --cello-visual-tone-accent-color: #6d28d9;
-  --cello-visual-tone-accent-background: #ede9fe;
   --cello-visual-control-height: var(--control-height, 34px);
   --cello-visual-icon-button-size: var(--icon-button-size, 34px);
   --cello-visual-icon-size: var(--icon-size, 16px);
@@ -56,9 +44,9 @@
   --cello-visual-font-weight-strong: var(--font-weight-strong, 700);
   --cello-visual-font-weight-heavy: var(--font-weight-heavy, 800);
   --cello-visual-letter-spacing-label: var(--letter-spacing-label, 0.08em);
-  --cello-visual-cell-padding-inline: 8px;
-  --cello-visual-cell-padding-block: 8px;
-  --cello-visual-cell-line-height: 20px;
+  --cello-visual-cell-padding-inline: var(--cello-cell-padding-inline, 8px);
+  --cello-visual-cell-padding-block: var(--cello-cell-padding-block, 8px);
+  --cello-visual-cell-line-height: var(--cello-line-height, 20px);
 
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -75,9 +63,9 @@
 
 .celloVisualCommandError {
   padding: var(--cello-visual-space-7) var(--cello-visual-space-11);
-  border-bottom: 1px solid var(--cello-visual-tone-warn-background);
-  color: var(--cello-visual-tone-warn-color);
-  background: var(--cello-visual-tone-warn-background);
+  border-bottom: 1px solid var(--cello-tone-warn-background, #ffedd5);
+  color: var(--cello-tone-warn-color, #9a3412);
+  background: var(--cello-tone-warn-background, #ffedd5);
   font-size: var(--cello-visual-font-size-small);
   font-weight: var(--cello-visual-font-weight-strong);
 }
@@ -595,7 +583,6 @@
 }
 
 .celloVisualGrid {
-  /* Keep the table as wide as its resolved columns; the scroll wrapper owns extra space. */
   width: max-content;
   border-collapse: separate;
   border-spacing: 0;
@@ -675,6 +662,7 @@
   border-right: 1px solid var(--cello-visual-line);
   border-bottom: 1px solid var(--cello-visual-line);
   background: var(--cello-visual-cell);
+  vertical-align: middle;
 }
 
 .celloVisualGrid td.merged input,
@@ -719,6 +707,7 @@
   height: auto;
   max-width: 100%;
   padding-block: var(--cello-visual-cell-padding-block);
+  align-content: center;
   overflow: auto;
   resize: none;
   field-sizing: content;
@@ -747,6 +736,25 @@
   z-index: 1;
 }
 
+.celloVisualCellEditor.hasDisplayOverlay textarea {
+  color: transparent;
+  caret-color: var(--cello-visual-ink);
+}
+
+.celloVisualCellDisplay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  align-content: center;
+  box-sizing: border-box;
+  padding: var(--cello-visual-cell-padding-block) var(--cello-visual-cell-padding-inline);
+  font-family: var(--cello-visual-font-code);
+  font-size: var(--cello-visual-font-size-small);
+  line-height: var(--cello-visual-cell-line-height);
+  pointer-events: none;
+}
+
 .celloVisualCellFormulaHighlight {
   position: absolute;
   inset: 0;
@@ -767,43 +775,43 @@
 .celloVisualTone-ok,
 .celloVisualTone-ok input,
 .celloVisualTone-ok textarea {
-  color: var(--cello-visual-tone-ok-color);
-  background: var(--cello-visual-tone-ok-background);
+  color: var(--cello-tone-ok-color, #166534);
+  background: var(--cello-tone-ok-background, #dcfce7);
 }
 
 .celloVisualTone-warn,
 .celloVisualTone-warn input,
 .celloVisualTone-warn textarea {
-  color: var(--cello-visual-tone-warn-color);
-  background: var(--cello-visual-tone-warn-background);
+  color: var(--cello-tone-warn-color, #9a3412);
+  background: var(--cello-tone-warn-background, #ffedd5);
 }
 
 .celloVisualTone-error,
 .celloVisualTone-error input,
 .celloVisualTone-error textarea {
-  color: var(--cello-visual-tone-error-color);
-  background: var(--cello-visual-tone-error-background);
+  color: var(--cello-tone-error-color, #991b1b);
+  background: var(--cello-tone-error-background, #fee2e2);
 }
 
 .celloVisualTone-info,
 .celloVisualTone-info input,
 .celloVisualTone-info textarea {
-  color: var(--cello-visual-tone-info-color);
-  background: var(--cello-visual-tone-info-background);
+  color: var(--cello-tone-info-color, #1d4ed8);
+  background: var(--cello-tone-info-background, #dbeafe);
 }
 
 .celloVisualTone-muted,
 .celloVisualTone-muted input,
 .celloVisualTone-muted textarea {
-  color: var(--cello-visual-tone-muted-color);
-  background: var(--cello-visual-tone-muted-background);
+  color: var(--cello-tone-muted-color, #475569);
+  background: var(--cello-tone-muted-background, #e2e8f0);
 }
 
 .celloVisualTone-accent,
 .celloVisualTone-accent input,
 .celloVisualTone-accent textarea {
-  color: var(--cello-visual-tone-accent-color);
-  background: var(--cello-visual-tone-accent-background);
+  color: var(--cello-tone-accent-color, #6d28d9);
+  background: var(--cello-tone-accent-background, #ede9fe);
 }
 
 .celloVisualGrid input::selection,

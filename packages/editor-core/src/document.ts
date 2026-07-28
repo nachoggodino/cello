@@ -303,7 +303,7 @@ function findInsertedRowIndex(currentRows: EditorRow[], nextRows: EditorRow[]): 
 function buildEditorSourceMap(source: string, options: CreateEditorWorkbookOptions, diagnostics: EditorDiagnostic[]): EditorSourceMap {
   const lines = splitSourceLines(source);
   const sheets: EditorSheetSourceLocation[] = [];
-  let currentSheet = createImplicitSheet(source);
+  let currentSheet = createImplicitSheet();
   let currentFormat: SheetFormat = { kind: "cello" };
   let hasSheetContent = false;
 
@@ -380,12 +380,12 @@ function buildEditorSourceMap(source: string, options: CreateEditorWorkbookOptio
 
   pushCurrentSheet();
   if (sheets.length === 0) {
-    sheets.push(createImplicitSheet(source));
+    sheets.push(createImplicitSheet());
   }
   return { sheets };
 }
 
-function createImplicitSheet(_source: string): EditorSheetSourceLocation {
+function createImplicitSheet(): EditorSheetSourceLocation {
   return {
     sheetSpan: { start: 0, end: 0 },
     rows: [],
@@ -550,7 +550,7 @@ function expandRemovedSheetSpan(source: string, span: EditorSourceSpan): EditorS
 }
 
 function sheetsEqual(left: EditorSheet[], right: EditorSheet[]): boolean {
-  return left.length === right.length && left.every((sheet, index) => sheetEqual(sheet, right[index] as EditorSheet | undefined));
+  return left.length === right.length && left.every((sheet, index) => sheetEqual(sheet, right[index]));
 }
 
 function sheetEqual(left: EditorSheet | undefined, right: EditorSheet | undefined): boolean {
@@ -567,7 +567,7 @@ function sheetEqual(left: EditorSheet | undefined, right: EditorSheet | undefine
 }
 
 function rowsEqual(left: EditorRow[], right: EditorRow[]): boolean {
-  return left.length === right.length && left.every((row, index) => rowEqual(row, right[index] as EditorRow | undefined));
+  return left.length === right.length && left.every((row, index) => rowEqual(row, right[index]));
 }
 
 function rowEqual(left: EditorRow | undefined, right: EditorRow | undefined): boolean {
@@ -584,7 +584,7 @@ function rowEqual(left: EditorRow | undefined, right: EditorRow | undefined): bo
 function cellsEqual(left: EditorCell[], right: EditorCell[]): boolean {
   const trimmedLeft = trimTrailingEmptyCells(left);
   const trimmedRight = trimTrailingEmptyCells(right);
-  return trimmedLeft.length === trimmedRight.length && trimmedLeft.every((cell, index) => cellEqual(cell, trimmedRight[index] as EditorCell | undefined));
+  return trimmedLeft.length === trimmedRight.length && trimmedLeft.every((cell, index) => cellEqual(cell, trimmedRight[index]));
 }
 
 function cellEqual(left: EditorCell | undefined, right: EditorCell | undefined): boolean {

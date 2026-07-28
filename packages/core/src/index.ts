@@ -58,6 +58,8 @@ export {
 } from "./shared/layout.js";
 export { CELLO_HEADING_STYLES, CELLO_TONE_COLORS, CELLO_TONE_NAMES, collectNumericDisplayFormat, formatDisplayValue, isCurrencyModifier, parseDecimalsModifier } from "./shared/display.js";
 export { isNamedColorModifier, sanitizeCssColor } from "./shared/colors.js";
+export { cleanInlineDisplayText, getInlineTextStyle, getModifierStyle, getModifierStyleRules, getRowLayoutClasses, getRowLayoutStyleRules, getToneClasses } from "./shared/presentation.js";
+export type { PresentationStyle } from "./shared/presentation.js";
 export { sheetLayoutToModifiers, sheetLayoutToToken, stringifyModifiers } from "./shared/serialization.js";
 export { isCellModifier, isKnownModifier, isSheetFormatModifier, parseModifier, parseSheetFormat, parseTrailingModifiers } from "./shared/utils.js";
 export type { ValidateOptions, ValidateResult } from "./validator/validate.js";

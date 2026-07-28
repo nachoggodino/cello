@@ -160,7 +160,7 @@ function normalizeValue(value: unknown, formula?: string): string | number | boo
     }
     return value.value;
   }
-  return String(value);
+  return stringifyUnknownValue(value);
 }
 
 function isDetailedCellError(value: unknown): value is { value: string; type?: string; message?: string } {
@@ -171,3 +171,6 @@ function isFormulaParseError(value: { type?: string; message?: string }): boolea
   return value.type === "ERROR" && typeof value.message === "string" && value.message.includes("Parsing error");
 }
 
+function stringifyUnknownValue(value: unknown): string {
+  return Object.prototype.toString.call(value);
+}

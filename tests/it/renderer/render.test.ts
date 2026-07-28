@@ -13,8 +13,9 @@ describe("render", () => {
     expect(html).toContain('class="cello-tab active"');
     expect(html).toContain('data-sheet="One"');
     expect(html).toContain('data-sheet="Two"');
-    expect(html).toContain("cello:active-sheet:");
-    expect(html).toContain("activateSheet(readStoredSheet())");
+    expect(html).toContain("activateSheet(");
+    expect(html).not.toContain("postMessage");
+    expect(html).not.toContain("cello:active-sheet:");
   });
 
   it("renders embeddable html fragments without document wrappers", async () => {
@@ -94,6 +95,7 @@ describe("render", () => {
 
     expect(html).toContain("table-layout: auto");
     expect(html).toContain("<colgroup><col style=\"width:36px\"><col><col><col><col></colgroup>");
+    expect(html).toContain(".cello-fit-measure-row { visibility: collapse; }");
     expect(html).toContain("cello-fit-measure-row");
     expect(html).toContain("€12.50");
     expect(html).toContain("longer literal");
@@ -115,6 +117,13 @@ describe("render", () => {
     expect(html).toContain("$4");
     expect(html).toContain("hello world[fake]");
     expect(html).not.toContain("=SUM(2+2)");
+  });
+
+  it("does not measure column layout modifiers as visible fit text", async () => {
+    const html = await render("@sheet S\n@header | [fit] |\n| ok |");
+
+    expect(html).toContain("cello-fit-measure-row");
+    expect(html).not.toContain("[fit]");
   });
 
   it("falls back for unknown layout values and supports multi-line ellipsis clamps", async () => {
