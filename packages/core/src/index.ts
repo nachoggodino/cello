@@ -30,6 +30,7 @@ export type { ResolvedHeight, ResolvedRowLayout, ResolvedWidth } from "./shared/
 export type { CurrencySymbol, NumericDisplayFormat, ToneName } from "./shared/display.js";
 export {
   DEFAULT_COLUMN_WIDTH,
+  CELL_LAYOUT_METRICS,
   FIT_COLUMN_MAX_WIDTH,
   FIT_COLUMN_MIN_WIDTH,
   DEFAULT_ROW_LAYOUT,
@@ -40,13 +41,20 @@ export {
   WIDTH_PRESETS,
   WIDTH_PRESET_NAMES,
   expandAliasModifiers,
+  fitCandidateValue,
+  heightContentToCss,
+  heightOuterToCss,
+  isFitCandidateCell,
   isLayoutModifierKey,
   isSheetColumnsMode,
   isSheetRowsMode,
   parseHeightValue,
   parseWidthValue,
+  literalFitValue,
   resolveColumnWidth,
-  resolveRowLayout
+  resolveRowLayout,
+  widthContentToCss,
+  widthOuterToCss
 } from "./shared/layout.js";
 export { CELLO_HEADING_STYLES, CELLO_TONE_COLORS, CELLO_TONE_NAMES, collectNumericDisplayFormat, formatDisplayValue, isCurrencyModifier, parseDecimalsModifier } from "./shared/display.js";
 export { isNamedColorModifier, sanitizeCssColor } from "./shared/colors.js";

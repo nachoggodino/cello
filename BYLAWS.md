@@ -183,11 +183,11 @@ That means a cell modifier overrides a row modifier, and a row modifier override
 
 ## 7. 📏 Persisted layout
 
-Sheets default to normal fixed-width columns and one-line ellipsis rows. Sheet declarations may override those defaults:
+Sheets default to normal fixed-width columns and auto-height wrapped rows. Sheet declarations may override those defaults:
 
 ```cel
-@sheet Roadmap [columns:fit][rows:wrap]
 @sheet Compact [columns:normal][rows:ellipsis]
+@sheet FitBoard [columns:fit][rows:wrap]
 ```
 
 Project-level aliases are declared before or between sheets and resolve only in their own namespace:
@@ -207,13 +207,13 @@ Rules:
 1. Use aliases as `[tone:name]`, `[width:name]`, or `[height:name]`. Bare alias use such as `[notes]` is not part of the format.
 2. Column width modifiers live on header cells: `[width:xshort]`, `[width:24]`, `[width:24ch]`, `[width:180px]`, or `[fit]`.
 3. Row display modifiers live before the row pipe: `[wrap]`, `[ellipsis]`, and `[height:3]`.
-4. `[wrap]` implies `[height:auto]` unless an explicit height is present.
+4. Rows default to `[wrap][height:auto]`.
 5. Column width precedence is column modifier, then sheet `columns`, then renderer/editor default.
 6. Row display precedence is row modifier, then sheet `rows`, then renderer/editor default.
 
-Width presets are `xshort` = `3ch`, `short` = `6ch`, `normal` = `12ch`, `large` = `36ch`, and `xlarge` = `60ch`. Bare width numbers are `ch`.
+Width presets are `xshort` = `3ch`, `short` = `6ch`, `normal` = `12ch`, `large` = `36ch`, `xlarge` = `60ch`, and `xxlarge` = `120ch`. Bare width numbers are `ch`.
 
-Height values accept line counts, `auto`, and `px`. Bare height numbers are line counts.
+Height presets are `1`, `2`, `5`, and `auto`. Height values accept line counts, `auto`, and `px`. Bare height numbers are line counts.
 
 ## 8. 🔤 Data types
 

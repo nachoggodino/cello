@@ -1,6 +1,6 @@
 :root {
   --font-ui: "Figtree", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-code: "Google Sans Code", "SFMono-Regular", Consolas, monospace;
+  --font-code: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 
   --page: #f6f3ed;
   --page-2: #eee8df;

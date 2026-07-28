@@ -4,6 +4,7 @@ import {
   addRow,
   addSheet,
   applyWorkbookPatch,
+  composeCellSource,
   createEditorDocument,
   createEditorWorkbook,
   DEFAULT_SHEET_NAME,
@@ -11,8 +12,10 @@ import {
   evaluateEditorWorkbookSource,
   getCellAddressKey,
   getCellAt,
+  getCellContentText,
   getCellDisplayText,
   getCellFormattedDisplayText,
+  getCellModifierSourceText,
   getCellSourceText,
   getCellStyle,
   getCellToneClass,
@@ -97,7 +100,9 @@ describe("editor core", () => {
     );
 
     expect(isColumnFit(updated.sheets[0], 1, 0)).toBe(true);
-    expect(serializeEditorWorkbook(updated)).toContain("@sheet Report [columns:normal][rows:ellipsis]");
+    expect(serializeEditorWorkbook(updated)).toContain("@sheet Report");
+    expect(serializeEditorWorkbook(updated)).not.toContain("[columns:normal]");
+    expect(serializeEditorWorkbook(updated)).toContain("[rows:ellipsis]");
     expect(serializeEditorWorkbook(updated)).toContain("@header | Name[fit] | Notes[width:24] |");
     expect(serializeEditorWorkbook(updated)).toContain("[height:5] | Ada | Long note |");
   });
@@ -173,6 +178,9 @@ describe("editor core", () => {
     const selected = getSelectedCell(workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 });
 
     expect(getCellSourceText(selected)).toBe("\"123\"[bold][color:#123456]");
+    expect(getCellContentText(selected)).toBe("\"123\"");
+    expect(getCellModifierSourceText(selected)).toBe("[bold][color:#123456]");
+    expect(composeCellSource(getCellContentText(selected), getCellModifierSourceText(selected))).toBe("\"123\"[bold][color:#123456]");
     expect(getCellDisplayText(selected)).toBe("\"123\"");
   });
 
@@ -344,7 +352,19 @@ describe("editor core", () => {
     expect(getCellFormattedDisplayText(sheet, 1, 0, undefined, workbook)).toBe("€12.50");
     expect(getCellFormattedDisplayText(sheet, 1, 1, undefined, workbook)).toBe("42.0%");
     expect(getVisualCellContentStyle(workbook, sheet, 1)).toEqual({ whiteSpace: "normal", overflowWrap: "anywhere" });
-    expect(getVisualCellStyle(workbook, sheet, 1, 0).width).toContain("calc(");
+    expect(getVisualCellStyle(workbook, sheet, 1, 0).width).toBe("calc(12ch + 16px)");
+  });
+
+  it("uses shared visual layout dimensions before measured fit is applied", () => {
+    const workbook = createEditorWorkbook(
+      "@sheet Report [columns:fit]\n@header | Amount[€][2d] | Note | Merged |\n[wrap][height:2] | 12.5 | ok | tiny |\n| =SUM(Amount) | longer literal | very very long merged source | < |\n| 7[%] | < | fit |"
+    );
+    const sheet = workbook.sheets[0];
+
+    expect(getVisualCellStyle(workbook, sheet, 1, 0).width).toBe("calc(12ch + 16px)");
+    expect(getVisualCellStyle(workbook, sheet, 1, 2).width).toBe("calc(12ch + 16px)");
+    expect(getVisualCellStyle(workbook, sheet, 1, 0).height).toBe("calc(40px + 16px)");
+    expect(getVisualCellContentStyle(workbook, sheet, 1)).toEqual({ whiteSpace: "normal", overflowWrap: "anywhere", overflow: "auto" });
   });
 
   it("computes visual merge spans and hidden continuation cells", () => {

@@ -1,22 +1,25 @@
 import {
   DEFAULT_COLUMN_WIDTH,
-  DEFAULT_ROW_LAYOUT,
   CELLO_HEADING_STYLES,
-  FIT_COLUMN_MAX_WIDTH,
-  FIT_COLUMN_MIN_WIDTH,
   expandAliasModifiers,
+  fitCandidateValue,
   formatDisplayValue,
+  heightContentToCss,
+  heightOuterToCss,
+  isFitCandidateCell,
   isNamedColorModifier,
   sanitizeCssColor,
   resolveColumnWidth,
   resolveRowLayout,
+  widthOuterToCss,
   type Modifier,
   type ResolvedRowLayout,
   type ResolvedWidth,
   type SheetNode
 } from "../../core/src/index.js";
 import { TEXT_TONES } from "./model.js";
-import type { CellAddress, ComputedCellValue, ComputedCellValues, EditorCell, EditorCellStyle, EditorRow, EditorSheet, EditorWorkbook, ModifierScope } from "./model.js";
+import type { CellAddress, ComputedCellValue, EditorCell, EditorCellStyle, EditorRow, EditorSheet, EditorWorkbook, ModifierScope } from "./model.js";
+import type { CellKind } from "../../core/src/index.js";
 import type { EditorLayoutOptions } from "./options.js";
 import { resolveEditorLayoutOptions } from "./options.js";
 import { createBlankCell, createBlankRow } from "./workbook.js";
@@ -27,7 +30,6 @@ const inlineStrikeMarker = "~~";
 const inlineBoldPattern = /^\*[^*]+\*$/;
 const inlineItalicPattern = /^_[^_]+_$/;
 const headingFontSizes = new Map(CELLO_HEADING_STYLES.map((heading) => [heading.prefix, heading.fontSize]));
-const visualCellInlinePaddingPx = 20;
 
 export function getSelectedCell(workbook: { sheets: EditorSheet[] }, address: CellAddress): EditorCell {
   return getCellAt(workbook.sheets[address.sheetIndex], address.rowIndex, address.colIndex);
@@ -130,13 +132,11 @@ export function getVisualCellStyle(
   workbook: Pick<EditorWorkbook, "aliases"> | undefined,
   sheet: EditorSheet | undefined,
   rowIndex: number,
-  colIndex: number,
-  computedValues?: ComputedCellValues,
-  sheetIndex = 0
+  colIndex: number
 ): EditorCellStyle {
   return {
     ...getCellStyle(sheet, rowIndex, colIndex, workbook),
-    ...getVisualColumnStyle(workbook, sheet, rowIndex, colIndex, computedValues, sheetIndex),
+    ...getVisualColumnStyle(workbook, sheet, rowIndex, colIndex),
     ...getVisualRowStyle(workbook, sheet, rowIndex)
   };
 }
@@ -150,52 +150,60 @@ export function getVisualColumnStyle(
   workbook: Pick<EditorWorkbook, "aliases"> | undefined,
   sheet: EditorSheet | undefined,
   rowIndex: number,
-  colIndex: number,
-  computedValues?: ComputedCellValues,
-  sheetIndex = 0
+  colIndex: number
 ): EditorCellStyle {
-  const width = getResolvedVisualColumnWidth(workbook, sheet, rowIndex, colIndex, computedValues, sheetIndex);
+  const width = getVisualColumnWidth(workbook, sheet, rowIndex, colIndex);
   const cssWidth = columnWidthToCss(width);
   return {
     width: cssWidth,
-    minWidth: cssWidth
+    minWidth: cssWidth,
+    maxWidth: cssWidth
   };
+}
+
+export function getVisualColumnWidth(
+  workbook: Pick<EditorWorkbook, "aliases"> | undefined,
+  sheet: EditorSheet | undefined,
+  rowIndex: number,
+  colIndex: number
+): ResolvedWidth {
+  return getResolvedVisualColumnWidth(workbook, sheet, rowIndex, colIndex);
 }
 
 export function getVisualRowStyle(workbook: Pick<EditorWorkbook, "aliases"> | undefined, sheet: EditorSheet | undefined, rowIndex: number): EditorCellStyle {
   const rowLayout = getResolvedVisualRowLayout(workbook, sheet, rowIndex);
-  if (isDefaultRowLayout(rowLayout)) {
+  const contentHeight = heightContentToCss(rowLayout.height);
+  const outerHeight = heightOuterToCss(rowLayout.height);
+  if (!contentHeight || !outerHeight) {
     return {};
   }
-  if (rowLayout.height.kind === "px" && rowLayout.height.value !== undefined) {
-    return {
-      height: `${rowLayout.height.value}px`,
-      maxHeight: `${rowLayout.height.value}px`
-    };
-  }
-  if (rowLayout.height.kind === "lines" && rowLayout.height.value !== undefined) {
-    return {
-      WebkitBoxOrient: "vertical",
-      WebkitLineClamp: rowLayout.height.value,
-      overflow: "hidden"
-    };
-  }
-  return {};
+  return {
+    height: outerHeight,
+    minHeight: outerHeight,
+    maxHeight: outerHeight,
+    overflow: "auto",
+    ...(rowLayout.mode === "ellipsis" && rowLayout.height.kind === "lines" && rowLayout.height.value !== undefined
+      ? { WebkitBoxOrient: "vertical" as const, WebkitLineClamp: rowLayout.height.value }
+      : {})
+  };
 }
 
 export function getVisualCellContentStyle(workbook: Pick<EditorWorkbook, "aliases"> | undefined, sheet: EditorSheet | undefined, rowIndex: number): EditorCellStyle {
   const rowLayout = getResolvedVisualRowLayout(workbook, sheet, rowIndex);
   if (rowLayout.mode === "wrap") {
-    return {
+    const wrapStyle: EditorCellStyle = {
       whiteSpace: "normal",
       overflowWrap: "anywhere"
     };
+    return rowLayout.height.kind === "auto" ? wrapStyle : { ...wrapStyle, overflow: "auto" };
   }
-  return {
+  const ellipsisStyle: EditorCellStyle = {
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis"
   };
+  const contentHeight = heightContentToCss(rowLayout.height);
+  return contentHeight ? { ...ellipsisStyle, maxHeight: contentHeight } : ellipsisStyle;
 }
 
 export function hasScopedModifier(sheet: EditorSheet | undefined, address: CellAddress, scope: ModifierScope, key: string): boolean {
@@ -298,6 +306,32 @@ export function getCellFormattedDisplayText(
   return cleanInlineDisplayText(cell, formatted);
 }
 
+export function getCellFitMeasureText(
+  sheet: EditorSheet | undefined,
+  rowIndex: number,
+  colIndex: number,
+  computed?: ComputedCellValue,
+  workbook?: Pick<EditorWorkbook, "aliases">
+): string | undefined {
+  const cell = getCellAt(sheet, rowIndex, colIndex);
+  const span = getVisualCellSpan(sheet, rowIndex, colIndex);
+  const kind: CellKind = cell.raw.startsWith("=") ? "formula" : "value";
+  if (span.hidden || !isFitCandidateCell({ kind, colspan: span.colspan, rowspan: span.rowspan })) {
+    return undefined;
+  }
+  const candidate = {
+    raw: cell.raw,
+    kind,
+    modifiers: cell.modifiers,
+    value: cell.raw,
+    ...(computed === undefined ? {} : { computed })
+  };
+  return fitCandidateValue(
+    candidate,
+    getEffectiveModifiers(sheet, rowIndex, colIndex, workbook)
+  );
+}
+
 function getHeadingFontSize(raw: string): string | undefined {
   return Array.from(headingFontSizes.entries()).find(([prefix]) => raw.startsWith(prefix))?.[1];
 }
@@ -390,9 +424,7 @@ function getResolvedVisualColumnWidth(
   workbook: Pick<EditorWorkbook, "aliases"> | undefined,
   sheet: EditorSheet | undefined,
   rowIndex: number,
-  colIndex: number,
-  computedValues?: ComputedCellValues,
-  sheetIndex = 0
+  colIndex: number
 ): ResolvedWidth {
   const width = resolveColumnWidth(
     workbook ?? {},
@@ -410,27 +442,7 @@ function getResolvedVisualColumnWidth(
     } satisfies Pick<SheetNode, "name" | "format" | "layout" | "rows" | "columns"> as SheetNode,
     colIndex
   );
-  if (width.kind !== "fit") {
-    return width;
-  }
-  return estimateVisualFitWidth(workbook, sheet, colIndex, computedValues, sheetIndex);
-}
-
-function estimateVisualFitWidth(
-  workbook: Pick<EditorWorkbook, "aliases"> | undefined,
-  sheet: EditorSheet | undefined,
-  colIndex: number,
-  computedValues: ComputedCellValues | undefined,
-  sheetIndex: number
-): ResolvedWidth {
-  const values = sheet?.rows.map((_row, rowIndex) => {
-    const computed = computedValues?.[`${sheetIndex}:${rowIndex}:${colIndex}`];
-    return getCellFormattedDisplayText(sheet, rowIndex, colIndex, computed, workbook);
-  }) ?? [];
-  const minWidth = FIT_COLUMN_MIN_WIDTH.value ?? DEFAULT_COLUMN_WIDTH.value ?? 12;
-  const maxWidth = FIT_COLUMN_MAX_WIDTH.value ?? DEFAULT_COLUMN_WIDTH.value ?? 12;
-  const maxLength = Math.max(minWidth, ...values.map((value) => value.length));
-  return { kind: "fixed", value: Math.min(maxWidth, Math.max(minWidth, maxLength)), unit: "ch" };
+  return width;
 }
 
 function columnWidthToCss(width: ResolvedWidth): string {
@@ -438,7 +450,7 @@ function columnWidthToCss(width: ResolvedWidth): string {
   if (resolved.value === undefined || resolved.unit === undefined) {
     return columnWidthToCss(DEFAULT_COLUMN_WIDTH);
   }
-  return `calc(${resolved.value}${resolved.unit} + ${visualCellInlinePaddingPx}px)`;
+  return widthOuterToCss(resolved);
 }
 
 function getResolvedVisualRowLayout(
@@ -457,12 +469,6 @@ function getResolvedVisualRowLayout(
     } as SheetNode,
     sheet?.rows[rowIndex]?.modifiers ?? []
   );
-}
-
-function isDefaultRowLayout(rowLayout: ResolvedRowLayout): boolean {
-  return rowLayout.mode === DEFAULT_ROW_LAYOUT.mode &&
-    rowLayout.height.kind === DEFAULT_ROW_LAYOUT.height.kind &&
-    rowLayout.height.value === DEFAULT_ROW_LAYOUT.height.value;
 }
 
 function findMergeOrigin(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): { rowIndex: number; colIndex: number } | undefined {

@@ -9,6 +9,18 @@ export function getCellSourceText(cell: EditorCell): string {
   return `${cell.raw}${cell.modifiers.map((modifier) => `[${modifier.raw}]`).join("")}`;
 }
 
+export function getCellContentText(cell: EditorCell): string {
+  return cell.raw;
+}
+
+export function getCellModifierSourceText(cell: EditorCell): string {
+  return cell.modifiers.map((modifier) => `[${modifier.raw}]`).join("");
+}
+
+export function composeCellSource(content: string, modifierSource: string): string {
+  return `${content}${modifierSource}`;
+}
+
 export function parseCellSource(source: string): EditorCell {
   const { base, modifiers } = source.startsWith("=") ? splitTrailingCellModifiers(source) : splitTrailingModifiers(source);
   return {

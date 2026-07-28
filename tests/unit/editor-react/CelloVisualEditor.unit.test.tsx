@@ -15,6 +15,7 @@ afterEach(() => {
     act(() => root?.unmount());
     root = undefined;
   }
+  vi.restoreAllMocks();
   document.body.replaceChildren();
 });
 
@@ -44,9 +45,12 @@ describe("CelloVisualEditor", () => {
     renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
 
     focusInput(screenInput("A1"));
-    changeInput(screenTextArea("Selected cell source"), "Ada[bold][color:#123456]");
+    changeInput(screenTextArea("Selected cell source"), "Ada Lovelace");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada Lovelace | 5 |");
 
-    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada[bold][color:#123456] | 5 |");
+    changeInput(screenInput("Modifiers"), "[bold][color:#123456]");
+
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada Lovelace[bold][color:#123456] | 5 |");
   });
 
   it("applies toolbar commands through editor-core serialization", async () => {
@@ -91,28 +95,30 @@ describe("CelloVisualEditor", () => {
     const onSourceChange = vi.fn();
     renderEditor("@sheet Report\n| Ada | Long note |", onSourceChange);
 
-    changeSelect(screenSelect("Columns"), "fit");
+    chooseMenuOption("Columns", "Fit");
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit]\n| Ada | Long note |");
 
-    changeSelect(screenSelect("Rows"), "wrap");
-    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:wrap]\n| Ada | Long note |");
+    chooseMenuOption("Rows", "Ellipsis");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:ellipsis]\n| Ada | Long note |");
+
+    chooseMenuOption("Rows", "Wrap");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit]\n| Ada | Long note |");
 
     focusInput(screenInput("B1"));
     clickButton("Fit");
-    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:wrap]\n@header |  | [fit] |\n| Ada | Long note |");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit]\n@header |  | [fit] |\n| Ada | Long note |");
+    expect(screenButton("Width").textContent).toBe("fit: 18px");
 
-    changeInput(screenInput("Width"), "24");
-    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:wrap]\n@header |  | [width:24] |\n| Ada | Long note |");
+    setMenuCustomValue("Width", "24");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit]\n@header |  | [width:24] |\n| Ada | Long note |");
 
     clickButton("Wrap");
-    changeInput(screenInput("Height"), "3");
-    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit][rows:wrap]\n@header |  | [width:24] |\n[wrap][height:3] | Ada | Long note |");
+    chooseMenuOption("Height", "auto");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit]\n@header |  | [width:24] |\n[wrap][height:auto] | Ada | Long note |");
 
-    changeSelect(screenSelect("Columns"), "default");
-    changeSelect(screenSelect("Rows"), "default");
-    changeInput(screenInput("Width"), "");
-    changeInput(screenInput("Height"), "");
-    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header |  |\n[wrap] | Ada | Long note |");
+    chooseMenuOption("Columns", "Normal");
+    chooseMenuOption("Rows", "Ellipsis");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [rows:ellipsis]\n@header |  | [width:24] |\n[wrap][height:auto] | Ada | Long note |");
   });
 
   it("applies row-scoped formatting and merge-up commands", async () => {
@@ -135,26 +141,29 @@ describe("CelloVisualEditor", () => {
     renderEditor("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1] |", onSourceChange);
 
     expect(screenInput("Defaults A").value).toBe("Pending");
+    expect(screenInput("Modifiers").value).toBe("[italic]");
     expect(document.querySelector("[aria-label='Inherited']")?.textContent).toContain("column: [italic]");
 
     focusInput(screenInput("B2"));
+    expect(screenInput("Modifiers").value).toBe("");
+    expect(screenTextArea("Selected cell source").value).toBe("=Total[1:1]");
     expect(document.querySelector(".formula-equals")?.textContent).toBe("=");
     expect(document.querySelector(".formula-column")?.textContent).toBe("Total");
     expect(document.querySelector(".formula-range")?.textContent).toBe("[1:1]");
 
     clickButton("Tone");
-    clickElement(document.querySelector<HTMLButtonElement>(".celloVisualToneOptions .celloVisualTone-ok"));
+    clickElement(document.querySelector<HTMLButtonElement>(".celloVisualValueOptions .celloVisualTone-ok"));
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1][tone:ok] |");
     expect(screenButton("Tone").textContent).toBe("Tone: ok");
     expect(screenButton("Tone").className).toContain("celloVisualTone-ok");
 
     clickButton("Tone");
-    expect(document.querySelector(".celloVisualToneOptions .celloVisualTone-ok")?.getAttribute("aria-checked")).toBe("true");
+    expect(document.querySelector(".celloVisualValueOptions .celloVisualTone-ok")?.getAttribute("aria-checked")).toBe("true");
     clickOutside();
-    expect(document.querySelector(".celloVisualToneOptions")).toBeNull();
+    expect(document.querySelector(".celloVisualValueOptions")).toBeNull();
 
     clickButton("Tone");
-    clickElement(document.querySelector<HTMLButtonElement>(".celloVisualToneOptions .celloVisualTone-ok"));
+    clickElement(document.querySelector<HTMLButtonElement>(".celloVisualValueOptions .celloVisualTone-ok"));
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1] |");
 
     changeInput(screenInput("Defaults A"), "Queued");
@@ -189,14 +198,31 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name |\n@defaults | Pending |\n| Ada[strike] |");
 
     focusInput(screenInput("Defaults A"));
+    expect(screenButton("Bold").disabled).toBe(true);
+    expect(screenButton("Fit").disabled).toBe(true);
+    expect(screenButton("Width").disabled).toBe(true);
+    expect(screenButton("Wrap").disabled).toBe(true);
+    expect(screenButton("Height").disabled).toBe(true);
+    expect(screenButton("Tone").disabled).toBe(true);
+    expect(screenButton("New row").disabled).toBe(false);
+    expect(screenButton("New column").disabled).toBe(false);
     onSourceChange.mockClear();
     clickButton("Bold");
     clickButton("H1");
     doubleClickButton("Strikethrough");
-    clickButton("Tone");
-    clickElement(document.querySelector<HTMLButtonElement>(".celloVisualToneOptions .celloVisualTone-warn"));
 
     expect(onSourceChange).not.toHaveBeenCalled();
+  });
+
+  it("shows computed fit width for formulas in the width menu", async () => {
+    mockMeasuredTextWidths();
+    renderEditor("@sheet Report [columns:fit]\n@header | Formula |\n| =10000000000000 |", vi.fn());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screenButton("Width").textContent).toBe("fit: 158px");
   });
 
   it("renames sheets and calls optional source-view action", async () => {
@@ -263,7 +289,8 @@ describe("CelloVisualEditor", () => {
     expect(screenInput("A4").value).toBe("=SUM(Amount)");
   });
 
-  it("formats units and layout in the visual grid", async () => {
+  it("keeps formatted display text and layout in the visual grid", async () => {
+    mockMeasuredTextWidths();
     renderEditor("@sheet Report [columns:fit][rows:wrap]\n@header | Amount[€][2d] | Rate[%][1d] |\n| 12.5 | 0.42 |", vi.fn());
 
     await act(async () => {
@@ -273,10 +300,25 @@ describe("CelloVisualEditor", () => {
     expect(screenInput("A2").value).toBe("€12.50");
     expect(screenInput("B2").value).toBe("42.0%");
     expect(screenInput("A2").style.whiteSpace).toBe("normal");
-    expect(screenInput("A2").closest("td")?.getAttribute("style")).toContain("width:");
+    expect(screenInput("A2").closest("td")?.getAttribute("style")).toContain("width: 78px");
+    expect(screenInput("A2").closest("td")?.getAttribute("style")).toContain("max-width:");
 
     focusInput(screenInput("A2"));
     expect(screenInput("A2").value).toBe("12.5");
+  });
+
+  it("does not resize fitted formula columns from the formula source while editing", async () => {
+    mockMeasuredTextWidths();
+    renderEditor("@sheet Report [columns:fit]\n@header | R |\n| =SUM(2+2) |", vi.fn());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screenInput("A2").closest("td")?.getAttribute("style")).toContain("width: 28px");
+    focusInput(screenInput("A2"));
+    expect(screenInput("A2").value).toBe("=SUM(2+2)");
+    expect(screenInput("A2").closest("td")?.getAttribute("style")).toContain("width: 28px");
   });
 
   it("syntax-highlights formulas in grid edit mode", async () => {
@@ -341,6 +383,23 @@ function renderEditor(
   });
 }
 
+function mockMeasuredTextWidths(charWidth = 10): void {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const textWidth = this.classList.contains("celloVisualFitMeasureItem") ? (this.textContent ?? "").length * charWidth : 0;
+    return {
+      x: 0,
+      y: 0,
+      width: textWidth,
+      height: 20,
+      top: 0,
+      right: textWidth,
+      bottom: 20,
+      left: 0,
+      toJSON: () => ({})
+    } as DOMRect;
+  });
+}
+
 function screenInput(label: string): HTMLInputElement | HTMLTextAreaElement {
   const input = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`input[aria-label="${label}"], textarea[aria-label="${label}"]`);
   expect(input).toBeTruthy();
@@ -351,12 +410,6 @@ function screenTextArea(label: string): HTMLTextAreaElement {
   const textarea = document.querySelector<HTMLTextAreaElement>(`textarea[aria-label="${label}"]`);
   expect(textarea).toBeTruthy();
   return textarea!;
-}
-
-function screenSelect(label: string): HTMLSelectElement {
-  const select = document.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
-  expect(select).toBeTruthy();
-  return select!;
 }
 
 function screenButton(label: string): HTMLButtonElement {
@@ -418,15 +471,24 @@ function changeInput(input: HTMLInputElement | HTMLTextAreaElement, value: strin
   });
 }
 
-function changeSelect(select: HTMLSelectElement, value: string): void {
-  act(() => {
-    select.value = value;
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-}
-
 function setNativeValue(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   const prototype = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
   setter?.call(input, value);
+}
+
+function chooseMenuOption(menuLabel: string, optionLabel: string): void {
+  clickButton(menuLabel);
+  const option = Array.from(document.querySelectorAll<HTMLButtonElement>(".celloVisualValueOptions button"))
+    .find((candidate) => candidate.textContent === optionLabel);
+  clickElement(option ?? null);
+}
+
+function setMenuCustomValue(menuLabel: string, value: string): void {
+  clickButton(menuLabel);
+  const input = screenInput(menuLabel);
+  changeInput(input, value);
+  act(() => {
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  });
 }

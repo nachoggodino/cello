@@ -1,9 +1,11 @@
-import type { AliasDeclaration, Modifier, SheetNode, WorkbookAst } from "./types.js";
+import { formatDisplayValue } from "./display.js";
+import { isNamedColorModifier } from "./colors.js";
+import type { AliasDeclaration, CellNode, Modifier, SheetNode, WorkbookAst } from "./types.js";
 
 export type WidthUnit = "ch" | "px";
 export type HeightUnit = "lines" | "px" | "auto";
 export type RowDisplayMode = "ellipsis" | "wrap";
-export type WidthPresetName = "xshort" | "short" | "normal" | "large" | "xlarge";
+export type WidthPresetName = "xshort" | "short" | "normal" | "large" | "xlarge" | "xxlarge";
 
 export interface ResolvedWidth {
   kind: "fixed" | "fit";
@@ -21,26 +23,38 @@ export interface ResolvedRowLayout {
   height: ResolvedHeight;
 }
 
-export const WIDTH_PRESET_NAMES: WidthPresetName[] = ["xshort", "short", "normal", "large", "xlarge"];
-export const ROW_HEIGHT_PRESETS = ["1", "2", "3", "5"] as const;
+export interface CellLayoutMetrics {
+  paddingInlinePx: number;
+  paddingBlockPx: number;
+  lineHeightPx: number;
+}
+
+export const WIDTH_PRESET_NAMES: WidthPresetName[] = ["xshort", "short", "normal", "large", "xlarge", "xxlarge"];
+export const ROW_HEIGHT_PRESETS = ["1", "2", "5", "auto"] as const;
 export const SHEET_LAYOUT_DEFAULT_SENTINEL = "default";
 export const SHEET_COLUMNS_MODES = ["normal", "fit"] as const;
 export const SHEET_ROWS_MODES = ["ellipsis", "wrap"] as const;
 export const COLUMN_LAYOUT_KEYS = ["fit", "width"] as const;
 export const ROW_LAYOUT_KEYS = ["wrap", "ellipsis", "height"] as const;
+export const CELL_LAYOUT_METRICS: CellLayoutMetrics = {
+  paddingInlinePx: 8,
+  paddingBlockPx: 8,
+  lineHeightPx: 20
+};
 
 export const WIDTH_PRESETS: Record<WidthPresetName, ResolvedWidth> = {
   xshort: { kind: "fixed", value: 3, unit: "ch" },
   short: { kind: "fixed", value: 6, unit: "ch" },
   normal: { kind: "fixed", value: 12, unit: "ch" },
   large: { kind: "fixed", value: 36, unit: "ch" },
-  xlarge: { kind: "fixed", value: 60, unit: "ch" }
+  xlarge: { kind: "fixed", value: 60, unit: "ch" },
+  xxlarge: { kind: "fixed", value: 120, unit: "ch" }
 };
 
 export const DEFAULT_COLUMN_WIDTH: ResolvedWidth = { kind: "fixed", value: 12, unit: "ch" };
 export const FIT_COLUMN_MIN_WIDTH = WIDTH_PRESETS.xshort;
-export const FIT_COLUMN_MAX_WIDTH = WIDTH_PRESETS.xlarge;
-export const DEFAULT_ROW_LAYOUT: ResolvedRowLayout = { mode: "ellipsis", height: { kind: "lines", value: 1 } };
+export const FIT_COLUMN_MAX_WIDTH = WIDTH_PRESETS.xxlarge;
+export const DEFAULT_ROW_LAYOUT: ResolvedRowLayout = { mode: "wrap", height: { kind: "auto" } };
 
 export function resolveColumnWidth(workbook: WorkbookAst | { aliases?: AliasDeclaration[] }, sheet: SheetNode, columnIndex: number): ResolvedWidth {
   const columnModifiers = sheet.columns[columnIndex]?.modifiers ?? [];
@@ -77,10 +91,7 @@ export function resolveRowLayout(workbook: WorkbookAst | { aliases?: AliasDeclar
   if (explicitHeight) {
     return { mode, height: explicitHeight };
   }
-  if (mode === "wrap") {
-    return { mode, height: { kind: "auto" } };
-  }
-  return DEFAULT_ROW_LAYOUT;
+  return { mode, height: { kind: "auto" } };
 }
 
 export function expandAliasModifiers(aliases: AliasDeclaration[] | undefined, modifier: Modifier): Modifier[] {
@@ -124,6 +135,42 @@ export function parseHeightValue(raw: string): ResolvedHeight {
   return { kind: "lines", value: 1 };
 }
 
+export function widthContentToCss(width: ResolvedWidth): string {
+  const resolved = width.kind === "fit" ? DEFAULT_COLUMN_WIDTH : width;
+  if (resolved.value === undefined || resolved.unit === undefined) {
+    return widthContentToCss(DEFAULT_COLUMN_WIDTH);
+  }
+  return `${resolved.value}${resolved.unit}`;
+}
+
+export function widthOuterToCss(width: ResolvedWidth, metrics: CellLayoutMetrics = CELL_LAYOUT_METRICS): string {
+  const contentWidth = widthContentToCss(width);
+  const horizontalPadding = metrics.paddingInlinePx * 2;
+  return `calc(${contentWidth} + ${horizontalPadding}px)`;
+}
+
+export function heightContentToCss(height: ResolvedHeight, metrics: CellLayoutMetrics = CELL_LAYOUT_METRICS): string | undefined {
+  if (height.kind === "auto") {
+    return undefined;
+  }
+  if (height.value === undefined) {
+    return undefined;
+  }
+  if (height.kind === "px") {
+    return `${height.value}px`;
+  }
+  return `${height.value * metrics.lineHeightPx}px`;
+}
+
+export function heightOuterToCss(height: ResolvedHeight, metrics: CellLayoutMetrics = CELL_LAYOUT_METRICS): string | undefined {
+  const contentHeight = heightContentToCss(height, metrics);
+  if (!contentHeight) {
+    return undefined;
+  }
+  const verticalPadding = metrics.paddingBlockPx * 2;
+  return `calc(${contentHeight} + ${verticalPadding}px)`;
+}
+
 function findLastModifier(modifiers: Modifier[], key: string): Modifier | undefined {
   for (let index = modifiers.length - 1; index >= 0; index -= 1) {
     if (modifiers[index]?.key === key) {
@@ -136,6 +183,66 @@ function findLastModifier(modifiers: Modifier[], key: string): Modifier | undefi
 function resolveAliasValue(aliases: AliasDeclaration[], namespace: "width" | "height", name: string): string | undefined {
   const alias = aliases.find((candidate) => candidate.namespace === namespace && candidate.name === name);
   return alias?.modifiers.find((modifier) => modifier.key === namespace)?.value;
+}
+
+export function isFitCandidateCell(cell: Pick<CellNode, "kind" | "colspan" | "rowspan">): boolean {
+  return cell.kind !== "merge-left" &&
+    cell.kind !== "merge-up" &&
+    cell.colspan === 1 &&
+    cell.rowspan === 1;
+}
+
+export function fitCandidateValue(
+  cell: Pick<CellNode, "computed" | "kind" | "modifiers" | "raw" | "value">,
+  displayModifiers: Modifier[] = cell.modifiers
+): string | undefined {
+  if (cell.kind === "formula") {
+    return cell.computed === undefined ? undefined : formatDisplayValue(cell.computed, displayModifiers);
+  }
+  if (cell.kind === "merge-left" || cell.kind === "merge-up") {
+    return undefined;
+  }
+  const literal = literalFitValue(cell.raw, cell.modifiers);
+  const numeric = Number(literal.trim());
+  return Number.isFinite(numeric) && literal.trim() !== "" ? formatDisplayValue(numeric, displayModifiers) : literal;
+}
+
+export function literalFitValue(raw: string, modifiers: Modifier[]): string {
+  const base = removeParsedTrailingModifiers(raw, modifiers);
+  const unknownModifiers = modifiers.filter((modifier) => !isRealCellModifier(modifier));
+  return `${base}${unknownModifiers.map((modifier) => `[${modifier.raw}]`).join("")}`;
+}
+
+function removeParsedTrailingModifiers(raw: string, modifiers: Modifier[]): string {
+  let value = raw.trimEnd();
+  for (let index = modifiers.length - 1; index >= 0; index -= 1) {
+    const suffix = `[${modifiers[index]?.raw ?? ""}]`;
+    if (!value.endsWith(suffix)) {
+      return value;
+    }
+    value = value.slice(0, -suffix.length).trimEnd();
+  }
+  return value;
+}
+
+function isRealCellModifier(modifier: Modifier): boolean {
+  return (
+    modifier.key === "bold" ||
+    modifier.key === "italic" ||
+    modifier.key === "strike" ||
+    modifier.key === "hidden" ||
+    modifier.key === "%" ||
+    modifier.key === "€" ||
+    modifier.key === "$" ||
+    modifier.key === "£" ||
+    modifier.key === "tone" ||
+    modifier.key === "bg" ||
+    modifier.key === "bgfg" ||
+    modifier.key === "color" ||
+    modifier.key.startsWith("#") ||
+    /^\d+d$/.test(modifier.key) ||
+    isNamedColorModifier(modifier.key)
+  );
 }
 
 export function isSheetColumnsMode(value: string | undefined): value is "normal" | "fit" {

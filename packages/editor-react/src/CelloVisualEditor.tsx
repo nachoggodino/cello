@@ -1,16 +1,15 @@
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import {
   addColumn,
   addRow,
   addSheet,
   applyWorkbookPatch,
   CELLO_HEADING_STYLES,
+  CELL_LAYOUT_METRICS,
+  composeCellSource,
   createEditorDocument,
-  DEFAULT_COLUMN_WIDTH,
-  DEFAULT_ROW_LAYOUT,
   DEFAULT_SHEET_NAME,
   ROW_HEIGHT_PRESETS,
-  SHEET_LAYOUT_DEFAULT_SENTINEL,
   SHEET_COLUMNS_MODES,
   SHEET_ROWS_MODES,
   WIDTH_PRESET_NAMES,
@@ -18,9 +17,13 @@ import {
   evaluateEditorWorkbookSource,
   getCellAddressKey,
   getCellAt,
+  getCellFitMeasureText,
+  getCellContentText,
   getCellFormattedDisplayText,
+  getCellStyle,
   getCellSourceText,
   getCellHeadingPrefix,
+  getCellModifierSourceText,
   getCellToneClass,
   getColumnWidthValue,
   getColumnName,
@@ -35,6 +38,7 @@ import {
   getVisualCellSpan,
   getVisualCellStyle,
   getVisualCellContentStyle,
+  getVisualColumnStyle,
   hasScopedModifier,
   isColumnFit,
   isRowWrap,
@@ -91,6 +95,7 @@ export interface CelloVisualEditorLabels {
   newRow: string;
   newSheet: string;
   noInheritedModifiers: string;
+  modifiers: string;
   propertyScope: string;
   renameSheet: string;
   selectedColumn: string;
@@ -122,9 +127,11 @@ export interface CelloVisualEditorLabels {
 export interface CelloVisualEditorProps {
   source: string;
   onSourceChange: (source: string) => void;
+  activeSheetName?: string;
   className?: string;
   labels?: Partial<CelloVisualEditorLabels>;
   layout?: EditorLayoutOptions;
+  onActiveSheetChange?: (sheetName: string) => void;
   onRequestSourceView?: () => void;
   onCommandFailure?: (failure: EditorCommandFailure) => void;
   onDiagnosticsChange?: (diagnostics: EditorDocument["diagnostics"]) => void;
@@ -149,6 +156,7 @@ const defaultLabels: CelloVisualEditorLabels = {
   newRow: "New row",
   newSheet: "New sheet",
   noInheritedModifiers: "None",
+  modifiers: "Modifiers",
   propertyScope: "Property scope",
   renameSheet: "Rename active sheet",
   selectedColumn: "Column",
@@ -179,8 +187,9 @@ const defaultLabels: CelloVisualEditorLabels = {
 
 const defaultTextColor = "#1f1e1b";
 const defaultFillColor = "#fffaf4";
-const defaultColumnWidthPlaceholder = DEFAULT_COLUMN_WIDTH.value === undefined ? "" : String(DEFAULT_COLUMN_WIDTH.value);
-const defaultRowHeightPlaceholder = DEFAULT_ROW_LAYOUT.height.value === undefined ? "" : String(DEFAULT_ROW_LAYOUT.height.value);
+const defaultColumnWidthPlaceholder = "normal";
+const defaultRowHeightPlaceholder = "auto";
+const fitColumnMeasurementGuardPx = 2;
 const fallbackSheet: EditorSheet = { name: DEFAULT_SHEET_NAME, format: { kind: "cello" }, layout: {}, rows: [], defaults: [] };
 const headingStyles = CELLO_HEADING_STYLES.map((heading) => ({ labelKey: heading.level, prefix: heading.prefix }));
 const formulaTokenPattern = /([A-Za-z_][\w ]*!|!!)|(\[[^\]]+\])|([+\-*/^(),[\]])|(=)|([A-Za-z_][\w ]*)|(\s+|.)/g;
@@ -188,13 +197,23 @@ const inlineStrikeMarker = "~~";
 
 type ModifierScope = "cell" | "row";
 type DraftCell = { key: string; value: string } | null;
+type FitColumnWidths = Readonly<Record<number, number>>;
+
+interface FitMeasureEntry {
+  id: string;
+  colIndex: number;
+  text: string;
+  style: CSSProperties;
+}
 
 export function CelloVisualEditor({
   source,
   onSourceChange,
+  activeSheetName,
   className,
   labels: labelOverrides,
   layout,
+  onActiveSheetChange,
   onRequestSourceView,
   onCommandFailure,
   onDiagnosticsChange,
@@ -211,17 +230,18 @@ export function CelloVisualEditor({
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [draftCell, setDraftCell] = useState<DraftCell>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
-  const [toneMenuOpen, setToneMenuOpen] = useState(false);
-  const toneMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const nextDocument = createEditorDocument(source, workbookOptions);
     startTransition(() => {
       setEditorDocument(nextDocument);
-      setActiveSheetIndex((index) => Math.min(index, nextDocument.workbook.sheets.length - 1));
+      setActiveSheetIndex((index) => {
+        const requestedIndex = activeSheetName ? nextDocument.workbook.sheets.findIndex((sheet) => sheet.name === activeSheetName) : -1;
+        return requestedIndex >= 0 ? requestedIndex : Math.min(index, nextDocument.workbook.sheets.length - 1);
+      });
       setSelected((address) => clampAddress(address, nextDocument.workbook, layout));
     });
-  }, [layout, source, workbookOptions]);
+  }, [activeSheetName, layout, source, workbookOptions]);
 
   useEffect(() => {
     if (!commandError) {
@@ -257,23 +277,9 @@ export function CelloVisualEditor({
     };
   }, [source, workbookOptions]);
 
-  useEffect(() => {
-    if (!toneMenuOpen) {
-      return;
-    }
-
-    const closeMenu = (event: MouseEvent) => {
-      if (!toneMenuRef.current?.contains(event.target as Node)) {
-        setToneMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", closeMenu);
-    return () => document.removeEventListener("mousedown", closeMenu);
-  }, [toneMenuOpen]);
-
   const workbook = editorDocument.workbook;
   const activeSheet = workbook.sheets[activeSheetIndex] ?? workbook.sheets[0] ?? fallbackSheet;
+  const workbookContext = useMemo(() => (workbook.aliases ? { aliases: workbook.aliases } : {}), [workbook.aliases]);
   const selectedCell = selectedDefaultCol === null ? getSelectedCell(workbook, selected) : getDefaultCellAt(activeSheet, selectedDefaultCol);
   const selectedLabel = selectedDefaultCol === null
     ? `${activeSheet.name}!${getColumnName(selected.colIndex)}${selected.rowIndex + 1}`
@@ -284,13 +290,30 @@ export function CelloVisualEditor({
   const selectedHeadingPrefix = getCellHeadingPrefix(selectedCell);
   const visibleRowCount = getVisibleRowCount(activeSheet, layout);
   const visibleColumnCount = getVisibleColumnCount(activeSheet, layout);
-  const selectedSourceText = useMemo(() => getCellSourceText(selectedCell), [selectedCell]);
+  const selectedContentText = useMemo(() => getCellContentText(selectedCell), [selectedCell]);
+  const selectedModifierText = useMemo(() => getCellModifierSourceText(selectedCell), [selectedCell]);
   const inheritedGroups = selectedDefaultCol === null ? getInheritedModifierGroups(activeSheet, selected.rowIndex, selected.colIndex) : [];
   const selectedColumnFit = isColumnFit(activeSheet, selected.rowIndex, selected.colIndex);
   const selectedColumnWidth = getColumnWidthValue(activeSheet, selected.rowIndex, selected.colIndex);
+  const fitMeasureRef = useRef<HTMLDivElement>(null);
+  const fitMeasureEntries = useMemo(
+    () => getFitMeasureEntries(workbookContext, activeSheet, activeSheetIndex, selected.rowIndex, visibleColumnCount, computedValues),
+    [activeSheet, activeSheetIndex, computedValues, selected.rowIndex, visibleColumnCount, workbookContext]
+  );
+  const measuredFitColumnWidths = useMeasuredFitColumnWidths(fitMeasureRef, fitMeasureEntries);
+  const selectedColumnResolvedFit = selectedColumnFit || (!selectedColumnWidth && activeSheet.layout?.columns === "fit");
+  const selectedMeasuredFitWidth = measuredFitColumnWidths[selected.colIndex];
+  const selectedMeasuredFitWidthDisplay = formatMeasuredWidth(selectedMeasuredFitWidth);
+  const selectedWidthDisplay = selectedColumnResolvedFit ? `fit${selectedMeasuredFitWidthDisplay ? `: ${selectedMeasuredFitWidthDisplay}` : ""}` : selectedColumnWidth || defaultColumnWidthPlaceholder;
   const selectedRowWrap = isRowWrap(activeSheet, selected.rowIndex);
   const selectedRowHeight = getRowHeightValue(activeSheet, selected.rowIndex);
   const diagnosticMessage = commandError ?? editorDocument.diagnostics.find((diagnostic) => diagnostic.level === "warning" || diagnostic.level === "error")?.message ?? null;
+
+  useEffect(() => {
+    if (activeSheet.name) {
+      onActiveSheetChange?.(activeSheet.name);
+    }
+  }, [activeSheet.name, onActiveSheetChange]);
 
   const commit = (update: (current: EditorWorkbook) => EditorWorkbook) => {
     setEditorDocument((currentDocument: EditorDocument) => {
@@ -361,6 +384,8 @@ export function CelloVisualEditor({
     });
   };
 
+  const controlsDisabled = selectedDefaultCol !== null;
+
   const handleToggleModifier = (key: ToggleModifierKey) => {
     if (selectedDefaultCol !== null) {
       return;
@@ -380,24 +405,29 @@ export function CelloVisualEditor({
       return;
     }
     commit((current) => modifierScope === "cell" ? setCellToneModifier(current, selected, value, layout) : setRowToneModifier(current, selected, value, layout));
-    setToneMenuOpen(false);
   };
 
-  const handleSourceChange = (value: string) => {
+  const handleContentChange = (value: string) => {
     commit((current) => selectedDefaultCol === null
-      ? updateCellSource(current, selected, value, layout)
-      : updateDefaultCellSource(current, activeSheetIndex, selectedDefaultCol, value));
+      ? updateCellRaw(current, selected, value, layout)
+      : updateDefaultCellSource(current, activeSheetIndex, selectedDefaultCol, composeCellSource(value, selectedModifierText)));
+  };
+
+  const handleModifierSourceChange = (value: string) => {
+    commit((current) => selectedDefaultCol === null
+      ? updateCellSource(current, selected, composeCellSource(selectedContentText, value), layout)
+      : updateDefaultCellSource(current, activeSheetIndex, selectedDefaultCol, composeCellSource(selectedContentText, value)));
   };
 
   const handleApplyPrefix = (prefix: string) => {
     if (selectedDefaultCol === null) {
-      commit((current) => updateCellSource(current, selected, setHeadingPrefix(selectedSourceText, prefix), layout));
+      commit((current) => updateCellRaw(current, selected, setHeadingPrefix(selectedContentText, prefix), layout));
     }
   };
 
   const handleToggleInlineStrike = () => {
     if (selectedDefaultCol === null) {
-      commit((current) => updateCellSource(current, selected, toggleWrappedText(selectedSourceText, inlineStrikeMarker), layout));
+      commit((current) => updateCellRaw(current, selected, toggleWrappedText(selectedContentText, inlineStrikeMarker), layout));
     }
   };
 
@@ -425,32 +455,41 @@ export function CelloVisualEditor({
             <span className="celloVisualCellAddress">{selectedLabel}</span>
             <div className="celloVisualFormulaEditor">
               <div className="celloVisualFormulaHighlight" aria-hidden="true">
-                {renderFormulaHighlight(selectedSourceText)}
+                {renderFormulaHighlight(selectedContentText)}
               </div>
               <textarea
-                className={`celloVisualFormulaInput celloVisualFormulaArea ${selectedSourceText.startsWith("=") ? "hasHighlight" : ""}`}
+                className={`celloVisualFormulaInput celloVisualFormulaArea ${selectedContentText.startsWith("=") ? "hasHighlight" : ""}`}
                 aria-label={labels.selectedCellSource}
                 rows={1}
-                value={selectedSourceText}
-                onChange={(event) => handleSourceChange(event.target.value)}
+                value={selectedContentText}
+                onChange={(event) => handleContentChange(event.target.value)}
               />
             </div>
           </div>
+
+          <label className="celloVisualModifiersPanel">
+            <span>{labels.modifiers}</span>
+            <input
+              aria-label={labels.modifiers}
+              value={selectedModifierText}
+              onChange={(event) => handleModifierSourceChange(event.target.value)}
+            />
+          </label>
 
           <div className="celloVisualInheritedPanel" aria-label={labels.inherited}>
             <span>{labels.inherited}</span>
             <div>
               {inheritedGroups.length > 0 ? inheritedGroups.map((group) => (
                 <span key={group.scope} className={`celloVisualInheritedToken ${group.scope}`}>
-                  {group.scope}: {group.modifiers.map((modifier) => `[${modifier.raw}]`).join("")}
+                  {group.scope}: {group.modifiers.map(formatInheritedModifier).join("")}
                 </span>
-	              )) : <span className="celloVisualInheritedEmpty">{labels.noInheritedModifiers}</span>}
+              )) : <span className="celloVisualInheritedEmpty">{labels.noInheritedModifiers}</span>}
             </div>
           </div>
         </div>
 
         <div className="celloVisualToolbarRow celloVisualToolbarFormatRow">
-	          <div className="celloVisualToolbarGroup celloVisualScopeSwitch" role="tablist" aria-label={labels.propertyScope}>
+          <div className="celloVisualToolbarGroup celloVisualScopeSwitch" role="tablist" aria-label={labels.propertyScope}>
             {([
               ["cell", labels.cellScope],
               ["row", labels.rowScope]
@@ -459,6 +498,7 @@ export function CelloVisualEditor({
                 key={scope}
                 type="button"
                 role="tab"
+                disabled={controlsDisabled}
                 aria-selected={modifierScope === scope}
                 className={modifierScope === scope ? "active" : ""}
                 onClick={() => setModifierScope(scope)}
@@ -475,6 +515,7 @@ export function CelloVisualEditor({
               className={`celloVisualButton celloVisualIconButton ${hasScopedModifier(activeSheet, selected, modifierScope, "bold") ? "active" : ""}`}
               aria-label={labels.bold}
               title={labels.bold}
+              disabled={controlsDisabled}
               onClick={() => handleToggleModifier("bold")}
             >
               <strong>B</strong>
@@ -484,6 +525,7 @@ export function CelloVisualEditor({
               className={`celloVisualButton celloVisualIconButton ${hasScopedModifier(activeSheet, selected, modifierScope, "italic") ? "active" : ""}`}
               aria-label={labels.italic}
               title={labels.italic}
+              disabled={controlsDisabled}
               onClick={() => handleToggleModifier("italic")}
             >
               <em>I</em>
@@ -493,142 +535,136 @@ export function CelloVisualEditor({
               className={`celloVisualButton celloVisualIconButton ${hasScopedModifier(activeSheet, selected, modifierScope, "strike") ? "active" : ""}`}
               aria-label={labels.strike}
               title={labels.strike}
+              disabled={controlsDisabled}
               onClick={() => handleToggleModifier("strike")}
               onDoubleClick={handleToggleInlineStrike}
             >
               <span className="celloVisualStrikeIcon">S</span>
             </button>
             {headingStyles.map((style) => (
-              <IconTextButton key={style.labelKey} active={selectedHeadingPrefix === style.prefix} label={labels[style.labelKey]} onClick={() => handleApplyPrefix(style.prefix)} />
+              <IconTextButton key={style.labelKey} active={selectedHeadingPrefix === style.prefix} disabled={controlsDisabled} label={labels[style.labelKey]} onClick={() => handleApplyPrefix(style.prefix)} />
             ))}
             <label className="celloVisualColorTool" title={labels.textColor} aria-label={labels.textColor}>
               <span style={{ color: selectedTextColor }}>A</span>
-              <input type="color" value={selectedTextColor} onChange={(event) => handleSetColor("color", event.target.value)} />
+              <input type="color" value={selectedTextColor} disabled={controlsDisabled} onChange={(event) => handleSetColor("color", event.target.value)} />
             </label>
             <label className="celloVisualColorTool" title={labels.fillColor} aria-label={labels.fillColor} style={{ background: selectedFillColor }}>
               <EditorIcon name="paint" />
-              <input type="color" value={selectedFillColor} onChange={(event) => handleSetColor("bg", event.target.value)} />
+              <input type="color" value={selectedFillColor} disabled={controlsDisabled} onChange={(event) => handleSetColor("bg", event.target.value)} />
             </label>
-            <div className="celloVisualToneMenu" ref={toneMenuRef}>
-              <button
-                type="button"
-                className={["celloVisualButton", selectedTone ? `celloVisualTone-${selectedTone}` : ""].filter(Boolean).join(" ")}
-                aria-expanded={toneMenuOpen}
-                aria-haspopup="menu"
-                aria-label={labels.tone}
-                onClick={() => setToneMenuOpen((open) => !open)}
-              >
-                {labels.tone}{selectedTone ? `: ${selectedTone}` : ""}
-              </button>
-              {toneMenuOpen ? (
-              <div className="celloVisualToneOptions">
-                {TEXT_TONES.map((tone) => (
-                  <button
-                    key={tone}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={selectedTone === tone}
-                    className={[`celloVisualTone-${tone}`, selectedTone === tone ? "active" : ""].join(" ")}
-                    onClick={() => handleSetTone(tone)}
-                  >
-                    {tone}
-                  </button>
-                ))}
-              </div>
-              ) : null}
-            </div>
+            <ValueMenu
+              ariaLabel={labels.tone}
+              buttonClassName={selectedTone ? `celloVisualTone-${selectedTone}` : ""}
+              displayValue={selectedTone ? `${labels.tone}: ${selectedTone}` : labels.tone}
+              disabled={controlsDisabled}
+              options={TEXT_TONES.map((tone) => ({ label: tone, value: tone, className: `celloVisualTone-${tone}` }))}
+              value={selectedTone}
+              onChange={(value) => handleSetTone(value as TextTone)}
+            />
           </div>
 
           <div className="celloVisualToolbarGroup celloVisualLabeledGroup">
             <span className="celloVisualGroupLabel">{labels.tableGroup}</span>
-            <label className="celloVisualSelectTool">
-              <span>{labels.columnsMode}</span>
-              <select
-                aria-label={labels.columnsMode}
-                value={activeSheet.layout?.columns ?? SHEET_LAYOUT_DEFAULT_SENTINEL}
-                onChange={(event) => commit((current) => setSheetColumnsMode(current, activeSheetIndex, event.target.value === SHEET_LAYOUT_DEFAULT_SENTINEL ? undefined : event.target.value as "normal" | "fit"))}
-              >
-                <option value={SHEET_LAYOUT_DEFAULT_SENTINEL}>{labels.defaultOption}</option>
-                {SHEET_COLUMNS_MODES.map((mode) => <option key={mode} value={mode}>{mode === "normal" ? labels.columnsNormal : labels.columnsFit}</option>)}
-              </select>
-            </label>
-            <label className="celloVisualSelectTool">
-              <span>{labels.rowsMode}</span>
-              <select
-                aria-label={labels.rowsMode}
-                value={activeSheet.layout?.rows ?? SHEET_LAYOUT_DEFAULT_SENTINEL}
-                onChange={(event) => commit((current) => setSheetRowsMode(current, activeSheetIndex, event.target.value === SHEET_LAYOUT_DEFAULT_SENTINEL ? undefined : event.target.value as "ellipsis" | "wrap"))}
-              >
-                <option value={SHEET_LAYOUT_DEFAULT_SENTINEL}>{labels.defaultOption}</option>
-                {SHEET_ROWS_MODES.map((mode) => <option key={mode} value={mode}>{mode === "ellipsis" ? labels.rowsEllipsis : labels.rowsWrap}</option>)}
-              </select>
-            </label>
-            <IconButton label={labels.mergeLeft} icon="mergeLeft" onClick={() => commit((current) => mergeCell(current, selected, "left", layout))} />
-            <IconButton label={labels.mergeUp} icon="mergeUp" onClick={() => commit((current) => mergeCell(current, selected, "up", layout))} />
+            <ValueMenu
+              ariaLabel={labels.columnsMode}
+              displayValue={`Col: ${formatLayoutValue(activeSheet.layout?.columns ?? "normal")}`}
+              options={SHEET_COLUMNS_MODES.map((mode) => ({ label: mode === "normal" ? labels.columnsNormal : labels.columnsFit, value: mode }))}
+              value={activeSheet.layout?.columns ?? "normal"}
+              disabled={controlsDisabled}
+              onChange={(value) => commit((current) => setSheetColumnsMode(current, activeSheetIndex, value === "normal" ? undefined : value as "fit"))}
+            />
+            <ValueMenu
+              ariaLabel={labels.rowsMode}
+              displayValue={`Row: ${formatLayoutValue(activeSheet.layout?.rows ?? "wrap")}`}
+              options={SHEET_ROWS_MODES.map((mode) => ({ label: mode === "ellipsis" ? labels.rowsEllipsis : labels.rowsWrap, value: mode }))}
+              value={activeSheet.layout?.rows ?? "wrap"}
+              disabled={controlsDisabled}
+              onChange={(value) => commit((current) => setSheetRowsMode(current, activeSheetIndex, value === "wrap" ? undefined : value as "ellipsis"))}
+            />
+            <IconButton label={labels.mergeLeft} icon="mergeLeft" disabled={controlsDisabled} onClick={() => commit((current) => mergeCell(current, selected, "left", layout))} />
+            <IconButton label={labels.mergeUp} icon="mergeUp" disabled={controlsDisabled} onClick={() => commit((current) => mergeCell(current, selected, "up", layout))} />
             <IconButton label={labels.newRow} icon="row" onClick={() => commit((current) => addRow(current, activeSheetIndex, layout, selected.rowIndex))} />
             <IconButton label={labels.newColumn} icon="column" onClick={() => commit((current) => addColumn(current, activeSheetIndex, selected.colIndex))} />
           </div>
 
-          {selectedDefaultCol === null ? (
-            <div className="celloVisualToolbarGroup celloVisualLabeledGroup">
-              <span className="celloVisualGroupLabel">{labels.selectedColumn}</span>
-              <button
-                type="button"
-                className={`celloVisualButton ${selectedColumnFit ? "active" : ""}`}
-                aria-label={labels.fit}
-                onClick={() => withHeaderColumn((current, headerRowIndex) => toggleColumnFit(current, activeSheetIndex, headerRowIndex, selected.colIndex, layout))}
-              >
-                {labels.fit}
-              </button>
-              <label className="celloVisualInputTool">
-                <span>{labels.width}</span>
-                <input
-                  aria-label={labels.width}
-                  list="cello-width-presets"
-                  value={selectedColumnWidth}
-                  placeholder={defaultColumnWidthPlaceholder}
-                  onChange={(event) => withHeaderColumn((current, headerRowIndex) => setColumnWidth(current, activeSheetIndex, headerRowIndex, selected.colIndex, event.target.value.trim() || undefined, layout))}
-                />
-              </label>
-              <datalist id="cello-width-presets">
-                {WIDTH_PRESET_NAMES.map((value) => <option key={value} value={value} />)}
-              </datalist>
-            </div>
-          ) : null}
+          <div className="celloVisualToolbarGroup celloVisualLabeledGroup">
+            <span className="celloVisualGroupLabel">{labels.selectedColumn}</span>
+            <button
+              type="button"
+              className={`celloVisualButton ${selectedColumnResolvedFit ? "active" : ""}`}
+              aria-label={labels.fit}
+              disabled={controlsDisabled}
+              onClick={() => withHeaderColumn((current, headerRowIndex) => toggleColumnFit(current, activeSheetIndex, headerRowIndex, selected.colIndex, layout))}
+            >
+              {labels.fit}
+            </button>
+            <ValueMenu
+              ariaLabel={labels.width}
+              displayValue={selectedWidthDisplay}
+              customPlaceholder={labels.width}
+              options={WIDTH_PRESET_NAMES.map((value) => ({ label: value, value }))}
+              value={selectedColumnWidth}
+              disabled={controlsDisabled}
+              onChange={(value) => withHeaderColumn((current, headerRowIndex) => setColumnWidth(current, activeSheetIndex, headerRowIndex, selected.colIndex, value.trim() || undefined, layout))}
+            />
+          </div>
 
-          {selectedDefaultCol === null ? (
-            <div className="celloVisualToolbarGroup celloVisualLabeledGroup">
-              <span className="celloVisualGroupLabel">{labels.selectedRow}</span>
-              <button
-                type="button"
-                className={`celloVisualButton ${selectedRowWrap ? "active" : ""}`}
-                aria-label={labels.wrap}
-                onClick={() => commit((current) => toggleRowWrap(current, selected, layout))}
-              >
-                {labels.wrap}
-              </button>
-              <label className="celloVisualInputTool">
-                <span>{labels.height}</span>
-                <input
-                  aria-label={labels.height}
-                  list="cello-height-presets"
-                  value={selectedRowHeight}
-                  placeholder={defaultRowHeightPlaceholder}
-                  onChange={(event) => commit((current) => setRowHeight(current, selected, event.target.value.trim() || undefined, layout))}
-                />
-              </label>
-              <datalist id="cello-height-presets">
-                {ROW_HEIGHT_PRESETS.map((value) => <option key={value} value={value} />)}
-              </datalist>
-            </div>
-          ) : null}
+          <div className="celloVisualToolbarGroup celloVisualLabeledGroup">
+            <span className="celloVisualGroupLabel">{labels.selectedRow}</span>
+            <button
+              type="button"
+              className={`celloVisualButton ${selectedRowWrap ? "active" : ""}`}
+              aria-label={labels.wrap}
+              disabled={controlsDisabled}
+              onClick={() => commit((current) => toggleRowWrap(current, selected, layout))}
+            >
+              {labels.wrap}
+            </button>
+            <ValueMenu
+              ariaLabel={labels.height}
+              displayValue={selectedRowHeight || defaultRowHeightPlaceholder}
+              customPlaceholder={labels.height}
+              options={ROW_HEIGHT_PRESETS.map((value) => ({ label: value, value }))}
+              value={selectedRowHeight}
+              disabled={controlsDisabled}
+              onChange={(value) => commit((current) => setRowHeight(current, selected, value.trim() || undefined, layout))}
+            />
+          </div>
 
           {onRequestSourceView ? (
-            <button type="button" className="celloVisualButton celloVisualIconTextButton celloVisualSourceButton" aria-label={labels.source} onClick={onRequestSourceView}>
+            <button type="button" className="celloVisualButton celloVisualIconTextButton celloVisualSourceButton" aria-label={labels.source} disabled={controlsDisabled} onClick={onRequestSourceView}>
               <EditorIcon name="format" />
               <span>{labels.source}</span>
             </button>
           ) : null}
+        </div>
+
+        <div className="celloVisualSheetTabs" role="tablist" aria-label={labels.workbookSheets}>
+          {workbook.sheets.map((sheet, sheetIndex) => (
+            <button
+              key={`${sheet.name}-${sheetIndex}`}
+              type="button"
+              role="tab"
+              aria-selected={activeSheetIndex === sheetIndex}
+              className={activeSheetIndex === sheetIndex ? "active" : ""}
+              onClick={() => {
+                setActiveSheetIndex(sheetIndex);
+                setSelected({ sheetIndex, rowIndex: 0, colIndex: 0 });
+                setSelectedDefaultCol(null);
+                onActiveSheetChange?.(sheet.name);
+              }}
+            >
+              {sheet.name}
+            </button>
+          ))}
+          <IconButton label={labels.newSheet} icon="sheetPlus" className="celloVisualPrimaryAction" onClick={handleAddSheet} />
+          <input
+            className="celloVisualSheetNameInput"
+            aria-label={labels.renameSheet}
+            value={activeSheet.name}
+            onChange={(event) => commit((current) => renameSheet(current, activeSheetIndex, event.target.value))}
+          />
+          <IconButton label={labels.deleteSheet} icon="trash" disabled={workbook.sheets.length <= 1} onClick={handleRemoveSheet} />
         </div>
       </section>
 
@@ -639,7 +675,13 @@ export function CelloVisualEditor({
               <tr>
                 <th className="celloVisualCorner" />
                 {Array.from({ length: visibleColumnCount }, (_, colIndex) => (
-                  <th key={colIndex} className="celloVisualColumnHeader">{getColumnName(colIndex)}</th>
+                  <th
+                    key={colIndex}
+                    className="celloVisualColumnHeader"
+                    style={withMeasuredFitWidth(getVisualColumnStyle(workbookContext, activeSheet, selected.rowIndex, colIndex), measuredFitColumnWidths[colIndex])}
+                  >
+                    {getColumnName(colIndex)}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -651,6 +693,7 @@ export function CelloVisualEditor({
                   activeSheetIndex={activeSheetIndex}
                   aliases={workbook.aliases}
                   computedValues={computedValues}
+                  measuredFitColumnWidths={measuredFitColumnWidths}
                   labels={labels}
                   modifierScope={modifierScope}
                   rowIndex={rowIndex}
@@ -669,33 +712,13 @@ export function CelloVisualEditor({
               ))}
             </tbody>
           </table>
-        </div>
-
-	        <div className="celloVisualSheetTabs" role="tablist" aria-label={labels.workbookSheets}>
-          {workbook.sheets.map((sheet, sheetIndex) => (
-            <button
-              key={`${sheet.name}-${sheetIndex}`}
-              type="button"
-              role="tab"
-              aria-selected={activeSheetIndex === sheetIndex}
-              className={activeSheetIndex === sheetIndex ? "active" : ""}
-              onClick={() => {
-                setActiveSheetIndex(sheetIndex);
-                setSelected({ sheetIndex, rowIndex: 0, colIndex: 0 });
-                setSelectedDefaultCol(null);
-              }}
-            >
-              {sheet.name}
-            </button>
-          ))}
-          <IconButton label={labels.newSheet} icon="sheetPlus" className="celloVisualPrimaryAction" onClick={handleAddSheet} />
-          <input
-            className="celloVisualSheetNameInput"
-            aria-label={labels.renameSheet}
-            value={activeSheet.name}
-            onChange={(event) => commit((current) => renameSheet(current, activeSheetIndex, event.target.value))}
-          />
-          <IconButton label={labels.deleteSheet} icon="trash" disabled={workbook.sheets.length <= 1} onClick={handleRemoveSheet} />
+          <div ref={fitMeasureRef} className="celloVisualFitMeasure" aria-hidden="true">
+            {fitMeasureEntries.map((entry) => (
+              <span key={entry.id} className="celloVisualFitMeasureItem" data-cello-fit-column={entry.colIndex} style={entry.style}>
+                {entry.text}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
     </main>
@@ -712,6 +735,7 @@ function VisualDataRows({
   editingCellKey,
   labels,
   layout,
+  measuredFitColumnWidths,
   modifierScope,
   rowIndex,
   selectCell,
@@ -731,6 +755,7 @@ function VisualDataRows({
   draftCell: DraftCell;
   labels: CelloVisualEditorLabels;
   layout: EditorLayoutOptions | undefined;
+  measuredFitColumnWidths: FitColumnWidths;
   modifierScope: ModifierScope;
   rowIndex: number;
   selectCell: (rowIndex: number, colIndex: number) => void;
@@ -755,20 +780,18 @@ function VisualDataRows({
         const cell = getCellAt(activeSheet, rowIndex, colIndex);
         const isSelected = selected.sheetIndex === activeSheetIndex && selectedDefaultCol === null && selected.rowIndex === rowIndex && selected.colIndex === colIndex;
         const cellKey = getCellAddressKey({ sheetIndex: activeSheetIndex, rowIndex, colIndex });
-        const computed = computedValues[cellKey];
         const toneClass = getCellToneClass(activeSheet, rowIndex, colIndex);
         const workbookContext = aliases ? { aliases } : {};
         const isEditing = editingCellKey === cellKey || draftCell?.key === cellKey;
-        const inputValue = draftCell?.key === cellKey
-          ? draftCell.value
-          : cell.raw.startsWith("=") && isEditing
-            ? getCellSourceText(cell)
-            : getCellFormattedDisplayText(activeSheet, rowIndex, colIndex, computed, workbookContext);
-        const cellStyle = getVisualCellStyle(workbookContext, activeSheet, rowIndex, colIndex, computedValues, activeSheetIndex);
+        const computed = computedValues[cellKey];
+        const displayValue = getCellFormattedDisplayText(activeSheet, rowIndex, colIndex, computed, workbookContext);
+        const inputValue = draftCell?.key === cellKey ? draftCell.value : displayValue;
+        const cellStyle = withMeasuredFitWidth(getVisualCellStyle(workbookContext, activeSheet, rowIndex, colIndex), measuredFitColumnWidths[colIndex]);
         const contentStyle = getVisualCellContentStyle(workbookContext, activeSheet, rowIndex);
-        const editorStyle = getVisualCellStyle(workbookContext, activeSheet, rowIndex, colIndex, computedValues, activeSheetIndex);
+        const editorStyle = getVisualCellStyle(workbookContext, activeSheet, rowIndex, colIndex);
         delete editorStyle.width;
         delete editorStyle.minWidth;
+        delete editorStyle.maxWidth;
         const shouldHighlightFormula = inputValue.startsWith("=") && isEditing;
         return (
           <td key={colIndex} className={[isSelected ? "selected" : "", toneClass, span.colspan > 1 || span.rowspan > 1 ? "merged" : ""].filter(Boolean).join(" ")} style={cellStyle} colSpan={span.colspan} rowSpan={span.rowspan}>
@@ -786,7 +809,7 @@ function VisualDataRows({
                 onFocus={() => {
                   selectCell(rowIndex, colIndex);
                   setEditingCellKey(cell.raw.startsWith("=") ? cellKey : null);
-                  setDraftCell({ key: cellKey, value: getCellSourceText(cell) });
+                  setDraftCell({ key: cellKey, value: getCellContentText(cell) });
                 }}
                 onBlur={() => {
                   setEditingCellKey(null);
@@ -863,12 +886,207 @@ function IconButton({
   );
 }
 
-function IconTextButton({ active, label, onClick }: { active?: boolean; label: string; onClick: () => void }) {
+function IconTextButton({ active, disabled, label, onClick }: { active?: boolean; disabled?: boolean; label: string; onClick: () => void }) {
   return (
-    <button type="button" className={["celloVisualButton", "celloVisualTextStyleButton", active ? "active" : ""].filter(Boolean).join(" ")} aria-label={label} title={label} onClick={onClick}>
+    <button type="button" className={["celloVisualButton", "celloVisualTextStyleButton", active ? "active" : ""].filter(Boolean).join(" ")} aria-label={label} title={label} disabled={disabled} onClick={onClick}>
       {label}
     </button>
   );
+}
+
+function ValueMenu({
+  ariaLabel,
+  buttonClassName,
+  customPlaceholder,
+  disabled,
+  displayValue,
+  options,
+  value,
+  onChange
+}: {
+  ariaLabel: string;
+  buttonClassName?: string;
+  customPlaceholder?: string;
+  disabled?: boolean;
+  displayValue: string;
+  options: Array<{ label: string; value: string; className?: string }>;
+  value: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [customValue, setCustomValue] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const closeMenu = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", closeMenu);
+    return () => document.removeEventListener("mousedown", closeMenu);
+  }, [open]);
+
+  const commitCustom = () => {
+    if (disabled) {
+      return;
+    }
+    const nextValue = customValue.trim();
+    if (nextValue) {
+      onChange(nextValue);
+      setCustomValue("");
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div className="celloVisualValueMenu" ref={ref}>
+      <button
+        type="button"
+        className={["celloVisualButton", buttonClassName].filter(Boolean).join(" ")}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {displayValue}
+      </button>
+      {open ? (
+        <div className="celloVisualValueOptions" role="menu">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="menuitemradio"
+              aria-checked={value === option.value}
+              className={[option.className, value === option.value ? "active" : ""].filter(Boolean).join(" ")}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+          {customPlaceholder ? (
+            <input
+              aria-label={customPlaceholder}
+              value={customValue}
+              placeholder={customPlaceholder}
+              onChange={(event) => setCustomValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  commitCustom();
+                }
+              }}
+              onBlur={commitCustom}
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function useMeasuredFitColumnWidths(measureRef: RefObject<HTMLDivElement | null>, entries: FitMeasureEntry[]): FitColumnWidths {
+  const [widths, setWidths] = useState<FitColumnWidths>({});
+
+  useLayoutEffect(() => {
+    const measureRoot = measureRef.current;
+    if (!measureRoot || entries.length === 0) {
+      setWidths((current) => (Object.keys(current).length === 0 ? current : {}));
+      return;
+    }
+
+    const next: Record<number, number> = {};
+    for (const element of measureRoot.querySelectorAll<HTMLElement>("[data-cello-fit-column]")) {
+      const column = Number(element.dataset.celloFitColumn);
+      if (!Number.isInteger(column)) {
+        continue;
+      }
+      const measuredTextWidth = Math.ceil(element.getBoundingClientRect().width);
+      const measuredWidth = measuredTextWidth + CELL_LAYOUT_METRICS.paddingInlinePx * 2 + fitColumnMeasurementGuardPx;
+      if (measuredWidth <= 0) {
+        continue;
+      }
+      next[column] = Math.max(next[column] ?? 0, measuredWidth, CELL_LAYOUT_METRICS.paddingInlinePx * 2);
+    }
+
+    setWidths((current) => (areFitWidthsEqual(current, next) ? current : next));
+  }, [entries, measureRef]);
+
+  return widths;
+}
+
+function getFitMeasureEntries(
+  workbook: Pick<EditorWorkbook, "aliases">,
+  sheet: EditorSheet,
+  sheetIndex: number,
+  columnModifierRowIndex: number,
+  visibleColumnCount: number,
+  computedValues: ComputedCellValues
+): FitMeasureEntry[] {
+  const entries: FitMeasureEntry[] = [];
+  for (let colIndex = 0; colIndex < visibleColumnCount; colIndex += 1) {
+    if (!isResolvedFitColumn(sheet, columnModifierRowIndex, colIndex)) {
+      continue;
+    }
+
+    for (let rowIndex = 0; rowIndex < sheet.rows.length; rowIndex += 1) {
+      const cell = sheet.rows[rowIndex]?.cells[colIndex];
+      if (!cell) {
+        continue;
+      }
+      const cellKey = getCellAddressKey({ sheetIndex, rowIndex, colIndex });
+      const computed = computedValues[cellKey];
+      const text = getCellFitMeasureText(sheet, rowIndex, colIndex, computed, workbook);
+      if (text === undefined) {
+        continue;
+      }
+      entries.push({
+        id: cellKey,
+        colIndex,
+        text,
+        style: getCellStyle(sheet, rowIndex, colIndex, workbook)
+      });
+    }
+  }
+  return entries;
+}
+
+function isResolvedFitColumn(sheet: EditorSheet, rowIndex: number, colIndex: number): boolean {
+  const explicitWidth = getColumnWidthValue(sheet, rowIndex, colIndex);
+  return isColumnFit(sheet, rowIndex, colIndex) || (!explicitWidth && sheet.layout?.columns === "fit");
+}
+
+function withMeasuredFitWidth(style: CSSProperties, measuredWidth: number | undefined): CSSProperties {
+  if (measuredWidth === undefined) {
+    return style;
+  }
+  const width = `${measuredWidth}px`;
+  return { ...style, width, minWidth: width, maxWidth: width };
+}
+
+function areFitWidthsEqual(current: FitColumnWidths, next: FitColumnWidths): boolean {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  return currentKeys.length === nextKeys.length && nextKeys.every((key) => current[Number(key)] === next[Number(key)]);
+}
+
+function formatLayoutValue(value: string): string {
+  return value[0]?.toUpperCase() + value.slice(1);
+}
+
+function formatMeasuredWidth(width: number | undefined): string | undefined {
+  return width === undefined ? undefined : `${width}px`;
+}
+
+function formatInheritedModifier(modifier: { key: string; raw: string; value?: string }): string {
+  return modifier.key === "default" && modifier.value ? `[${modifier.value}]` : `[${modifier.raw}]`;
 }
 
 function clampAddress(address: CellAddress, workbook: EditorWorkbook, layout: EditorLayoutOptions | undefined): CellAddress {

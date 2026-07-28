@@ -38,11 +38,12 @@ export {
 } from "./options.js";
 export { createBlankCell, createBlankRow, createBlankSheet, createEditorWorkbook, createHeaderRow } from "./workbook.js";
 export { applyWorkbookPatch, createEditorDocument } from "./document.js";
-export { getCellSourceText, isMergeToken, parseCellSource, toBaseRaw } from "./source.js";
+export { composeCellSource, getCellContentText, getCellModifierSourceText, getCellSourceText, isMergeToken, parseCellSource, toBaseRaw } from "./source.js";
 export { serializeEditorWorkbook } from "./serialization.js";
 export {
   getCellAt,
   getCellDisplayText,
+  getCellFitMeasureText,
   getCellFormattedDisplayText,
   getCellHeadingPrefix,
   getCellToneClass,
@@ -59,6 +60,7 @@ export {
   getVisualCellSpan,
   getVisualCellStyle,
   getVisualCellContentStyle,
+  getVisualColumnWidth,
   getVisualColumnStyle,
   getVisualRowStyle,
   getVisibleColumnCount,
@@ -99,6 +101,7 @@ export {
   CELLO_HEADING_STYLES,
   CELLO_TONE_COLORS,
   CELLO_TONE_NAMES,
+  CELL_LAYOUT_METRICS,
   DEFAULT_COLUMN_WIDTH,
   DEFAULT_ROW_LAYOUT,
   SHEET_LAYOUT_DEFAULT_SENTINEL,

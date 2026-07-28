@@ -2,12 +2,22 @@ import { evaluate } from "../evaluator/evaluate.js";
 import { parse } from "../parser/parse.js";
 import { isNamedColorModifier, sanitizeCssColor } from "../shared/colors.js";
 import { CELLO_HEADING_STYLES, CELLO_TONE_COLORS, CELLO_TONE_NAMES, formatDisplayValue } from "../shared/display.js";
-import { DEFAULT_COLUMN_WIDTH, FIT_COLUMN_MAX_WIDTH, FIT_COLUMN_MIN_WIDTH, expandAliasModifiers, resolveColumnWidth, resolveRowLayout } from "../shared/layout.js";
+import {
+  CELL_LAYOUT_METRICS,
+  DEFAULT_COLUMN_WIDTH,
+  expandAliasModifiers,
+  fitCandidateValue,
+  heightContentToCss,
+  heightOuterToCss,
+  isFitCandidateCell,
+  resolveColumnWidth,
+  resolveRowLayout,
+  widthOuterToCss
+} from "../shared/layout.js";
 import type { ResolvedRowLayout, ResolvedWidth } from "../shared/layout.js";
 import type { CellNode, Modifier, RenderOptions, RowNode, SheetNode, WorkbookAst } from "../shared/types.js";
 import { columnLetter, escapeHtml, workbookHasFormulas } from "../shared/utils.js";
 
-const RENDER_CELL_INLINE_PADDING_PX = 16;
 const RENDER_ROW_INDEX_WIDTH_PX = 36;
 
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
@@ -53,6 +63,9 @@ function renderStyles(): string {
     .cello-workbook {
       font-family: Inter, Segoe UI, Arial, sans-serif;
       color: #111827;
+      --cello-cell-padding-inline: ${CELL_LAYOUT_METRICS.paddingInlinePx}px;
+      --cello-cell-padding-block: ${CELL_LAYOUT_METRICS.paddingBlockPx}px;
+      --cello-line-height: ${CELL_LAYOUT_METRICS.lineHeightPx}px;
       ${renderToneVariables()}
     }
     .cello-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 12px; }
@@ -60,12 +73,16 @@ function renderStyles(): string {
     .cello-tab.active { background: #111827; color: #ffffff; border-color: #111827; }
     .cello-sheet { display: none; }
     .cello-sheet.active { display: block; }
-    table { border-collapse: collapse; width: max-content; max-width: none; }
-    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; white-space: nowrap; box-sizing: border-box; }
+    table { border-collapse: collapse; width: max-content; max-width: none; table-layout: auto; }
+    th, td { border: 1px solid #e5e7eb; padding: var(--cello-cell-padding-block) var(--cello-cell-padding-inline); text-align: left; vertical-align: top; white-space: nowrap; box-sizing: border-box; line-height: var(--cello-line-height); }
     .cello-cell-content { display: block; min-width: 0; }
     .cello-ellipsis:not(.cello-line-clamp) .cello-cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cello-wrap .cello-cell-content { white-space: normal; overflow-wrap: anywhere; }
-    .cello-line-clamp .cello-cell-content { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--cello-line-clamp); overflow: hidden; }
+    .cello-fixed-height .cello-cell-content { max-height: var(--cello-content-height); overflow: auto; }
+    .cello-line-clamp.cello-ellipsis .cello-cell-content { display: -webkit-box; line-height: var(--cello-line-height); -webkit-box-orient: vertical; -webkit-line-clamp: var(--cello-line-clamp); overflow: hidden; }
+    .cello-fit-measure-row { height: 0; visibility: hidden; }
+    .cello-fit-measure-row th { height: 0; padding-block: 0; border-block: 0; line-height: 0; }
+    .cello-fit-measure-row .cello-cell-content { line-height: var(--cello-line-height); }
     th[colspan], th[rowspan], td[colspan], td[rowspan] { text-align: center; vertical-align: middle; }
     th { background: #f3f4f6; font-weight: 600; }
     .cello-corner-index, .cello-column-index, .cello-row-index { background: #f9fafb; color: #6b7280; font-size: 0.75rem; font-weight: 600; text-align: center; }
@@ -156,7 +173,7 @@ function renderSheets(workbook: WorkbookAst): string {
   return workbook.sheets
     .map(
       (sheet, idx) =>
-        `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${escapeHtml(sheet.name)}"><table>${renderColGroup(workbook, sheet)}${renderColumnIndexRow(sheet)}<tbody>${sheet.rows
+        `<section class="cello-sheet ${idx === 0 ? "active" : ""}" data-sheet="${escapeHtml(sheet.name)}"><table>${renderColGroup(workbook, sheet)}${renderTableHead(workbook, sheet)}<tbody>${sheet.rows
           .map((row) => renderRow(row, sheet, workbook))
           .join("")}</tbody></table></section>`
     )
@@ -166,14 +183,53 @@ function renderSheets(workbook: WorkbookAst): string {
 function renderColGroup(workbook: WorkbookAst, sheet: SheetNode): string {
   const cols = Array.from({ length: getSheetColumnCount(sheet) }, (_, idx) => {
     const width = resolveColumnWidth(workbook, sheet, idx);
-    return `<col style="${columnWidthToCss(width, width.kind === "fit" ? estimateFitWidth(sheet, idx) : undefined)}">`;
+    return `<col${width.kind === "fit" ? "" : ` style="${columnWidthToCss(width)}"`}>`;
   }).join("");
   return `<colgroup><col style="width:${RENDER_ROW_INDEX_WIDTH_PX}px">${cols}</colgroup>`;
 }
 
-function renderColumnIndexRow(sheet: SheetNode): string {
+function renderTableHead(workbook: WorkbookAst, sheet: SheetNode): string {
   const columns = Array.from({ length: getSheetColumnCount(sheet) }, (_, idx) => `<th class="cello-column-index">${columnLetter(idx + 1)}</th>`).join("");
-  return `<thead><tr><th class="cello-corner-index"></th>${columns}</tr></thead>`;
+  return `<thead><tr><th class="cello-corner-index"></th>${columns}</tr>${renderFitMeasureRows(workbook, sheet)}</thead>`;
+}
+
+function renderFitMeasureRows(workbook: WorkbookAst, sheet: SheetNode): string {
+  const columnCount = getSheetColumnCount(sheet);
+  const columns = Array.from({ length: columnCount }, (_, colIndex) => ({
+    fit: resolveColumnWidth(workbook, sheet, colIndex).kind === "fit",
+    candidates: [] as FitMeasureCell[]
+  }));
+
+  for (const row of sheet.rows) {
+    for (const cell of row.cells) {
+      const colIndex = cell.col - 1;
+      const column = columns[colIndex];
+      if (!column?.fit || !isFitCandidateCell(cell)) {
+        continue;
+      }
+      const modifiers = collectModifiers(cell, row, sheet, workbook);
+      const value = fitCandidateValue(cell, modifiers);
+      if (value === undefined) {
+        continue;
+      }
+      column.candidates.push({ value, modifiers });
+    }
+  }
+
+  const rowCount = Math.max(0, ...columns.map((column) => column.candidates.length));
+  if (rowCount === 0) {
+    return "";
+  }
+
+  return Array.from({ length: rowCount }, (_, rowIndex) => {
+    const cells = columns.map((column) => renderFitMeasureCell(column.candidates[rowIndex])).join("");
+    return `<tr class="cello-fit-measure-row"><th></th>${cells}</tr>`;
+  }).join("");
+}
+
+interface FitMeasureCell {
+  value: string;
+  modifiers: Modifier[];
 }
 
 function renderRow(row: RowNode, sheet: SheetNode, workbook: WorkbookAst): string {
@@ -187,9 +243,19 @@ function renderCell(cell: CellNode, header: boolean, modifiers: Modifier[], rowL
   const tag = header ? "th" : "td";
   const formatted = formatInline(formatDisplayValue(renderCellValue(cell), modifiers));
   const attrs = buildCellAttributes(cell, modifiers, rowLayout);
-  const body = needsContentWrapper(rowLayout) ? `<span class="cello-cell-content">${formatted}</span>` : formatted;
+  const body = `<span class="cello-cell-content">${formatted}</span>`;
 
   return `<${tag} ${attrs}>${body}</${tag}>`;
+}
+
+function renderFitMeasureCell(candidate: FitMeasureCell | undefined): string {
+  if (!candidate) {
+    return "<th></th>";
+  }
+  const className = buildClassAttribute(candidate.modifiers, { mode: "ellipsis", height: { kind: "auto" } });
+  const style = buildStyleAttribute(candidate.modifiers, { mode: "ellipsis", height: { kind: "auto" } });
+  const attrs = [className, style].filter(Boolean).join(" ");
+  return `<th${attrs ? ` ${attrs}` : ""}><span class="cello-cell-content">${formatInline(candidate.value)}</span></th>`;
 }
 
 function renderCellValue(cell: CellNode): string | number | boolean | null {
@@ -243,8 +309,9 @@ function buildStyleAttribute(modifiers: Modifier[], rowLayout: ResolvedRowLayout
 
 function buildClassAttribute(modifiers: Modifier[], rowLayout: ResolvedRowLayout): string {
   const classes = [
-    isDefaultRowLayout(rowLayout) ? "" : rowLayout.mode === "wrap" ? "cello-wrap" : "cello-ellipsis",
-    needsContentWrapper(rowLayout) && rowLayout.height.kind === "lines" ? "cello-line-clamp" : "",
+    rowLayout.mode === "wrap" ? "cello-wrap" : "cello-ellipsis",
+    rowLayout.height.kind !== "auto" ? "cello-fixed-height" : "",
+    rowLayout.mode === "ellipsis" && rowLayout.height.kind === "lines" ? "cello-line-clamp" : "",
     ...modifiers.map(toClassName)
   ].filter(Boolean);
   return classes.length > 0 ? `class="${classes.join(" ")}"` : "";
@@ -303,49 +370,23 @@ function toStyleRule(mod: Modifier): string {
   return "";
 }
 
-function columnWidthToCss(width: ResolvedWidth, fitWidth?: ResolvedWidth): string {
-  const resolved = width.kind === "fit" ? (fitWidth ?? DEFAULT_COLUMN_WIDTH) : width;
-  if (!resolved || resolved.kind === "fit" || resolved.value === undefined || resolved.unit === undefined) {
+function columnWidthToCss(width: ResolvedWidth): string {
+  const resolved = width.kind === "fit" ? DEFAULT_COLUMN_WIDTH : width;
+  if (!resolved || resolved.kind === "fit") {
     return columnWidthToCss(DEFAULT_COLUMN_WIDTH);
   }
-  return `width:calc(${resolved.value}${resolved.unit} + ${RENDER_CELL_INLINE_PADDING_PX}px)`;
-}
-
-function estimateFitWidth(sheet: SheetNode, columnIndex: number): ResolvedWidth {
-  const values = sheet.rows.flatMap((row) =>
-    row.cells
-      .filter((cell) => isRenderableCell(cell) && cell.col === columnIndex + 1)
-      .map((cell) => String(renderCellValue(cell) ?? ""))
-  );
-  const minWidth = FIT_COLUMN_MIN_WIDTH.value ?? DEFAULT_COLUMN_WIDTH.value ?? 12;
-  const maxWidth = FIT_COLUMN_MAX_WIDTH.value ?? DEFAULT_COLUMN_WIDTH.value ?? 12;
-  const maxLength = Math.max(minWidth, ...values.map((value) => value.length));
-  return { kind: "fixed", value: Math.min(maxWidth, Math.max(minWidth, maxLength)), unit: "ch" };
+  return `width:${widthOuterToCss(resolved)}`;
 }
 
 function rowLayoutToCss(rowLayout: ResolvedRowLayout): string {
-  if (isDefaultRowLayout(rowLayout)) {
-    return "";
-  }
   const height = rowLayout.height;
-  if (height.kind === "auto") {
+  const contentHeight = heightContentToCss(height);
+  const outerHeight = heightOuterToCss(height);
+  if (!contentHeight || !outerHeight) {
     return "";
   }
-  if (height.kind === "px" && height.value !== undefined) {
-    return `height:${height.value}px;max-height:${height.value}px`;
-  }
-  if (height.kind === "lines" && height.value !== undefined) {
-    return `--cello-line-clamp:${height.value}`;
-  }
-  return "";
-}
-
-function isDefaultRowLayout(rowLayout: ResolvedRowLayout): boolean {
-  return rowLayout.mode === "ellipsis" && rowLayout.height.kind === "lines" && rowLayout.height.value === 1;
-}
-
-function needsContentWrapper(rowLayout: ResolvedRowLayout): boolean {
-  return rowLayout.mode === "wrap" || rowLayout.height.kind === "lines" && (rowLayout.height.value ?? 1) > 1;
+  const lineClamp = height.kind === "lines" && height.value !== undefined ? `;--cello-line-clamp:${height.value}` : "";
+  return `height:${outerHeight};max-height:${outerHeight};--cello-content-height:${contentHeight}${lineClamp}`;
 }
 
 function toClassName(mod: Modifier): string {

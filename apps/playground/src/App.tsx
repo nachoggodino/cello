@@ -55,6 +55,17 @@ export function App() {
   }, [selectedExampleId, source]);
 
   useEffect(() => {
+    if (!activeSheetName) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(`cello:active-sheet:${window.location.pathname}`, activeSheetName);
+    } catch {
+      // Best effort only; the preview frame is still synchronized directly.
+    }
+  }, [activeSheetName]);
+
+  useEffect(() => {
     const handleHashChange = () => setPage(getPageFromHash(window.location.hash));
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
@@ -198,6 +209,8 @@ export function App() {
         <CelloVisualEditor
           source={source}
           onSourceChange={setSource}
+          activeSheetName={activeSheetName}
+          onActiveSheetChange={setActiveSheetName}
           onCommandFailure={(failure) => setActionMessage(failure.message)}
           onRequestSourceView={() => navigateToPage("source")}
           readExternalSource={(path) => {
@@ -414,6 +427,14 @@ function PreviewPane({
     onCopyPayload(fallbackPayload, "Table");
   }, [activeSheetName, lastGoodHtml, onCopyPayload, previewHtml, setActionMessage]);
 
+  const syncPreviewSheet = useCallback(() => {
+    const frameDocument = previewFrameRef.current?.contentDocument;
+    if (!frameDocument || !activeSheetName) {
+      return;
+    }
+    activateRenderedSheet(frameDocument, activeSheetName);
+  }, [activeSheetName]);
+
   const resizePreviewFrame = useCallback(() => {
     const frame = previewFrameRef.current;
     if (!frame) {
@@ -441,8 +462,9 @@ function PreviewPane({
   }, [mobileVisible]);
 
   useEffect(() => {
+    syncPreviewSheet();
     resizePreviewFrame();
-  }, [lastGoodHtml, mobileVisible, previewHtml, resizePreviewFrame]);
+  }, [lastGoodHtml, mobileVisible, previewHtml, resizePreviewFrame, syncPreviewSheet]);
 
   return (
     <div className="previewRegion">
@@ -461,11 +483,31 @@ function PreviewPane({
         </div>
         <div className="previewFrameWrap">
           {renderState === "rendering" && <div className="previewOverlay">Rendering...</div>}
-          <iframe ref={previewFrameRef} title="Rendered Cello workbook" srcDoc={previewHtml || lastGoodHtml} sandbox="allow-scripts allow-same-origin" onLoad={resizePreviewFrame} />
+          <iframe
+            ref={previewFrameRef}
+            title="Rendered Cello workbook"
+            srcDoc={previewHtml || lastGoodHtml}
+            sandbox="allow-scripts allow-same-origin"
+            onLoad={() => {
+              syncPreviewSheet();
+              resizePreviewFrame();
+            }}
+          />
         </div>
       </section>
     </div>
   );
+}
+
+function activateRenderedSheet(document: Document, activeSheetName: string) {
+  const tabs = Array.from(document.querySelectorAll<HTMLElement>(".cello-tab"));
+  const sheets = Array.from(document.querySelectorAll<HTMLElement>(".cello-sheet"));
+  const nextTab = tabs.find((tab) => tab.getAttribute("data-sheet") === activeSheetName);
+  if (!nextTab) {
+    return;
+  }
+  tabs.forEach((tab) => tab.classList.toggle("active", tab === nextTab));
+  sheets.forEach((sheet) => sheet.classList.toggle("active", sheet.getAttribute("data-sheet") === activeSheetName));
 }
 
 function CopyButton({ copiedTarget, disabled = false, label, onCopy }: { copiedTarget: string; disabled?: boolean; label: string; onCopy: () => void }) {

@@ -234,20 +234,20 @@ Modifier blocks placed **before the first `|`** apply to every cell in that row.
 
 ## 7.1 Persisted Layout Controls
 
-Default layout is normal fixed-width columns and ellipsis rows with one visible line. Native sheet declarations can set sheet defaults:
+Default layout is normal fixed-width columns and auto-height wrapped rows. Native sheet declarations can set sheet defaults:
 
 ```
-@sheet Roadmap [columns:fit][rows:wrap]
 @sheet Compact [columns:normal][rows:ellipsis]
+@sheet FitBoard [columns:fit][rows:wrap]
 ```
 
-Column widths are header modifiers. Values accept presets (`xshort`, `short`, `normal`, `large`, `xlarge`), bare numbers as `ch`, explicit `ch`, explicit `px`, aliases, or `[fit]`.
+Column widths are header modifiers. Values accept presets (`xshort`, `short`, `normal`, `large`, `xlarge`, `xxlarge`), bare numbers as `ch`, explicit `ch`, explicit `px`, aliases, or `[fit]`.
 
 ```
 @header | Status[width:xshort] | Title[width:normal] | Description[fit] |
 ```
 
-Row display controls are row-prefix modifiers. `[wrap]` implies auto height unless `[height:...]` is also present.
+Row display controls are row-prefix modifiers. Rows default to `[wrap][height:auto]`; explicit `[height:...]` limits the visible area.
 
 ```
 [wrap] | ok | Long content |
@@ -263,7 +263,7 @@ Aliases are project-level and namespace-scoped:
 @height note [height:3]
 ```
 
-They are used as `[tone:notes]`, `[width:description]`, and `[height:note]`; bare alias use is invalid. Precedence is column/row modifier, then sheet default, then renderer/editor default.
+They are used as `[tone:notes]`, `[width:description]`, and `[height:note]`; bare alias use is invalid. Precedence is column/row modifier, then sheet default, then renderer/editor default. Height presets are `1`, `2`, `5`, and `auto`.
 
 ---
 

@@ -55,14 +55,14 @@ export function toggleColumnModifier(workbook: EditorWorkbook, sheetIndex: numbe
 export function setSheetColumnsMode(workbook: EditorWorkbook, sheetIndex: number, mode: SheetColumnsMode | undefined): EditorWorkbook {
   return updateSheet(workbook, sheetIndex, (sheet) => ({
     ...sheet,
-    layout: mode === undefined ? withoutLayoutKey(sheet.layout, "columns") : { ...(sheet.layout ?? {}), columns: mode }
+    layout: mode === undefined || mode === "normal" ? withoutLayoutKey(sheet.layout, "columns") : { ...(sheet.layout ?? {}), columns: mode }
   }));
 }
 
 export function setSheetRowsMode(workbook: EditorWorkbook, sheetIndex: number, mode: SheetRowsMode | undefined): EditorWorkbook {
   return updateSheet(workbook, sheetIndex, (sheet) => ({
     ...sheet,
-    layout: mode === undefined ? withoutLayoutKey(sheet.layout, "rows") : { ...(sheet.layout ?? {}), rows: mode }
+    layout: mode === undefined || mode === "wrap" ? withoutLayoutKey(sheet.layout, "rows") : { ...(sheet.layout ?? {}), rows: mode }
   }));
 }
 

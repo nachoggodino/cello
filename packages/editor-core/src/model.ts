@@ -131,6 +131,8 @@ export interface EditorCellStyle {
   fontWeight?: number;
   height?: string;
   maxHeight?: string;
+  maxWidth?: string;
+  minHeight?: string;
   minWidth?: string;
   overflow?: string;
   overflowWrap?: "anywhere";

@@ -45,7 +45,7 @@ describe("render", () => {
     expect(html).toContain("color:red");
     expect(html).toContain('<span class="cello-h2">Big</span>');
     expect(html).toContain('<span class="cello-h1">Bigger</span>');
-    expect(html).toContain('<td style="text-decoration:line-through"><span class="cello-h3">Small</span></td>');
+    expect(html).toContain('<td class="cello-wrap" style="text-decoration:line-through"><span class="cello-cell-content"><span class="cello-h3">Small</span></span></td>');
   });
 
   it("does not render unsafe color modifier values into style attributes", async () => {
@@ -64,25 +64,57 @@ describe("render", () => {
 
     expect(html).toContain("--cello-tone-ok-background");
     expect(html).toContain(".cello-tone-accent { color: var(--cello-tone-accent-color); background: var(--cello-tone-accent-background); }");
-    expect(html).toContain('<th class="cello-tone-accent">Name</th>');
-    expect(html).toContain('<td class="cello-tone-accent cello-tone-muted">muted</td>');
-    expect(html).toContain('<td class="cello-tone-muted cello-tone-ok">ok</td>');
-    expect(html).toContain('<td class="cello-tone-accent cello-tone-warn">warn</td>');
-    expect(html).toContain('<td class="cello-tone-error">error</td>');
-    expect(html).toContain('<td class="cello-tone-accent cello-tone-info" style="background:black">info</td>');
+    expect(html).toContain('<th class="cello-wrap cello-tone-accent"><span class="cello-cell-content">Name</span></th>');
+    expect(html).toContain('<td class="cello-wrap cello-tone-accent cello-tone-muted"><span class="cello-cell-content">muted</span></td>');
+    expect(html).toContain('<td class="cello-wrap cello-tone-muted cello-tone-ok"><span class="cello-cell-content">ok</span></td>');
+    expect(html).toContain('<td class="cello-wrap cello-tone-accent cello-tone-warn"><span class="cello-cell-content">warn</span></td>');
+    expect(html).toContain('<td class="cello-wrap cello-tone-error"><span class="cello-cell-content">error</span></td>');
+    expect(html).toContain('<td class="cello-wrap cello-tone-accent cello-tone-info" style="background:black"><span class="cello-cell-content">info</span></td>');
   });
 
   it("renders layout aliases, column widths, fit columns, and row wrapping", async () => {
     const html = await render(
-      "@tone notes [color:#334155][bg:#f8fafc]\n@width description [width:large]\n@height note [height:3]\n@sheet Roadmap [columns:fit][rows:wrap]\n@header | Status[width:xshort] | Description[width:description] | Fit[fit] |\n[wrap][height:note] | ok[tone:notes] | Long content | Wider content for fit |"
+      "@tone notes [color:#334155][bg:#f8fafc]\n@width description [width:large]\n@height note [height:3]\n@sheet Roadmap [columns:fit][rows:wrap]\n@header | Status[width:xshort] | Description[width:description] | Wide[width:xxlarge] | Fit[fit] |\n[wrap][height:note] | ok[tone:notes] | Long content | Very wide | Wider content for fit |"
     );
 
     expect(html).toContain("width:calc(3ch + 16px)");
     expect(html).toContain("width:calc(36ch + 16px)");
-    expect(html).toContain("cello-wrap cello-line-clamp");
+    expect(html).toContain("width:calc(120ch + 16px)");
+    expect(html).toContain("cello-wrap cello-fixed-height");
     expect(html).toContain("--cello-line-clamp:3");
+    expect(html).toContain("--cello-content-height:60px");
     expect(html).toContain("color:#334155");
     expect(html).toContain("background:#f8fafc");
+  });
+
+  it("fits columns from computed unmerged values including headers and formulas", async () => {
+    const html = await render(
+      "@sheet S [columns:fit]\n@header | Amount[€][2d] | Note | Merged |\n| 12.5 | ok | tiny |\n| =SUM(Amount) | longer literal | very very long merged source | < |\n| 7[%] | < | fit |"
+    );
+
+    expect(html).toContain("table-layout: auto");
+    expect(html).toContain("<colgroup><col style=\"width:36px\"><col><col><col><col></colgroup>");
+    expect(html).toContain("cello-fit-measure-row");
+    expect(html).toContain("€12.50");
+    expect(html).toContain("longer literal");
+    expect(html).not.toContain("width:calc(29ch + 16px)");
+  });
+
+  it("uses formula computed values for fit width", async () => {
+    const html = await render("@sheet S [columns:fit]\n@header | Formula |\n| =10000000000000 |");
+
+    expect(html).toContain("<colgroup><col style=\"width:36px\"><col></colgroup>");
+    expect(html).toContain(">10000000000000<");
+    expect(html).not.toContain("=10000000000000");
+  });
+
+  it("formats formula fit values and keeps only fake modifiers in literal fit values", async () => {
+    const html = await render("@sheet S [columns:fit]\n@header | F | Literal |\n| =SUM(2+2)[$][bold] | hello world[fake][italic] |");
+
+    expect(html).toContain("<colgroup><col style=\"width:36px\"><col><col></colgroup>");
+    expect(html).toContain("$4");
+    expect(html).toContain("hello world[fake]");
+    expect(html).not.toContain("=SUM(2+2)");
   });
 
   it("falls back for unknown layout values and supports multi-line ellipsis clamps", async () => {
@@ -90,7 +122,7 @@ describe("render", () => {
 
     expect(html).toContain("width:calc(12ch + 16px)");
     expect(html).toContain(".cello-ellipsis:not(.cello-line-clamp) .cello-cell-content");
-    expect(html).toContain('class="cello-ellipsis cello-line-clamp"');
+    expect(html).toContain('class="cello-ellipsis cello-fixed-height cello-line-clamp"');
     expect(html).toContain("--cello-line-clamp:3");
     expect(html).toContain("--cello-line-clamp:1");
     expect(html).not.toContain(".cello-ellipsis .cello-cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }");
@@ -103,18 +135,18 @@ describe("render", () => {
         "| Regular | 2[£][0d] | 0.5[2d] | 4.2 |"
     );
 
-    expect(html).toContain("<td >€1</td>");
-    expect(html).toContain("<td >13%</td>");
-    expect(html).toContain("<td >4</td>");
-    expect(html).toContain("<td >£2</td>");
-    expect(html).toContain("<td >50.00%</td>");
+    expect(html).toContain('<span class="cello-cell-content">€1</span>');
+    expect(html).toContain('<span class="cello-cell-content">13%</span>');
+    expect(html).toContain('<span class="cello-cell-content">4</span>');
+    expect(html).toContain('<span class="cello-cell-content">£2</span>');
+    expect(html).toContain('<span class="cello-cell-content">50.00%</span>');
   });
 
   it("renders evaluated column default formulas", async () => {
     const html = await render("@sheet S\n@header | Qty | Price | Total[€][2d] |\n@defaults | | | =Qty*Price |\n| 2 | 3 |\n| 4 | 5 | 99 |");
 
-    expect(html).toContain("<td >€6.00</td>");
-    expect(html).toContain("<td >€99.00</td>");
+    expect(html).toContain('<span class="cello-cell-content">€6.00</span>');
+    expect(html).toContain('<span class="cello-cell-content">€99.00</span>');
     expect(html).not.toContain("@defaults");
   });
 
@@ -123,16 +155,16 @@ describe("render", () => {
       '@sheet S\n@header | Status | Amount |\n@defaults | "Pending" | |\n| | 2 |\n| Done | 3 |\n[bold] | Total | =SUM(Amount)[$][2d] |'
     );
 
-    expect(html).toContain("<td >Pending</td>");
-    expect(html).toContain("<td >Done</td>");
-    expect(html).toContain('<td style="font-weight:700">$5.00</td>');
+    expect(html).toContain('<span class="cello-cell-content">Pending</span>');
+    expect(html).toContain('<span class="cello-cell-content">Done</span>');
+    expect(html).toContain('<td class="cello-wrap" style="font-weight:700"><span class="cello-cell-content">$5.00</span></td>');
   });
 
   it("renders spreadsheet coordinate chrome around sheets", async () => {
     const html = await render("@sheet S\n@header | Name | Amount |\n| Ada | 5 |");
     expect(html).toContain('<thead><tr><th class="cello-corner-index"></th><th class="cello-column-index">A</th><th class="cello-column-index">B</th></tr></thead>');
-    expect(html).toContain('<tr><th class="cello-row-index" scope="row">1</th><th >Name</th><th >Amount</th></tr>');
-    expect(html).toContain('<tr><th class="cello-row-index" scope="row">2</th><td >Ada</td><td >5</td></tr>');
+    expect(html).toContain('<tr><th class="cello-row-index" scope="row">1</th><th class="cello-wrap"><span class="cello-cell-content">Name</span></th><th class="cello-wrap"><span class="cello-cell-content">Amount</span></th></tr>');
+    expect(html).toContain('<tr><th class="cello-row-index" scope="row">2</th><td class="cello-wrap"><span class="cello-cell-content">Ada</span></td><td class="cello-wrap"><span class="cello-cell-content">5</span></td></tr>');
   });
 
   it("extends column letters to rendered row width", async () => {
@@ -149,8 +181,8 @@ describe("render", () => {
 
   it("can render formula text without evaluation", async () => {
     const html = await render("@sheet S\n| 1 | 2 | =A1+B1 |", { evaluate: false });
-    expect(html).toContain("<td >=A1+B1</td>");
-    expect(html).not.toContain("<td >3</td>");
+    expect(html).toContain('<span class="cello-cell-content">=A1+B1</span>');
+    expect(html).not.toContain('<span class="cello-cell-content">3</span>');
   });
 
   it("can render a non-interactive document without scripts", async () => {
