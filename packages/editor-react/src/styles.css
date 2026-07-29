@@ -853,52 +853,43 @@
   background: rgba(255, 250, 244, 0.34);
 }
 
-.celloVisualValueOptions button.celloVisualTone-ok,
-.celloVisualTone-ok,
-.celloVisualTone-ok input,
-.celloVisualTone-ok textarea {
-  color: var(--cello-tone-ok-color, #166534);
-  background: var(--cello-tone-ok-background, #dcfce7);
+.celloVisualValueOptions button.celloVisualTone,
+.celloVisualTone,
+.celloVisualTone input,
+.celloVisualTone textarea,
+.celloVisualGrid td.celloVisualTone {
+  color: var(--cello-visual-tone-color);
+  background: var(--cello-visual-tone-background);
 }
 
-.celloVisualValueOptions button.celloVisualTone-warn,
-.celloVisualTone-warn,
-.celloVisualTone-warn input,
-.celloVisualTone-warn textarea {
-  color: var(--cello-tone-warn-color, #9a3412);
-  background: var(--cello-tone-warn-background, #ffedd5);
+.celloVisualTone-ok {
+  --cello-visual-tone-color: var(--cello-tone-ok-color, #166534);
+  --cello-visual-tone-background: var(--cello-tone-ok-background, #dcfce7);
 }
 
-.celloVisualValueOptions button.celloVisualTone-error,
-.celloVisualTone-error,
-.celloVisualTone-error input,
-.celloVisualTone-error textarea {
-  color: var(--cello-tone-error-color, #991b1b);
-  background: var(--cello-tone-error-background, #fee2e2);
+.celloVisualTone-warn {
+  --cello-visual-tone-color: var(--cello-tone-warn-color, #9a3412);
+  --cello-visual-tone-background: var(--cello-tone-warn-background, #ffedd5);
 }
 
-.celloVisualValueOptions button.celloVisualTone-info,
-.celloVisualTone-info,
-.celloVisualTone-info input,
-.celloVisualTone-info textarea {
-  color: var(--cello-tone-info-color, #1d4ed8);
-  background: var(--cello-tone-info-background, #dbeafe);
+.celloVisualTone-error {
+  --cello-visual-tone-color: var(--cello-tone-error-color, #991b1b);
+  --cello-visual-tone-background: var(--cello-tone-error-background, #fee2e2);
 }
 
-.celloVisualValueOptions button.celloVisualTone-muted,
-.celloVisualTone-muted,
-.celloVisualTone-muted input,
-.celloVisualTone-muted textarea {
-  color: var(--cello-tone-muted-color, #475569);
-  background: var(--cello-tone-muted-background, #e2e8f0);
+.celloVisualTone-info {
+  --cello-visual-tone-color: var(--cello-tone-info-color, #1d4ed8);
+  --cello-visual-tone-background: var(--cello-tone-info-background, #dbeafe);
 }
 
-.celloVisualValueOptions button.celloVisualTone-accent,
-.celloVisualTone-accent,
-.celloVisualTone-accent input,
-.celloVisualTone-accent textarea {
-  color: var(--cello-tone-accent-color, #6d28d9);
-  background: var(--cello-tone-accent-background, #ede9fe);
+.celloVisualTone-muted {
+  --cello-visual-tone-color: var(--cello-tone-muted-color, #475569);
+  --cello-visual-tone-background: var(--cello-tone-muted-background, #e2e8f0);
+}
+
+.celloVisualTone-accent {
+  --cello-visual-tone-color: var(--cello-tone-accent-color, #6d28d9);
+  --cello-visual-tone-background: var(--cello-tone-accent-background, #ede9fe);
 }
 
 .celloVisualGrid input::selection,
@@ -906,6 +897,7 @@
   background: var(--cello-visual-accent-selection);
 }
 
+.celloVisualHeaderRow .celloVisualCellDisplay,
 .celloVisualHeaderRow input,
 .celloVisualHeaderRow textarea {
   font-weight: var(--cello-visual-font-weight-heavy);

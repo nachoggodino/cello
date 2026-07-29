@@ -52,12 +52,13 @@ The visual editor treats each native Cello sheet as a finite table:
 - The grid contains the source row count and the maximum source column count.
 - Ragged source rows render blank intersections inside that rectangle.
 - No viewport padding, append row, or append column is generated.
-- Empty sheets show an empty state; adding the first row creates a one-cell row.
+- Native sheets without an `@header` show one virtual header/default configuration row. These rows are materialized in source only after receiving content or column formatting.
+- An untouched empty sheet remains only an `@sheet` declaration in source; adding the first data row creates a one-cell row while keeping the virtual configuration rows available.
 - Rows and columns are added only through explicit toolbar commands.
 
-Single click selects a cell and double-click enters in-cell editing. Printable typing replaces the active cell. F2 edits the existing value. While editing, arrow keys commit and move to the adjacent cell; Enter commits and moves down; Escape cancels. Navigation stops at the table boundary.
+Single click selects a cell and double-click enters pointer editing at the clicked caret position. Printable typing replaces the active cell, while F2 edits the existing value. Left and Right move the caret during pointer editing; replacement editing keeps spreadsheet-style arrow commit-and-move behavior. Enter commits and moves down, Tab commits horizontally, and Escape cancels. Navigation stops at the table boundary and focus returns to the grid after a commit.
 
-Shift-click, Shift+Arrow, and pointer dragging extend a rectangular selection. Row and column identifiers select source-bounded rows and columns. Cell formatting applies to the selected cell rectangle, while row and column selections use Cello row and column modifiers.
+Shift-click, Shift+Arrow, and pointer dragging extend a rectangular selection. Row and column identifiers select source-bounded rows and columns. Formatting scope is derived from the selection: ordinary rectangles use cell modifiers, row selections use row modifiers, and column or semantic header selections use column modifiers.
 
 The editor address tag reports cells (`Report!B3`), ranges (`Report!B3:D8`), rows (`Report!3:8`), and columns (`Report!B:D`).
 

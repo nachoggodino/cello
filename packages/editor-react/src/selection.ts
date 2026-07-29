@@ -6,7 +6,8 @@ import {
 import type {
   CellAddress,
   CellRange,
-  EditorSheet
+  EditorSheet,
+  ModifierScope
 } from "@nachoggodino/cello/editor-core";
 
 export type SelectionKind = "cells" | "rows" | "columns" | "default";
@@ -37,6 +38,38 @@ export function getSelectionRange(selection: GridSelection, rowCount: number, co
     startCol,
     endCol
   };
+}
+
+export function resolveModifierScope(
+  selection: GridSelection,
+  range: CellRange,
+  sheet: EditorSheet,
+  rowCount: number,
+  columnCount: number
+): ModifierScope {
+  if (selection.kind === "rows") {
+    return "row";
+  }
+  if (selection.kind === "columns") {
+    return "column";
+  }
+  if (selection.kind !== "cells") {
+    return "cell";
+  }
+
+  const hasRangeExtent = selection.anchor.rowIndex !== selection.active.rowIndex ||
+    selection.anchor.colIndex !== selection.active.colIndex;
+  const coversEveryRow = rowCount > 0 && range.startRow === 0 && range.endRow === rowCount - 1;
+  const coversEveryColumn = columnCount > 0 && range.startCol === 0 && range.endCol === columnCount - 1;
+  if (hasRangeExtent && coversEveryRow && !coversEveryColumn) {
+    return "column";
+  }
+  if (hasRangeExtent && coversEveryColumn && !coversEveryRow) {
+    return "row";
+  }
+
+  const selectedRows = sheet.rows.slice(range.startRow, range.endRow + 1);
+  return selectedRows.length === 1 && selectedRows[0]?.kind === "header" ? "column" : "cell";
 }
 
 export function expandRangeForMergedCells(sheet: EditorSheet, initial: CellRange): CellRange {

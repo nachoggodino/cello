@@ -118,13 +118,11 @@ export function App() {
     <div className="appShell">
       <Topbar currentPage={page} syntaxOpen={syntaxOpen} onNavigate={navigateToPage} onToggleSyntax={() => setSyntaxOpen((open) => !open)} />
 
-      <div className="mobileControls">
-        <div className="mobilePageSwitch" role="tablist" aria-label="Playground pages">
-          <button type="button" role="tab" aria-selected={page === "source"} className={page === "source" ? "active" : ""} onClick={() => navigateToPage("source")}>Source</button>
-          <button type="button" role="tab" aria-selected={page === "visual"} className={page === "visual" ? "active" : ""} onClick={() => navigateToPage("visual")}>Visual</button>
+      {page === "source" ? (
+        <div className="mobileControls">
+          <MobileSwitch activePanel={mobilePanel} onChange={setMobilePanel} />
         </div>
-        {page === "source" && <MobileSwitch activePanel={mobilePanel} onChange={setMobilePanel} />}
-      </div>
+      ) : null}
 
       {page === "source" ? (
         <>

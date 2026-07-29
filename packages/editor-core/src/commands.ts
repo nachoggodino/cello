@@ -17,6 +17,26 @@ export function updateCellSource(workbook: EditorWorkbook, address: CellAddress,
   return updateCell(workbook, address, () => parsed);
 }
 
+export function updateCellContentSource(workbook: EditorWorkbook, address: CellAddress, source: string): EditorWorkbook {
+  return updateCell(workbook, address, (cell) => {
+    const parsed = parseCellSource(source);
+    if (parsed.modifiers.length === 0) {
+      return {
+        ...cell,
+        raw: source,
+        modifiers: isMergeToken(source) ? [] : cell.modifiers
+      };
+    }
+    const incomingKeys = new Set(parsed.modifiers.map((modifier) => modifier.key));
+    return {
+      raw: parsed.raw,
+      modifiers: isMergeToken(parsed.raw)
+        ? []
+        : [...cell.modifiers.filter((modifier) => !incomingKeys.has(modifier.key)), ...parsed.modifiers]
+    };
+  });
+}
+
 export function updateDefaultCellSource(workbook: EditorWorkbook, sheetIndex: number, colIndex: number, source: string): EditorWorkbook {
   const parsed = parseCellSource(source);
   return updateSheet(workbook, sheetIndex, (sheet) => ({

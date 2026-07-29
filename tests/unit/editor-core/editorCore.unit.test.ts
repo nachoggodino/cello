@@ -56,6 +56,7 @@ import {
   toggleColumnModifier,
   toggleRowModifier,
   toggleRowWrap,
+  updateCellContentSource,
   updateDefaultCellSource,
   updateCellRaw,
   updateCellSource
@@ -181,6 +182,16 @@ describe("editor core", () => {
     expect(getCellModifierSourceText(selected)).toBe("[bold][color:#123456]");
     expect(composeCellSource(getCellContentText(selected), getCellModifierSourceText(selected))).toBe("\"123\"[bold][color:#123456]");
     expect(getCellDisplayText(selected)).toBe("\"123\"");
+  });
+
+  it("moves recognized trailing content modifiers into reusable cell metadata", () => {
+    const workbook = createEditorWorkbook("@sheet Report\n| Ada[italic][color:red] | =A1[bold] |");
+    const updatedText = updateCellContentSource(workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 }, "Ada Lovelace[bold][color:blue]");
+    const updatedFormula = updateCellContentSource(updatedText, { sheetIndex: 0, rowIndex: 0, colIndex: 1 }, "=SUM(A1[1:2])");
+
+    expect(serializeEditorWorkbook(updatedFormula)).toBe(
+      "@sheet Report\n| Ada Lovelace[italic][bold][color:blue] | =SUM(A1[1:2])[bold] |"
+    );
   });
 
   it("parses source text modifiers and merge tokens", () => {

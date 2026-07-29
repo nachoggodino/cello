@@ -30,6 +30,7 @@
 
   .topbar {
     align-items: center;
+    flex-wrap: wrap;
     min-height: var(--topbar-mobile-min-height);
   }
 
@@ -57,6 +58,13 @@
   }
 
   .topbarNav {
+    display: flex;
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .topbarNav > :not(.topbarPageLink) {
     display: none;
   }
 

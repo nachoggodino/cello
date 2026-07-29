@@ -53,6 +53,17 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada Lovelace[bold][color:#123456] | 5 |");
   });
 
+  it("routes trailing modifiers from the top editor into the modifier editor", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n| Ada[italic] |", onSourceChange);
+
+    changeInput(screenTextArea("Selected cell source"), "Ada Lovelace[bold]");
+
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada Lovelace[italic][bold] |");
+    expect(screenTextArea("Selected cell source").value).toBe("Ada Lovelace");
+    expect(screenInput("Modifiers").value).toBe("[italic][bold]");
+  });
+
   it("applies toolbar commands through editor-core serialization", async () => {
     const onSourceChange = vi.fn();
     renderEditor("@sheet Report\n| Ada | 5 |\n| Ops | 2 |", onSourceChange);
@@ -129,8 +140,7 @@ describe("CelloVisualEditor", () => {
     const onSourceChange = vi.fn();
     renderEditor("@sheet Report\n| Ada | 5 |\n| Ops | 2 |", onSourceChange);
 
-    clickElement(screenCell("A2"));
-    clickTab("row");
+    clickElement(screenRowHeader(2));
     clickButton("Italic");
     changeInput(screenColorInput(0), "#111111");
     clickButton("Merge with top");
@@ -160,6 +170,7 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1][tone:ok] |");
     expect(screenButton("Tone").textContent).toBe("Tone: ok");
     expect(screenButton("Tone").className).toContain("celloVisualTone-ok");
+    expect(screenCell("B2").className).toContain("celloVisualTone");
 
     clickButton("Tone");
     expect(document.querySelector(".celloVisualValueOptions .celloVisualTone-ok")?.getAttribute("aria-checked")).toBe("true");
@@ -179,11 +190,11 @@ describe("CelloVisualEditor", () => {
     renderEditor("@sheet Report\n| Ada |", onSourceChange);
 
     clickElement(screenCell("A1"));
-    clickButton("H1");
+    clickButton("Large heading");
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| ## Ada |");
-    expect(screenButton("H1").className).toContain("active");
+    expect(screenButton("Large heading").className).toContain("active");
 
-    clickButton("H1");
+    clickButton("Large heading");
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Ada |");
 
     doubleClickButton("Strikethrough");
@@ -223,7 +234,7 @@ describe("CelloVisualEditor", () => {
     expect(screenButton("New column").disabled).toBe(false);
     onSourceChange.mockClear();
     clickButton("Bold");
-    clickButton("H1");
+    clickButton("Large heading");
     doubleClickButton("Strikethrough");
 
     expect(onSourceChange).not.toHaveBeenCalled();
@@ -272,7 +283,7 @@ describe("CelloVisualEditor", () => {
     expect(document.querySelector(".celloVisualEditorShell.hostEditor")).toBeTruthy();
     expect(document.querySelector("[aria-label='Toolbar']")).toBeTruthy();
     expect(document.querySelector("[aria-label='Workbook']")).toBeTruthy();
-    expect(document.querySelector("[aria-label='Scope picker']")).toBeTruthy();
+    expect(document.querySelector("[aria-label='Scope picker']")).toBeNull();
     expect(document.querySelector("[aria-label='Sheets list']")).toBeTruthy();
     expect(document.body.textContent).toContain("Heading");
     expect(document.body.textContent).toContain("No modifiers");
@@ -380,7 +391,7 @@ describe("CelloVisualEditor", () => {
 
     clickElement(screenCell("B1"));
 
-    expect(document.querySelector("textarea[aria-label='B1']")).toBeNull();
+    expect(screenTextArea("B1").readOnly).toBe(true);
     expect(screenCellText("B1")).toBe("=SUM(1+1)");
     expect(document.querySelector("td[aria-selected='true'][aria-label='B1']")).toBeTruthy();
   });
@@ -394,7 +405,7 @@ describe("CelloVisualEditor", () => {
     expect(screenInput("A1").value).toBe("Ada");
 
     pressKey(screenInput("A1"), "Escape");
-    expect(document.querySelector("textarea[aria-label='A1']")).toBeNull();
+    expect(screenTextArea("A1").readOnly).toBe(true);
     expect(screenCellText("A1")).toBe("Ada");
 
     pressKey(screenCell("A1"), "Z");
@@ -404,15 +415,20 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Z | 5 |");
   });
 
-  it("commits edited cells when moving with arrow keys", async () => {
+  it("keeps horizontal arrows inside pointer editing and commits typed replacement with arrows", async () => {
     const onSourceChange = vi.fn();
     renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
 
     const editor = editCell("A1");
     changeInput(editor, "Grace");
     pressKey(editor, "ArrowRight");
+    expect(onSourceChange).not.toHaveBeenCalled();
 
-    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Grace | 5 |");
+    pressKey(editor, "Enter");
+    pressKey(screenCell("A1"), "Z");
+    const replacement = screenTextArea("A1");
+    pressKey(replacement, "ArrowRight");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| Z | 5 |");
   });
 
   it("extends selected ranges with shift arrows and copies TSV", async () => {
@@ -451,6 +467,7 @@ describe("CelloVisualEditor", () => {
     expect(document.querySelector(".celloVisualCellAddress")?.textContent).toBe("Report!B:B");
     expect(document.querySelectorAll("td[aria-selected='true']")).toHaveLength(2);
     expect(screenColumnHeader("B").classList.contains("activeHeader")).toBe(true);
+    expect(Array.from(document.querySelectorAll(".celloVisualRowHeader")).every((header) => !header.classList.contains("selectedHeader"))).toBe(true);
   });
 
   it("uses structural column modifiers for column selections", async () => {
@@ -461,6 +478,19 @@ describe("CelloVisualEditor", () => {
     clickButton("Bold");
 
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header |  | [bold] |\n| A | B |\n| C | D |");
+  });
+
+  it("treats semantic header cells and column identifiers as the same modifier target", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n@header | Name | Amount |\n| Ada | 5 |", onSourceChange);
+
+    clickElement(screenCell("B1"));
+    clickButton("Bold");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name | Amount[bold] |\n| Ada | 5 |");
+
+    clickElement(screenColumnHeader("B"));
+    clickButton("Bold");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name | Amount |\n| Ada | 5 |");
   });
 
   it("expands selections to cover complete merged cells", async () => {
@@ -536,6 +566,45 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| AdaXY |");
   });
 
+  it("leaves pointer-edit caret keys and pointer events under textarea control", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n| Ada |", onSourceChange);
+
+    const editor = editCell("A1");
+    editor.setSelectionRange(1, 1);
+    const pointerAccepted = editor.dispatchEvent(new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+      detail: 1
+    }));
+    const arrowAccepted = editor.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "ArrowLeft",
+      bubbles: true,
+      cancelable: true
+    }));
+
+    expect(pointerAccepted).toBe(true);
+    expect(arrowAccepted).toBe(true);
+    expect(editor.readOnly).toBe(false);
+    expect(onSourceChange).not.toHaveBeenCalled();
+  });
+
+  it("restores grid focus after committing and continues keyboard navigation", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report\n| A | B |\n| C | D |", onSourceChange);
+
+    const editor = editCell("A1");
+    changeInput(editor, "Edited");
+    pressKey(editor, "Enter");
+
+    const grid = document.querySelector<HTMLElement>("[role='grid']");
+    expect(document.activeElement).toBe(grid);
+    pressKey(grid!, "ArrowRight");
+    expect(document.querySelector(".celloVisualCellAddress")?.textContent).toBe("Report!B2");
+    pressKey(grid!, "Enter");
+    expect(document.querySelector(".celloVisualCellAddress")?.textContent).toBe("Report!B2");
+  });
+
   it("clears selected content without removing modifiers", async () => {
     const onSourceChange = vi.fn();
     renderEditor("@sheet Report\n| Ada[bold] | 5 |", onSourceChange);
@@ -546,17 +615,35 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| [bold] | 5 |");
   });
 
-  it("shows an empty state until the first row is explicitly added", async () => {
+  it("shows non-persisted header and defaults scaffolding for empty sheets", async () => {
     const onSourceChange = vi.fn();
     renderEditor("@sheet Report", onSourceChange);
 
-    expect(document.querySelector(".celloVisualEmptySheet")).toBeTruthy();
+    expect(screenInput("Header A")).toBeTruthy();
+    expect(screenInput("Defaults A")).toBeTruthy();
     expect(screenButton("New column").disabled).toBe(true);
+    expect(onSourceChange).not.toHaveBeenCalled();
 
     clickButton("New row");
 
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n|  |");
+    expect(screenInput("Header A")).toBeTruthy();
+    expect(screenInput("Defaults A")).toBeTruthy();
     expect(screenCell("A1")).toBeTruthy();
+  });
+
+  it("materializes scaffold rows only after they receive content", async () => {
+    const onSourceChange = vi.fn();
+    renderEditor("@sheet Report", onSourceChange);
+
+    const header = screenInput("Header A");
+    focusInput(header);
+    changeInput(header, "Name");
+    act(() => header.blur());
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name |");
+
+    changeInput(screenInput("Defaults A"), "Pending");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n@header | Name |\n@defaults | Pending |");
   });
 
   it("pastes TSV ranges and supports undo and redo", async () => {

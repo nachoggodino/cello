@@ -91,6 +91,7 @@ export {
   toggleColumnFit,
   toggleRowWrap,
   toggleRowModifier,
+  updateCellContentSource,
   updateDefaultCellSource,
   updateColumnModifierSource,
   updateCellRaw,
