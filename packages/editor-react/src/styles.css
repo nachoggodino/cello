@@ -195,8 +195,7 @@
   line-height: var(--cello-visual-control-height);
 }
 
-.celloVisualButton,
-.celloVisualScopeSwitch button {
+.celloVisualButton {
   height: var(--cello-visual-control-height);
   padding-inline: var(--cello-visual-space-8);
   border: 1px solid var(--cello-visual-line);
@@ -210,22 +209,13 @@
 }
 
 .celloVisualButton:hover,
-.celloVisualButton.active,
-.celloVisualScopeSwitch button:hover,
-.celloVisualScopeSwitch button.active {
+.celloVisualButton.active {
   border-color: var(--cello-visual-accent-border);
   color: var(--cello-visual-accent-dark);
   background: var(--cello-visual-control-strong);
 }
 
-.celloVisualScopeSwitch button.active {
-  border-color: var(--cello-visual-accent);
-  color: var(--cello-visual-warm-white);
-  background: var(--cello-visual-accent);
-}
-
 .celloVisualButton:focus-visible,
-.celloVisualScopeSwitch button:focus-visible,
 .celloVisualFormulaInput:focus-visible,
 .celloVisualSheetNameInput:focus-visible,
 .celloVisualGrid input:focus-visible,
@@ -448,21 +438,6 @@
   color: var(--cello-visual-muted);
 }
 
-.celloVisualScopeSwitch {
-  gap: 0;
-  padding: 0;
-  border: 1px solid var(--cello-visual-line);
-  border-radius: var(--cello-visual-radius-switch);
-  background: var(--cello-visual-control);
-}
-
-.celloVisualScopeSwitch button {
-  min-width: 74px;
-  border-color: transparent;
-  background: transparent;
-  text-transform: capitalize;
-}
-
 .celloVisualColorTool {
   position: relative;
   display: inline-grid;
@@ -492,42 +467,6 @@
   border: 0;
   opacity: 0;
   cursor: pointer;
-}
-
-.celloVisualInputTool,
-.celloVisualSelectTool {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--cello-visual-space-4);
-  height: var(--cello-visual-control-height);
-  padding-inline: var(--cello-visual-space-6);
-  border: 1px solid var(--cello-visual-line);
-  border-radius: var(--cello-visual-radius-control);
-  background: var(--cello-visual-control);
-}
-
-.celloVisualInputTool span,
-.celloVisualSelectTool span {
-  color: var(--cello-visual-muted);
-  font-size: var(--cello-visual-font-size-label);
-  font-weight: var(--cello-visual-font-weight-heavy);
-  letter-spacing: 0;
-}
-
-.celloVisualInputTool input,
-.celloVisualSelectTool select {
-  width: 78px;
-  height: 24px;
-  padding-inline: var(--cello-visual-space-4);
-  border-radius: var(--cello-visual-radius-control);
-  background: var(--cello-visual-input);
-  font-family: var(--cello-visual-font-code);
-  font-size: var(--cello-visual-font-size-small);
-}
-
-.celloVisualSelectTool select {
-  width: 92px;
-  font-family: var(--cello-visual-font-ui);
 }
 
 .celloVisualSourceButton {

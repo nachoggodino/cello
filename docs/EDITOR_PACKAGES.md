@@ -45,6 +45,21 @@ export function Editor({ source, onChange }: { source: string; onChange: (source
 
 The component is designed for app hosts that own source persistence. It emits updated `.cel` text through `onSourceChange`; callers decide when and where to save it.
 
+### React editor internals
+
+The React adapter keeps its public component API small while separating internal
+responsibilities by change axis:
+
+- `components/` contains toolbar, sheet-tab, grid-row, and reusable control views.
+- `hooks/` owns asynchronous evaluation and source-history lifecycles.
+- `interactions/` translates grid keyboard and pointer behavior into editor actions.
+- `selection.ts` and `derivedSelection.ts` contain React-independent selection logic.
+- `fitColumns.ts` and `textPresentation.tsx` isolate DOM measurement and display formatting.
+- `types.ts` and `labels.ts` define the public host contract and default copy.
+
+Workbook mutations remain in `editor-core`; React modules coordinate those commands
+but do not duplicate parsing, serialization, or source-patching rules.
+
 ### Visual editor interaction model
 
 The visual editor treats each native Cello sheet as a finite table:
