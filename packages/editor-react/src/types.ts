@@ -1,7 +1,8 @@
 import type {
   CreateEditorWorkbookOptions,
   EditorCommandFailure,
-  EditorDocument
+  EditorDocument,
+  EditorSession
 } from "@nachoggodino/cello/editor-core";
 
 export interface CelloVisualEditorLabels {
@@ -52,15 +53,34 @@ export interface CelloVisualEditorLabels {
   height: string;
 }
 
-export interface CelloVisualEditorProps {
-  source: string;
-  onSourceChange: (source: string) => void;
-  activeSheetName?: string;
+interface CelloVisualEditorBaseProps {
+  baseDir?: CreateEditorWorkbookOptions["baseDir"];
   className?: string;
   labels?: Partial<CelloVisualEditorLabels>;
-  onActiveSheetChange?: (sheetName: string) => void;
   onRequestSourceView?: () => void;
   onCommandFailure?: (failure: EditorCommandFailure) => void;
   onDiagnosticsChange?: (diagnostics: EditorDocument["diagnostics"]) => void;
   readExternalSource?: CreateEditorWorkbookOptions["readExternalSource"];
+  sourceLayout?: CreateEditorWorkbookOptions["sourceLayout"];
+  strict?: CreateEditorWorkbookOptions["strict"];
 }
+
+export interface ControlledCelloVisualEditorProps extends CelloVisualEditorBaseProps {
+  source: string;
+  onSourceChange: (source: string) => void;
+  activeSheetName?: string;
+  onActiveSheetChange?: (sheetName: string) => void;
+  session?: never;
+}
+
+export interface SessionCelloVisualEditorProps extends CelloVisualEditorBaseProps {
+  session: EditorSession;
+  onActiveSheetChange?: (sheetName: string) => void;
+  source?: never;
+  onSourceChange?: never;
+  activeSheetName?: never;
+}
+
+export type CelloVisualEditorProps =
+  | ControlledCelloVisualEditorProps
+  | SessionCelloVisualEditorProps;

@@ -111,9 +111,10 @@ function handleNavigationKey(
     return;
   }
   if (isMeta && key === "v") {
-    if (navigator.clipboard?.readText) {
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (clipboard) {
       event.preventDefault();
-      void navigator.clipboard
+      void clipboard
         .readText()
         .then(actions.paste)
         .catch(() => undefined);

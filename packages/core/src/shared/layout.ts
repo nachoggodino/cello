@@ -225,25 +225,29 @@ function removeParsedTrailingModifiers(raw: string, modifiers: Modifier[]): stri
   return value;
 }
 
+const REAL_CELL_MODIFIER_KEYS = new Set([
+  "bold",
+  "italic",
+  "strike",
+  "hidden",
+  "%",
+  "€",
+  "$",
+  "£",
+  "tone",
+  "bg",
+  "bgfg",
+  "color"
+]);
+
 function isRealCellModifier(modifier: Modifier): boolean {
   return (
-    modifier.key === "bold" ||
-    modifier.key === "italic" ||
-    modifier.key === "strike" ||
-    modifier.key === "hidden" ||
-    modifier.key === "%" ||
-    modifier.key === "€" ||
-    modifier.key === "$" ||
-    modifier.key === "£" ||
-    modifier.key === "tone" ||
-    modifier.key === "bg" ||
-    modifier.key === "bgfg" ||
-	    modifier.key === "color" ||
-	    modifier.key.startsWith("#") ||
-	    /^\d+d$/.test(modifier.key) ||
-	    isLayoutModifierKey(modifier.key) ||
-	    isNamedColorModifier(modifier.key)
-	  );
+    REAL_CELL_MODIFIER_KEYS.has(modifier.key) ||
+    modifier.key.startsWith("#") ||
+    /^\d+d$/.test(modifier.key) ||
+    isLayoutModifierKey(modifier.key) ||
+    isNamedColorModifier(modifier.key)
+  );
 }
 
 export function isSheetColumnsMode(value: string | undefined): value is "normal" | "fit" {

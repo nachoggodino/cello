@@ -28,6 +28,18 @@ export type {
 export type { CreateEditorWorkbookOptions } from "./options.js";
 export type { EvaluateEditorWorkbookOptions } from "./evaluation.js";
 export type { CellRange } from "./ranges.js";
+export type { EditorCommandTarget, EditorDocumentCommand } from "./document-command-model.js";
+export type {
+  CreateEditorSessionOptions,
+  EditorHistoryRecording,
+  EditorSession,
+  EditorSessionCommandOptions,
+  EditorSessionHistoryState,
+  EditorSessionMode,
+  EditorSessionSnapshot,
+  EditorSessionSourceOptions,
+  EditorSessionSourceResult
+} from "./session-model.js";
 
 export { TEXT_TONES } from "./model.js";
 export {
@@ -37,8 +49,10 @@ export {
 } from "./options.js";
 export { createBlankCell, createBlankRow, createBlankSheet, createEditorWorkbook, createHeaderRow } from "./workbook.js";
 export { applyWorkbookPatch, createEditorDocument } from "./document.js";
+export { executeEditorCommand } from "./execute-command.js";
+export { createEditorSession } from "./session.js";
+export { formatEditorDocument } from "./layout.js";
 export { composeCellSource, getCellContentText, getCellModifierSourceText, getCellSourceText, isMergeToken, parseCellSource, toBaseRaw } from "./source.js";
-export { serializeEditorWorkbook } from "./serialization.js";
 export {
   getCellAt,
   getCellDisplayText,

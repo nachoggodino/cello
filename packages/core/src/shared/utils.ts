@@ -197,7 +197,7 @@ export function splitDelimitedLine(line: string, delimiter: string): string[] {
       continue;
     }
 
-    current += ch;
+    current += ch ?? "";
   }
   output.push(current);
   return output;

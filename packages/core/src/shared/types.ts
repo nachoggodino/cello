@@ -85,6 +85,54 @@ export interface WorkbookAst {
   diagnostics: Diagnostic[];
 }
 
+export interface CelloSourceSpan {
+  start: number;
+  end: number;
+}
+
+export interface CelloCellSourceLocation {
+  span: CelloSourceSpan;
+  tokenSpan: CelloSourceSpan;
+  sourceKind: "explicit-value" | "explicit-empty" | "omitted";
+  valueOrigin: "explicit" | "empty" | "default-derived" | "absent";
+  defaultSpan?: CelloSourceSpan;
+}
+
+export interface CelloRowSourceLocation {
+  line: number;
+  sourceKind: "row" | "header" | "defaults";
+  lineSpan: CelloSourceSpan;
+  cells: CelloCellSourceLocation[];
+}
+
+export interface CelloSheetSourceLocation {
+  declaration?: {
+    line: number;
+    lineSpan: CelloSourceSpan;
+    nameSpan: CelloSourceSpan;
+  };
+  sheetSpan: CelloSourceSpan;
+  rows: CelloRowSourceLocation[];
+  defaults?: CelloRowSourceLocation;
+  externalSources: Array<{
+    path: string;
+    line: number;
+    lineSpan: CelloSourceSpan;
+  }>;
+  editable: boolean;
+  format: SheetFormat;
+}
+
+export interface CelloSourceMap {
+  sheets: CelloSheetSourceLocation[];
+}
+
+export interface ParsedCelloDocument {
+  source: string;
+  workbook: WorkbookAst;
+  sourceMap: CelloSourceMap;
+}
+
 export interface ParseOptions {
   strict?: boolean;
   anonymousSheetName?: string;

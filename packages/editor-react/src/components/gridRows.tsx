@@ -16,13 +16,13 @@ import {
   getVisualCellContentStyle,
   getVisualCellSpan,
   getVisualCellStyle,
-  isAddressInRange,
-  updateDefaultCellSource
+  isAddressInRange
 } from "@nachoggodino/cello/editor-core";
 import type {
   CellAddress,
   CellRange,
   ComputedCellValues,
+  EditorDocumentCommand,
   EditorSheet,
   EditorWorkbook
 } from "@nachoggodino/cello/editor-core";
@@ -70,7 +70,7 @@ export function VisualConfigurationScaffold({
               aria-label={`Header ${getColumnName(colIndex)}`}
               defaultValue=""
               onBlur={(event) =>
-                onHeaderCommit(colIndex, event.currentTarget.value)
+                { onHeaderCommit(colIndex, event.currentTarget.value); }
               }
               onKeyDown={blurOnEnter}
             />
@@ -87,7 +87,7 @@ export function VisualConfigurationScaffold({
               aria-label={`Defaults ${getColumnName(colIndex)}`}
               defaultValue=""
               onBlur={(event) =>
-                onDefaultCommit(colIndex, event.currentTarget.value)
+                { onDefaultCommit(colIndex, event.currentTarget.value); }
               }
               onKeyDown={blurOnEnter}
             />
@@ -103,7 +103,7 @@ export function VisualDataRows({
   activeSheetIndex,
   aliases,
   computedValues,
-  commit,
+  commitCommand,
   commitEditingDraft,
   completedEditRef,
   draftCell,
@@ -129,7 +129,7 @@ export function VisualDataRows({
   activeSheetIndex: number;
   aliases: EditorWorkbook["aliases"];
   computedValues: ComputedCellValues;
-  commit: (update: (current: EditorWorkbook) => EditorWorkbook) => boolean;
+  commitCommand: (command: EditorDocumentCommand) => boolean;
   commitEditingDraft: () => boolean;
   completedEditRef: RefObject<string | null>;
   draftCell: DraftCell;
@@ -194,7 +194,7 @@ export function VisualDataRows({
             ? "selectedRow"
             : ""
         ].filter(Boolean).join(" ")}
-        onClick={(event) => selectRow(rowIndex, event.shiftKey)}
+        onClick={(event) => { selectRow(rowIndex, event.shiftKey); }}
       >
         <span>{rowIndex + 1}</span>
         {activeSheet.rows[rowIndex]?.kind === "header" ? (
@@ -320,7 +320,7 @@ export function VisualDataRows({
                 selectCell(rowIndex, colIndex, event.shiftKey);
               }
             }}
-            onDoubleClick={() => enterEditMode(address, "pointer")}
+            onDoubleClick={() => { enterEditMode(address, "pointer"); }}
           >
             <div
               className={[
@@ -404,17 +404,15 @@ export function VisualDataRows({
               <input
                 aria-label={`Defaults ${getColumnName(colIndex)}`}
                 value={getCellSourceText(cell)}
-                onFocus={() => selectDefaultCell(colIndex)}
+                onFocus={() => { selectDefaultCell(colIndex); }}
                 onChange={(event) => {
                   selectDefaultCell(colIndex);
-                  commit((current) =>
-                    updateDefaultCellSource(
-                      current,
-                      activeSheetIndex,
-                      colIndex,
-                      event.target.value
-                    )
-                  );
+                  commitCommand({
+                    type: "update-default",
+                    sheetIndex: activeSheetIndex,
+                    colIndex,
+                    source: event.target.value
+                  });
                 }}
               />
             </td>

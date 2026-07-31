@@ -142,7 +142,7 @@ function inlineClipboardStyles(originalRoot: Element, cloneRoot: Element): void 
 }
 
 function stripPresentationChrome(table: HTMLTableElement): void {
-  table.querySelectorAll(".cello-corner-index, .cello-column-index, .cello-row-index").forEach((node) => node.remove());
+  table.querySelectorAll(".cello-corner-index, .cello-column-index, .cello-row-index").forEach((node) => { node.remove(); });
   table.querySelector("colgroup col")?.remove();
   table.querySelectorAll("tr").forEach((row) => {
     if (row.children.length === 0) {
@@ -164,7 +164,7 @@ function stripPresentationChrome(table: HTMLTableElement): void {
 }
 
 function extractCopiedRows(table: HTMLTableElement): CopiedRow[] {
-  return Array.from(table.tBodies[0]?.rows ?? [])
+  return Array.from(table.tBodies.item(0)?.rows ?? [])
     .map((row) => {
       const cells = Array.from(row.cells)
         .filter((cell) => !cell.classList.contains("cello-row-index"))
@@ -172,7 +172,7 @@ function extractCopiedRows(table: HTMLTableElement): CopiedRow[] {
           colspan: cell.colSpan,
           rowspan: cell.rowSpan,
           tagName: cell.tagName.toLowerCase() === "th" ? "th" : "td",
-          text: normalizeCellText(cell.textContent ?? "")
+          text: normalizeCellText(cell.textContent)
         }));
 
       if (cells.length === 0) {

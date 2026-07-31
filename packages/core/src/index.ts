@@ -1,13 +1,19 @@
-export { parse } from "./parser/parse.js";
+export { parse, parseDocument } from "./parser/parse.js";
 export { evaluate } from "./evaluator/evaluate.js";
 export { format } from "./formatter/format.js";
+export { formatSource } from "./formatter/source-layout.js";
+export type { CelloSourceLayout, FormatSourceOptions } from "./formatter/source-layout.js";
 export { render } from "./renderer/render.js";
-export { serialize } from "./serializer/serialize.js";
 export { validate } from "./validator/validate.js";
 
 export type {
   CellKind,
   CellNode,
+  CelloCellSourceLocation,
+  CelloRowSourceLocation,
+  CelloSheetSourceLocation,
+  CelloSourceMap,
+  CelloSourceSpan,
   ColumnNode,
   Diagnostic,
   EvaluateOptions,
@@ -16,6 +22,7 @@ export type {
   AliasNamespace,
   Modifier,
   ParseOptions,
+  ParsedCelloDocument,
   RenderOptions,
   RowKind,
   RowNode,

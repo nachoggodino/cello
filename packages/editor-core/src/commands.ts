@@ -357,9 +357,9 @@ function toggleExclusiveLayoutModifier(modifiers: Modifier[], key: "fit", exclus
     : [...modifiers.filter((modifier) => !exclusiveKeys.includes(modifier.key)), { raw: key, key }];
 }
 
-function withoutLayoutKey<T extends "columns" | "rows">(layout: EditorSheet["layout"], key: T): NonNullable<EditorSheet["layout"]> {
+function withoutLayoutKey(layout: EditorSheet["layout"], key: "columns" | "rows"): NonNullable<EditorSheet["layout"]> {
   const next = { ...(layout ?? {}) };
-  delete next[key];
+  Reflect.deleteProperty(next, key);
   return next;
 }
 

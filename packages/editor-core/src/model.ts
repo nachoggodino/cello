@@ -1,5 +1,16 @@
 import { CELLO_TONE_NAMES } from "../../core/src/index.js";
-import type { AliasDeclaration, Diagnostic, Modifier, SheetFormat, SheetLayout } from "../../core/src/index.js";
+import type {
+  AliasDeclaration,
+  CelloCellSourceLocation,
+  CelloRowSourceLocation,
+  CelloSheetSourceLocation,
+  CelloSourceMap,
+  CelloSourceSpan,
+  Diagnostic,
+  Modifier,
+  SheetFormat,
+  SheetLayout
+} from "../../core/src/index.js";
 
 export interface EditorCell {
   raw: string;
@@ -32,43 +43,11 @@ export interface EditorExternalSource {
   message?: string;
 }
 
-export interface EditorSourceSpan {
-  start: number;
-  end: number;
-}
-
-export interface EditorCellSourceLocation {
-  span: EditorSourceSpan;
-}
-
-export interface EditorRowSourceLocation {
-  line: number;
-  sourceKind: "row" | "header" | "defaults";
-  lineSpan: EditorSourceSpan;
-  cells: EditorCellSourceLocation[];
-}
-
-export interface EditorSheetSourceLocation {
-  declaration?: {
-    line: number;
-    lineSpan: EditorSourceSpan;
-    nameSpan: EditorSourceSpan;
-  };
-  sheetSpan: EditorSourceSpan;
-  rows: EditorRowSourceLocation[];
-  defaults?: EditorRowSourceLocation;
-  externalSources: Array<{
-    path: string;
-    line: number;
-    lineSpan: EditorSourceSpan;
-  }>;
-  editable: boolean;
-  format: SheetFormat;
-}
-
-export interface EditorSourceMap {
-  sheets: EditorSheetSourceLocation[];
-}
+export type EditorSourceSpan = CelloSourceSpan;
+export type EditorCellSourceLocation = CelloCellSourceLocation;
+export type EditorRowSourceLocation = CelloRowSourceLocation;
+export type EditorSheetSourceLocation = CelloSheetSourceLocation;
+export type EditorSourceMap = CelloSourceMap;
 
 export type EditorDiagnostic = Diagnostic & {
   code?: string;
@@ -87,7 +66,11 @@ export interface EditorCommandFailure {
     | "unsupported-source-region"
     | "stale-source-map"
     | "ambiguous-cell-location"
-    | "external-source-unavailable";
+    | "invalid-command"
+    | "stale-revision"
+    | "external-source-unavailable"
+    | "source-provenance-required"
+    | "postcondition-failed";
   message: string;
   document: EditorDocument;
 }

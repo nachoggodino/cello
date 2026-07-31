@@ -100,7 +100,7 @@ export function EditorToolbarRows({
               aria-label={labels.selectedCellSource}
               rows={1}
               value={model.selectedContentText}
-              onChange={(event) => actions.changeContent(event.target.value)}
+              onChange={(event) => { actions.changeContent(event.target.value); }}
             />
           </div>
         </div>
@@ -111,7 +111,7 @@ export function EditorToolbarRows({
             aria-label={labels.modifiers}
             value={model.selectedModifierText}
             placeholder={model.modifiersMixed ? "Mixed" : undefined}
-            onChange={(event) => actions.changeModifiers(event.target.value)}
+            onChange={(event) => { actions.changeModifiers(event.target.value); }}
           />
         </label>
 
@@ -147,7 +147,7 @@ export function EditorToolbarRows({
             active={model.boldActive}
             disabled={model.controlsDisabled}
             label={labels.bold}
-            onClick={() => actions.toggleModifier("bold")}
+            onClick={() => { actions.toggleModifier("bold"); }}
           >
             <strong>B</strong>
           </TextModifierButton>
@@ -155,7 +155,7 @@ export function EditorToolbarRows({
             active={model.italicActive}
             disabled={model.controlsDisabled}
             label={labels.italic}
-            onClick={() => actions.toggleModifier("italic")}
+            onClick={() => { actions.toggleModifier("italic"); }}
           >
             <em>I</em>
           </TextModifierButton>
@@ -163,7 +163,7 @@ export function EditorToolbarRows({
             active={model.strikeActive}
             disabled={model.controlsDisabled}
             label={labels.strike}
-            onClick={() => actions.toggleModifier("strike")}
+            onClick={() => { actions.toggleModifier("strike"); }}
             onDoubleClick={actions.toggleInlineStrike}
           >
             <span className="celloVisualStrikeIcon">S</span>
@@ -174,7 +174,7 @@ export function EditorToolbarRows({
               active={model.selectedHeadingPrefix === style.prefix}
               disabled={model.controlsDisabled}
               label={labels[style.labelKey]}
-              onClick={() => actions.applyPrefix(style.prefix)}
+              onClick={() => { actions.applyPrefix(style.prefix); }}
             />
           ))}
           <label
@@ -188,7 +188,7 @@ export function EditorToolbarRows({
               value={model.selectedTextColor}
               disabled={model.controlsDisabled}
               onChange={(event) =>
-                actions.setColor("color", event.target.value)
+                { actions.setColor("color", event.target.value); }
               }
             />
           </label>
@@ -203,7 +203,7 @@ export function EditorToolbarRows({
               type="color"
               value={model.selectedFillColor}
               disabled={model.controlsDisabled}
-              onChange={(event) => actions.setColor("bg", event.target.value)}
+              onChange={(event) => { actions.setColor("bg", event.target.value); }}
             />
           </label>
           <ValueMenu
@@ -225,7 +225,7 @@ export function EditorToolbarRows({
               className: `celloVisualTone celloVisualTone-${tone}`
             }))}
             value={model.selectedTone}
-            onChange={(value) => actions.setTone(value as TextTone)}
+            onChange={(value) => { actions.setTone(value as TextTone); }}
           />
         </div>
 
@@ -242,7 +242,7 @@ export function EditorToolbarRows({
             value={model.columnsMode}
             disabled={model.controlsDisabled}
             onChange={(value) =>
-              actions.setColumnsMode(value as "normal" | "fit")
+              { actions.setColumnsMode(value as "normal" | "fit"); }
             }
           />
           <ValueMenu
@@ -255,7 +255,7 @@ export function EditorToolbarRows({
             value={model.rowsMode}
             disabled={model.controlsDisabled}
             onChange={(value) =>
-              actions.setRowsMode(value as "wrap" | "ellipsis")
+              { actions.setRowsMode(value as "wrap" | "ellipsis"); }
             }
           />
           <IconButton
@@ -304,7 +304,7 @@ export function EditorToolbarRows({
             value={model.selectedColumnWidth}
             disabled={model.controlsDisabled}
             onChange={(value) =>
-              actions.setColumnWidth(value.trim() || undefined)
+              { actions.setColumnWidth(value.trim() || undefined); }
             }
           />
         </div>
@@ -333,7 +333,7 @@ export function EditorToolbarRows({
             }))}
             value={model.selectedRowHeight}
             disabled={model.controlsDisabled}
-            onChange={(value) => actions.setRowHeight(value.trim() || undefined)}
+            onChange={(value) => { actions.setRowHeight(value.trim() || undefined); }}
           />
         </div>
 
@@ -389,7 +389,7 @@ function TextModifierButton({
 }
 
 function formatLayoutValue(value: string): string {
-  return value[0]?.toUpperCase() + value.slice(1);
+  return (value[0]?.toUpperCase() ?? "") + value.slice(1);
 }
 
 function formatInheritedModifier(modifier: {

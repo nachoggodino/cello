@@ -6,6 +6,7 @@ import type {
   Diagnostic,
   Modifier,
   ParseOptions,
+  ParsedCelloDocument,
   SheetLayout,
   RowNode,
   SheetNode,
@@ -22,6 +23,8 @@ import {
   splitDelimitedLine
 } from "../shared/utils.js";
 import { isSheetColumnsMode, isSheetRowsMode } from "../shared/layout.js";
+import { CelloSourceMapBuilder, splitCelloSourceLines } from "./source-map.js";
+import type { CelloSourceLine } from "./source-map.js";
 
 const DEFAULT_ANON_SHEET_NAME = "Sheet1";
 
@@ -48,11 +51,18 @@ interface ParseRuntime {
   options: ParseOptions;
   state: MutableParseState;
   injectedLines: string[];
+  currentSourceLine: CelloSourceLine | undefined;
+  sourceMapBuilder: CelloSourceMapBuilder;
   pushDiagnostic: (d: Diagnostic) => void;
   ensureSheet: () => SheetNode;
 }
 
 export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
+  return parseDocument(text, options).workbook;
+}
+
+/** Parses workbook semantics and source locations in the same tolerant pass. */
+export function parseDocument(text: string, options: ParseOptions = {}): ParsedCelloDocument {
   const workbook: WorkbookAst = {
     version: "1.0",
     aliases: [],
@@ -67,14 +77,17 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     jsonBufferBySheet: new Map<string, string[]>(),
     consumedDelimitedHeaderBySheet: new Set<string>()
   };
-  const sourceLines = text.replace(/\r\n/g, "\n").split("\n");
+  const sourceLines = splitCelloSourceLines(text);
+  const sourceMapBuilder = new CelloSourceMapBuilder();
   const runtime: ParseRuntime = {
     workbook,
     options,
     state,
     injectedLines: [],
+    currentSourceLine: undefined,
+    sourceMapBuilder,
     ensureSheet: () => ensureSheet(workbook, state, options),
-    pushDiagnostic: (d) => pushDiagnostic(workbook, options, d)
+    pushDiagnostic: (d) => { pushDiagnostic(workbook, options, d); }
   };
 
   let lineNumber = 0;
@@ -82,12 +95,12 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
 
   while (runtime.injectedLines.length > 0 || sourceIndex < sourceLines.length) {
     const fromInjected = runtime.injectedLines.length > 0;
-    const rawLine = fromInjected
-      ? (runtime.injectedLines.shift() ?? "")
-      : (sourceLines[sourceIndex] ?? "");
+    const sourceLine = fromInjected ? undefined : sourceLines[sourceIndex];
+    const rawLine = fromInjected ? (runtime.injectedLines.shift() ?? "") : (sourceLine?.text ?? "");
     if (!fromInjected && sourceIndex < sourceLines.length) {
       sourceIndex += 1;
     }
+    runtime.currentSourceLine = sourceLine;
     lineNumber += 1;
     const trimmed = rawLine.trim();
 
@@ -109,8 +122,12 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     }
 
     const sheet = runtime.ensureSheet();
+    const sheetIndex = runtime.workbook.sheets.indexOf(sheet);
+    runtime.sourceMapBuilder.ensureSheet(sheetIndex, sheet.format);
 
     if (sheet.format.kind === "json") {
+      runtime.sourceMapBuilder.touchSheet(sheetIndex, sheet.format, sourceLine);
+      runtime.sourceMapBuilder.markReadonly(sheetIndex, sheet.format);
       bufferJsonLine(runtime.state, sheet.name, rawLine);
       continue;
     }
@@ -128,16 +145,21 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     }
 
     if (sheet.format.kind === "delimited") {
+      runtime.sourceMapBuilder.touchSheet(sheetIndex, sheet.format, sourceLine);
+      runtime.sourceMapBuilder.markReadonly(sheetIndex, sheet.format);
       handleDelimitedLine(runtime.state, sheet as SheetNode & { format: Extract<SheetNode["format"], { kind: "delimited" }> }, rawLine, lineNumber);
       continue;
     }
 
     if (sheet.format.kind === "markdown") {
+      runtime.sourceMapBuilder.touchSheet(sheetIndex, sheet.format, sourceLine);
+      runtime.sourceMapBuilder.markReadonly(sheetIndex, sheet.format);
       handleMarkdownLine(runtime.state, sheet, trimmed, lineNumber);
       continue;
     }
 
     if (!rawLine.includes("|")) {
+      runtime.sourceMapBuilder.touchSheet(sheetIndex, sheet.format, sourceLine);
       runtime.pushDiagnostic({
         level: "warning",
         line: lineNumber,
@@ -148,11 +170,19 @@ export function parse(text: string, options: ParseOptions = {}): WorkbookAst {
     }
 
     handleNativeLine(runtime, sheet, rawLine, lineNumber);
+    runtime.sourceMapBuilder.addNativeRow(sheetIndex, sheet.format, sourceLine, "row", {
+      cellCount: Math.max(runtime.state.currentHeaders.length, sheet.rows[sheet.rows.length - 1]?.cells.length ?? 0),
+      defaultColumns: runtime.state.currentHeaders.map((header) => Boolean(getColumnDefaultToken(header)))
+    });
   }
 
   finalizeJsonSheets(runtime);
 
-  return workbook;
+  return {
+    source: text,
+    workbook,
+    sourceMap: sourceMapBuilder.build(workbook.sheets.length)
+  };
 }
 
 function ensureSheet(workbook: WorkbookAst, state: MutableParseState, options: ParseOptions): SheetNode {
@@ -195,6 +225,7 @@ function tryHandleSheetDeclaration(runtime: ParseRuntime, trimmed: string, lineN
 
   const nextSheet = createSheet(rawName.trim(), parsed.modifiers);
   runtime.workbook.sheets.push(nextSheet);
+  runtime.sourceMapBuilder.startSheet(runtime.workbook.sheets.length - 1, runtime.currentSourceLine, nextSheet.format);
   runtime.state.currentSheet = nextSheet;
   resetSheetTracking(runtime.state);
   return true;
@@ -244,6 +275,8 @@ function tryHandleExternalSource(
   }
 
   const rawPath = (externalSourceMatch[1] ?? "").trim();
+  const sheetIndex = runtime.workbook.sheets.indexOf(sheet);
+  runtime.sourceMapBuilder.addExternalSource(sheetIndex, sheet.format, runtime.currentSourceLine, rawPath);
   const baseDir = runtime.options.baseDir ?? getDefaultBaseDir();
   const filePath = resolve(baseDir, rawPath);
   try {
@@ -380,7 +413,15 @@ function tryHandleHeaderDirective(
     return true;
   }
 
-  applyHeaders(runtime.state, sheet, parseHeadersFromLine(body), lineNumber);
+  const headers = parseHeadersFromLine(body);
+  applyHeaders(runtime.state, sheet, headers, lineNumber);
+  runtime.sourceMapBuilder.addNativeRow(
+    runtime.workbook.sheets.indexOf(sheet),
+    sheet.format,
+    runtime.currentSourceLine,
+    "header",
+    { cellCount: headers.length, defaultColumns: [] }
+  );
   return true;
 }
 
@@ -420,7 +461,15 @@ function tryHandleDefaultsDirective(
     return true;
   }
 
-  applyDefaults(runtime.state, sheet, splitNativeCells(body));
+  const defaults = splitNativeCells(body);
+  applyDefaults(runtime.state, sheet, defaults);
+  runtime.sourceMapBuilder.addNativeRow(
+    runtime.workbook.sheets.indexOf(sheet),
+    sheet.format,
+    runtime.currentSourceLine,
+    "defaults",
+    { cellCount: runtime.state.currentHeaders.length, defaultColumns: [] }
+  );
   return true;
 }
 

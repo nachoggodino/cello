@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { EditorWorkbook } from "@cello/editor-core";
 import {
   applyWorkbookPatch,
   clearRange,
@@ -10,9 +11,13 @@ import {
   isAddressInRange,
   normalizeCellRange,
   parseClipboardMatrix,
-  pasteMatrixAt,
-  serializeEditorWorkbook
+  pasteMatrixAt
 } from "@cello/editor-core";
+import { emitEditorSheet } from "../../../packages/editor-core/src/syntax-emitter.js";
+
+function emitWorkbookForTest(workbook: EditorWorkbook): string {
+  return workbook.sheets.map(emitEditorSheet).join("\n\n");
+}
 
 describe("editor core ranges", () => {
   it("normalizes reversed range anchors and reports membership", () => {
@@ -46,29 +51,29 @@ describe("editor core ranges", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| Ada |");
     const updated = pasteMatrixAt(workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 1 }, [["5", "=SUM(B2)"], ["7", "9"]]);
 
-    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| Ada |  |  |\n|  | 5 | =SUM(B2) |\n|  | 7 | 9 |");
+    expect(emitWorkbookForTest(updated)).toBe("@sheet Report\n| Ada |  |  |\n|  | 5 | =SUM(B2) |\n|  | 7 | 9 |");
   });
 
   it("pastes matrices over existing cells from the first row", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| A | B |");
     const updated = pasteMatrixAt(workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 }, [["X", "Y"], ["Z", "9"]]);
 
-    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| X | Y |\n| Z | 9 |");
+    expect(emitWorkbookForTest(updated)).toBe("@sheet Report\n| X | Y |\n| Z | 9 |");
   });
 
   it("clears a rectangular range without changing cells outside it", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| A | B | C |\n| D | E | F |");
     const updated = clearRange(workbook, { sheetIndex: 0, startRow: 0, endRow: 1, startCol: 1, endCol: 2 });
 
-    expect(serializeEditorWorkbook(updated)).toBe("@sheet Report\n| A |  |  |\n| D |  |  |");
+    expect(emitWorkbookForTest(updated)).toBe("@sheet Report\n| A |  |  |\n| D |  |  |");
   });
 
   it("distinguishes content clearing from full source clearing", () => {
     const workbook = createEditorWorkbook("@sheet Report\n| A[bold] | B |");
     const range = { sheetIndex: 0, startRow: 0, endRow: 0, startCol: 0, endCol: 0 };
 
-    expect(serializeEditorWorkbook(clearRange(workbook, range))).toBe("@sheet Report\n| [bold] | B |");
-    expect(serializeEditorWorkbook(clearRangeAll(workbook, range))).toBe("@sheet Report\n|  | B |");
+    expect(emitWorkbookForTest(clearRange(workbook, range))).toBe("@sheet Report\n| [bold] | B |");
+    expect(emitWorkbookForTest(clearRangeAll(workbook, range))).toBe("@sheet Report\n|  | B |");
   });
 
   it("pastes cell source modifiers and preserves unrelated source text", () => {

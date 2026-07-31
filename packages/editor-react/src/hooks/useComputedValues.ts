@@ -5,9 +5,10 @@ import type {
   CreateEditorWorkbookOptions
 } from "@nachoggodino/cello/editor-core";
 
-type WorkbookParseOptions = {
-  readExternalSource?: NonNullable<CreateEditorWorkbookOptions["readExternalSource"]>;
-};
+type WorkbookParseOptions = Pick<
+  CreateEditorWorkbookOptions,
+  "baseDir" | "readExternalSource" | "strict"
+>;
 
 export function useComputedValues(
   source: string,
@@ -20,8 +21,15 @@ export function useComputedValues(
 
     const run = async () => {
       try {
+        const parseOptions = {
+          ...(workbookOptions.baseDir === undefined ? {} : { baseDir: workbookOptions.baseDir }),
+          ...(workbookOptions.readExternalSource === undefined
+            ? {}
+            : { readExternalSource: workbookOptions.readExternalSource }),
+          ...(workbookOptions.strict === undefined ? {} : { strict: workbookOptions.strict })
+        };
         const nextValues = await evaluateEditorWorkbookSource(source, {
-          parse: workbookOptions
+          parse: parseOptions
         });
         if (!cancelled) {
           setComputedValues(nextValues);

@@ -78,26 +78,23 @@
   gap: var(--space-7);
 }
 
-.editorMount {
-  position: relative;
-  z-index: 1;
+.playgroundSourceEditor {
   min-height: 0;
   flex: 1;
+  border: 0;
+  border-radius: 0;
+}
+
+.playgroundSourceEditor .celloSourceInput {
+  height: 100%;
+  min-height: 0;
+}
+
+.playgroundSourceEditor .celloSourceInput .cm-editor {
+  min-height: 0;
   background:
     linear-gradient(135deg, var(--orange-soft), transparent 42%),
     var(--code-bg-strong);
-  backdrop-filter: var(--blur-editor);
-}
-
-.editorLoading {
-  display: grid;
-  min-height: 0;
-  flex: 1;
-  place-items: center;
-  color: var(--code-text);
-  background: var(--code-bg-strong);
-  font-size: var(--font-size-control);
-  font-weight: var(--font-weight-strong);
 }
 
 .previewFrameWrap {
@@ -116,6 +113,17 @@
   border: var(--border-default);
   border-radius: var(--radius-compact);
   background: var(--preview-frame-bg);
+}
+
+.playgroundHtmlPreview {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.playgroundHtmlPreview .celloPreviewFrame {
+  min-height: 0;
 }
 
 .previewOverlay {
@@ -253,45 +261,6 @@
   font-family: var(--font-code);
   font-size: var(--font-size-small);
   line-height: 1.6;
-}
-
-.syntaxTokenKeyword,
-.syntaxTokenOperator,
-.syntaxTokenHeading {
-  font-weight: var(--font-weight-strong);
-}
-
-.syntaxTokenKeyword {
-  color: var(--syntax-keyword);
-}
-
-.syntaxTokenComment {
-  color: var(--syntax-comment);
-  font-style: italic;
-}
-
-.syntaxTokenNumber {
-  color: var(--syntax-number);
-}
-
-.syntaxTokenAtom {
-  color: var(--syntax-atom);
-}
-
-.syntaxTokenOperator {
-  color: var(--syntax-operator);
-}
-
-.syntaxTokenHeading {
-  color: var(--syntax-heading);
-}
-
-.syntaxTokenAttribute {
-  color: var(--syntax-attribute);
-}
-
-.syntaxTokenFormula {
-  color: var(--syntax-instruction);
 }
 
 .diagnostics {

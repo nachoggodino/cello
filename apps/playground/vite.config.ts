@@ -23,19 +23,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (
-            [
-            "@codemirror/autocomplete",
-            "@codemirror/commands",
-            "@codemirror/language",
-            "@codemirror/search",
-            "@codemirror/state",
-            "@codemirror/view",
-            "@lezer/highlight"
-            ].some((moduleName) => id.includes(`/node_modules/${moduleName}/`))
-          ) {
-            return "codemirror";
-          }
           if (id.includes("/node_modules/hyperformula/")) {
             return "spreadsheet";
           }

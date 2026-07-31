@@ -34,7 +34,7 @@ export function SheetTabs({
           role="tab"
           aria-selected={activeSheetIndex === sheetIndex}
           className={activeSheetIndex === sheetIndex ? "active" : ""}
-          onClick={() => onActivate(sheetIndex)}
+          onClick={() => { onActivate(sheetIndex); }}
         >
           {sheet.name}
         </button>
@@ -49,7 +49,7 @@ export function SheetTabs({
         className="celloVisualSheetNameInput"
         aria-label={labels.renameSheet}
         value={activeSheet?.name ?? ""}
-        onChange={(event) => onRename(event.target.value)}
+        onChange={(event) => { onRename(event.target.value); }}
       />
       <IconButton
         label={labels.deleteSheet}

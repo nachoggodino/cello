@@ -21,7 +21,7 @@ afterEach(() => {
 
 describe("CelloVisualEditor", () => {
   it("renders only source-defined table cells and the optional source button", async () => {
-    renderEditor("@sheet Report\n@header | Name | Amount |\n| Ada | =SUM(Amount) |", vi.fn());
+    await renderEditor("@sheet Report\n@header | Name | Amount |\n| Ada | =SUM(Amount) |", vi.fn());
 
     expect(screenCellText("A1")).toBe("Name");
     expect(screenCellText("B2")).toBe("=SUM(Amount)");
@@ -31,7 +31,7 @@ describe("CelloVisualEditor", () => {
 
   it("calls the host with serialized source when editing a cell", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
 
     const editor = editCell("B1");
     changeInput(editor, "7");
@@ -42,7 +42,7 @@ describe("CelloVisualEditor", () => {
 
   it("edits full selected cell source from the formula bar", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
 
     clickElement(screenCell("A1"));
     changeInput(screenTextArea("Selected cell source"), "Ada Lovelace");
@@ -55,7 +55,7 @@ describe("CelloVisualEditor", () => {
 
   it("routes trailing modifiers from the top editor into the modifier editor", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada[italic] |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada[italic] |", onSourceChange);
 
     changeInput(screenTextArea("Selected cell source"), "Ada Lovelace[bold]");
 
@@ -66,7 +66,7 @@ describe("CelloVisualEditor", () => {
 
   it("applies toolbar commands through editor-core serialization", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada | 5 |\n| Ops | 2 |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada | 5 |\n| Ops | 2 |", onSourceChange);
 
     clickElement(screenCell("B1"));
     clickButton("Bold");
@@ -80,7 +80,7 @@ describe("CelloVisualEditor", () => {
 
   it("adds sheets, switches active sheet, and removes sheets only when safe", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada |", onSourceChange);
 
     expect(screenButton("Delete sheet").disabled).toBe(true);
 
@@ -93,7 +93,7 @@ describe("CelloVisualEditor", () => {
 
   it("adds rows and columns within explicit table bounds", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada |", onSourceChange);
 
     clickButton("New row");
     clickButton("New column");
@@ -108,7 +108,7 @@ describe("CelloVisualEditor", () => {
 
   it("persists sheet, column, and row layout controls", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada | Long note |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada | Long note |", onSourceChange);
 
     chooseMenuOption("Columns", "Fit");
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report [columns:fit]\n| Ada | Long note |");
@@ -138,7 +138,7 @@ describe("CelloVisualEditor", () => {
 
   it("applies row-scoped formatting and merge-up commands", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada | 5 |\n| Ops | 2 |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada | 5 |\n| Ops | 2 |", onSourceChange);
 
     clickElement(screenRowHeader(2));
     clickButton("Italic");
@@ -152,7 +152,7 @@ describe("CelloVisualEditor", () => {
 
   it("renders defaults, inherited styles, formula highlighting, and tone commands", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1] |", onSourceChange);
+    await renderEditor("@sheet Report\n@header | Name[italic] | Total |\n@defaults | Pending | =Qty*Price |\n| Ada | =Total[1:1] |", onSourceChange);
 
     expect(screenInput("Defaults A").value).toBe("Pending");
     expect(screenInput("Modifiers").value).toBe("[italic]");
@@ -187,7 +187,7 @@ describe("CelloVisualEditor", () => {
 
   it("toggles inline heading and strike text styles from the toolbar", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada |", onSourceChange);
 
     clickElement(screenCell("A1"));
     clickButton("Large heading");
@@ -205,7 +205,7 @@ describe("CelloVisualEditor", () => {
   });
 
   it("renders partial inline formatting in display mode and preserves source while editing", async () => {
-    renderEditor("@sheet Report\n| Hello *world* |", vi.fn());
+    await renderEditor("@sheet Report\n| Hello *world* |", vi.fn());
 
     const display = document.querySelector<HTMLElement>(".celloVisualCellDisplay span");
     expect(display?.textContent).toBe("world");
@@ -217,7 +217,7 @@ describe("CelloVisualEditor", () => {
 
   it("keeps formatting toolbar commands away from selected defaults", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n@header | Name |\n@defaults | Pending |\n| Ada |", onSourceChange);
+    await renderEditor("@sheet Report\n@header | Name |\n@defaults | Pending |\n| Ada |", onSourceChange);
 
     clickElement(screenCell("A2"));
     clickButton("Strikethrough");
@@ -242,7 +242,7 @@ describe("CelloVisualEditor", () => {
 
   it("shows computed fit width for formulas in the width menu", async () => {
     mockMeasuredTextWidths();
-    renderEditor("@sheet Report [columns:fit]\n@header | Formula |\n| =10000000000000 |", vi.fn());
+    await renderEditor("@sheet Report [columns:fit]\n@header | Formula |\n| =10000000000000 |", vi.fn());
 
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -255,7 +255,7 @@ describe("CelloVisualEditor", () => {
   it("renames sheets and calls optional source-view action", async () => {
     const onSourceChange = vi.fn();
     const onRequestSourceView = vi.fn();
-    renderEditor("@sheet Report\n| Ada |", onSourceChange, { onRequestSourceView });
+    await renderEditor("@sheet Report\n| Ada |", onSourceChange, { onRequestSourceView });
 
     changeInput(screenInput("Rename active sheet"), "Planning");
     clickButton("Source");
@@ -266,7 +266,7 @@ describe("CelloVisualEditor", () => {
 
   it("uses custom labels and host class names", async () => {
     const onRequestSourceView = vi.fn();
-    renderEditor("@sheet Report\n@header | Name |\n| Ada |", vi.fn(), {
+    await renderEditor("@sheet Report\n@header | Name |\n| Ada |", vi.fn(), {
       className: "hostEditor",
       labels: {
         headerRow: "Heading",
@@ -292,7 +292,7 @@ describe("CelloVisualEditor", () => {
   });
 
   it("uses host-provided external source resolver for evaluation display", async () => {
-    renderEditor("@sheet Imported [csv]\n-> data.csv\n\n@sheet Summary\n@header | Metric | Value |\n| Total | =SUM(Imported!Amount) |", vi.fn(), {
+    await renderEditor("@sheet Imported [csv]\n-> data.csv\n\n@sheet Summary\n@header | Metric | Value |\n| Total | =SUM(Imported!Amount) |", vi.fn(), {
       readExternalSource: () => "Amount\n2\n3"
     });
 
@@ -305,7 +305,7 @@ describe("CelloVisualEditor", () => {
   });
 
   it("shows computed formula values until the formula cell is focused", async () => {
-    renderEditor("@sheet Report\n@header | Amount |\n| 5 |\n| 7 |\n| =SUM(Amount) |", vi.fn());
+    await renderEditor("@sheet Report\n@header | Amount |\n| 5 |\n| 7 |\n| =SUM(Amount) |", vi.fn());
 
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -317,7 +317,7 @@ describe("CelloVisualEditor", () => {
 
   it("keeps formatted display text and layout in the visual grid", async () => {
     mockMeasuredTextWidths();
-    renderEditor("@sheet Report [columns:fit][rows:wrap]\n@header | Amount[€][2d] | Rate[%][1d] |\n| 12.5 | 0.42 |", vi.fn());
+    await renderEditor("@sheet Report [columns:fit][rows:wrap]\n@header | Amount[€][2d] | Rate[%][1d] |\n| 12.5 | 0.42 |", vi.fn());
 
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -334,7 +334,7 @@ describe("CelloVisualEditor", () => {
 
   it("does not resize fitted formula columns from the formula source while editing", async () => {
     mockMeasuredTextWidths();
-    renderEditor("@sheet Report [columns:fit]\n@header | R |\n| =SUM(2+2) |", vi.fn());
+    await renderEditor("@sheet Report [columns:fit]\n@header | R |\n| =SUM(2+2) |", vi.fn());
 
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -347,7 +347,7 @@ describe("CelloVisualEditor", () => {
 
   it("measures column-level fit without counting the fit modifier text", async () => {
     mockMeasuredTextWidths();
-    renderEditor("@sheet Report\n@header | [fit] |\n| ok |", vi.fn());
+    await renderEditor("@sheet Report\n@header | [fit] |\n| ok |", vi.fn());
 
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -358,7 +358,7 @@ describe("CelloVisualEditor", () => {
   });
 
   it("syntax-highlights formulas in grid edit mode", async () => {
-    renderEditor("@sheet Report\n@header | Amount |\n| 5 |\n| =SUM(Amount) |", vi.fn());
+    await renderEditor("@sheet Report\n@header | Amount |\n| 5 |\n| =SUM(Amount) |", vi.fn());
 
     editCell("A3");
 
@@ -368,7 +368,7 @@ describe("CelloVisualEditor", () => {
 
   it("preserves transient trailing spaces while editing visual cells", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Hello |", onSourceChange);
+    await renderEditor("@sheet Report\n| Hello |", onSourceChange);
 
     const cell = editCell("A1");
     changeInput(cell, "Hello ");
@@ -387,18 +387,18 @@ describe("CelloVisualEditor", () => {
   });
 
   it("selects cells on click without entering edit mode", async () => {
-    renderEditor("@sheet Report\n| Ada | =SUM(1+1) |", vi.fn());
+    await renderEditor("@sheet Report\n| Ada | =SUM(1+1) |", vi.fn());
 
     clickElement(screenCell("B1"));
 
     expect(screenTextArea("B1").readOnly).toBe(true);
-    expect(screenCellText("B1")).toBe("=SUM(1+1)");
+    expect(screenCellText("B1")).toBe("2");
     expect(document.querySelector("td[aria-selected='true'][aria-label='B1']")).toBeTruthy();
   });
 
   it("enters edit mode with F2 or printable typing", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
 
     clickElement(screenCell("A1"));
     pressKey(screenCell("A1"), "F2");
@@ -417,7 +417,7 @@ describe("CelloVisualEditor", () => {
 
   it("keeps horizontal arrows inside pointer editing and commits typed replacement with arrows", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada | 5 |", onSourceChange);
 
     const editor = editCell("A1");
     changeInput(editor, "Grace");
@@ -434,7 +434,7 @@ describe("CelloVisualEditor", () => {
   it("extends selected ranges with shift arrows and copies TSV", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-    renderEditor("@sheet Report\n| A | B |\n| C | D |", vi.fn());
+    await renderEditor("@sheet Report\n| A | B |\n| C | D |", vi.fn());
 
     clickElement(screenCell("A1"));
     pressKey(screenCell("A1"), "ArrowRight", { shiftKey: true });
@@ -446,7 +446,7 @@ describe("CelloVisualEditor", () => {
   });
 
   it("extends ranges with shift-click and shows the normalized range label", async () => {
-    renderEditor("@sheet Report\n| A | B |\n| C | D |", vi.fn());
+    await renderEditor("@sheet Report\n| A | B |\n| C | D |", vi.fn());
 
     clickElement(screenCell("B2"));
     clickElement(screenCell("A1"), { shiftKey: true });
@@ -456,7 +456,7 @@ describe("CelloVisualEditor", () => {
   });
 
   it("selects source-bounded rows and columns from their identifiers", async () => {
-    renderEditor("@sheet Report\n| A | B |\n| C | D |", vi.fn());
+    await renderEditor("@sheet Report\n| A | B |\n| C | D |", vi.fn());
 
     clickElement(screenRowHeader(2));
     expect(document.querySelector(".celloVisualCellAddress")?.textContent).toBe("Report!2:2");
@@ -472,7 +472,7 @@ describe("CelloVisualEditor", () => {
 
   it("uses structural column modifiers for column selections", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| A | B |\n| C | D |", onSourceChange);
+    await renderEditor("@sheet Report\n| A | B |\n| C | D |", onSourceChange);
 
     clickElement(screenColumnHeader("B"));
     clickButton("Bold");
@@ -482,7 +482,7 @@ describe("CelloVisualEditor", () => {
 
   it("treats semantic header cells and column identifiers as the same modifier target", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n@header | Name | Amount |\n| Ada | 5 |", onSourceChange);
+    await renderEditor("@sheet Report\n@header | Name | Amount |\n| Ada | 5 |", onSourceChange);
 
     clickElement(screenCell("B1"));
     clickButton("Bold");
@@ -494,7 +494,7 @@ describe("CelloVisualEditor", () => {
   });
 
   it("expands selections to cover complete merged cells", async () => {
-    renderEditor("@sheet Report\n| A | < |\n| C | D |", vi.fn());
+    await renderEditor("@sheet Report\n| A | < |\n| C | D |", vi.fn());
 
     clickElement(screenCell("A1"));
 
@@ -503,7 +503,7 @@ describe("CelloVisualEditor", () => {
   });
 
   it("navigates across merged cells as atomic visual units", async () => {
-    renderEditor("@sheet Report\n| A | < | C |\n| D | E | F |", vi.fn());
+    await renderEditor("@sheet Report\n| A | < | C |\n| D | E | F |", vi.fn());
 
     clickElement(screenCell("A1"));
     pressKey(screenCell("A1"), "ArrowRight");
@@ -519,7 +519,7 @@ describe("CelloVisualEditor", () => {
       .mockResolvedValueOnce("X")
       .mockResolvedValueOnce("X\t<");
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
-    renderEditor("@sheet Report\n| A | < | C |", onSourceChange);
+    await renderEditor("@sheet Report\n| A | < | C |", onSourceChange);
 
     clickElement(screenCell("A1"));
     pressKey(screenCell("A1"), "v", { ctrlKey: true });
@@ -538,7 +538,7 @@ describe("CelloVisualEditor", () => {
 
   it("applies cell formatting to every cell in a selected range", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| A | B |\n| C | D |", onSourceChange);
+    await renderEditor("@sheet Report\n| A | B |\n| C | D |", onSourceChange);
 
     clickElement(screenCell("A1"));
     clickElement(screenCell("B2"), { shiftKey: true });
@@ -549,7 +549,7 @@ describe("CelloVisualEditor", () => {
 
   it("keeps the caret stable across sequential in-cell draft updates", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada |", onSourceChange);
 
     clickElement(screenCell("A1"));
     pressKey(screenCell("A1"), "F2");
@@ -568,7 +568,7 @@ describe("CelloVisualEditor", () => {
 
   it("leaves pointer-edit caret keys and pointer events under textarea control", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada |", onSourceChange);
 
     const editor = editCell("A1");
     editor.setSelectionRange(1, 1);
@@ -591,7 +591,7 @@ describe("CelloVisualEditor", () => {
 
   it("restores grid focus after committing and continues keyboard navigation", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| A | B |\n| C | D |", onSourceChange);
+    await renderEditor("@sheet Report\n| A | B |\n| C | D |", onSourceChange);
 
     const editor = editCell("A1");
     changeInput(editor, "Edited");
@@ -607,7 +607,7 @@ describe("CelloVisualEditor", () => {
 
   it("clears selected content without removing modifiers", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report\n| Ada[bold] | 5 |", onSourceChange);
+    await renderEditor("@sheet Report\n| Ada[bold] | 5 |", onSourceChange);
 
     clickElement(screenCell("A1"));
     pressKey(screenCell("A1"), "Delete");
@@ -617,7 +617,7 @@ describe("CelloVisualEditor", () => {
 
   it("shows non-persisted header and defaults scaffolding for empty sheets", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report", onSourceChange);
+    await renderEditor("@sheet Report", onSourceChange);
 
     expect(screenInput("Header A")).toBeTruthy();
     expect(screenInput("Defaults A")).toBeTruthy();
@@ -634,7 +634,7 @@ describe("CelloVisualEditor", () => {
 
   it("materializes scaffold rows only after they receive content", async () => {
     const onSourceChange = vi.fn();
-    renderEditor("@sheet Report", onSourceChange);
+    await renderEditor("@sheet Report", onSourceChange);
 
     const header = screenInput("Header A");
     focusInput(header);
@@ -650,7 +650,7 @@ describe("CelloVisualEditor", () => {
     const onSourceChange = vi.fn();
     const readText = vi.fn().mockResolvedValue("X\tY");
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
-    renderEditor("@sheet Report\n| A | B |", onSourceChange);
+    await renderEditor("@sheet Report\n| A | B |", onSourceChange);
 
     clickElement(screenCell("A1"));
     pressKey(screenCell("A1"), "v", { ctrlKey: true });
@@ -671,7 +671,7 @@ describe("CelloVisualEditor", () => {
     const onSourceChange = vi.fn();
     const readText = vi.fn().mockResolvedValue("X\tY\nZ\t9");
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
-    renderEditor("@sheet Report\n| A | B |", onSourceChange);
+    await renderEditor("@sheet Report\n| A | B |", onSourceChange);
 
     clickElement(screenCell("A1"));
     pressKey(screenCell("A1"), "v", { ctrlKey: true });
@@ -686,7 +686,7 @@ describe("CelloVisualEditor", () => {
   it("explains read-only CSV sheets and clears command warnings after 15 seconds", async () => {
     vi.useFakeTimers();
     try {
-      renderEditor("@sheet RawData [csv]\nname,amount\nAda,5", vi.fn());
+      await renderEditor("@sheet RawData [csv]\nname,amount\nAda,5", vi.fn());
 
       clickElement(screenCell("A2"));
       clickButton("Bold");
@@ -706,15 +706,15 @@ describe("CelloVisualEditor", () => {
   });
 });
 
-function renderEditor(
+async function renderEditor(
   source: string,
   onSourceChange: (source: string) => void,
   props: Partial<Parameters<typeof CelloVisualEditor>[0]> = {}
-) {
+): Promise<void> {
   const container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
-  act(() => {
+  await act(async () => {
     root?.render(<CelloVisualEditor source={source} onSourceChange={onSourceChange} {...props} />);
   });
 }

@@ -1,10 +1,11 @@
-import type { ParseOptions } from "../../core/src/index.js";
+import type { CelloSourceLayout, ParseOptions } from "../../core/src/index.js";
 
 export interface CreateEditorWorkbookOptions {
   anonymousSheetName?: ParseOptions["anonymousSheetName"];
   baseDir?: ParseOptions["baseDir"];
   readExternalSource?: ParseOptions["readExternalSource"];
   strict?: ParseOptions["strict"];
+  sourceLayout?: CelloSourceLayout;
 }
 
 export const DEFAULT_SHEET_NAME = "Sheet1";

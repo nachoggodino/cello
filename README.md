@@ -1,6 +1,6 @@
 # Cello
 
-Plain-text spreadsheets with formulas. Cello gives you a readable `.cel` format, a TypeScript API, and a CLI that can parse, evaluate, validate, format, serialize, render, and serve workbooks as self-contained HTML.
+Plain-text spreadsheets with formulas. Cello gives you a readable `.cel` format, a TypeScript API, and a CLI that can parse, evaluate, validate, format, render, and serve workbooks as self-contained HTML.
 
 It is useful when you want spreadsheet-like calculations in files that are easy to diff, review, generate, and keep in source control.
 
@@ -80,7 +80,6 @@ cello evaluate <file.cel>
 cello format <file.cel> [--check] [-o out.cel]
 cello validate <file.cel>
 cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]
-cello serialize <file.cel> [-o out.cel]
 cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]
 ```
 
@@ -96,13 +95,12 @@ Command details:
 - `format` pretty-prints native Cello pipe tables, writes in place by default, supports `-o/--out`, and uses `--check` to report formatting drift with exit code `1`.
 - `validate` prints `{ "valid": boolean, "diagnostics": [...] }`; it exits `1` when diagnostics exist.
 - `render` writes self-contained HTML with `-o/--out`, or prints HTML to stdout. `--format document` is the default full HTML document; `--format fragment` emits an embeddable chunk without `html`/`head`/`body` wrappers.
-- `serialize` converts the parsed AST back to `.cel` text.
 - `serve` starts a local live-preview server and only opens the browser when `--open` is provided.
 
 ## Library API
 
 ```ts
-import { evaluate, format, parse, render, serialize, validate } from "@nachoggodino/cello";
+import { evaluate, format, formatSource, parse, render, validate } from "@nachoggodino/cello";
 
 const source = `
 @sheet KPI
@@ -112,12 +110,12 @@ const source = `
 const ast = parse(source);
 const evaluated = await evaluate(ast);
 const pretty = format(source);
+const compact = formatSource(source, { layout: "compact" });
 const result = await validate(source);
 const html = await render(source);
 const fragment = await render(source, { format: "fragment" });
-const text = serialize(evaluated);
 
-console.log(result.valid, pretty, html, text);
+console.log(result.valid, compact, pretty, evaluated, html, fragment);
 ```
 
 Primary exports:
@@ -125,14 +123,26 @@ Primary exports:
 - `parse(text, options?)`
 - `evaluate(ast, options?)`
 - `format(text)`
+- `formatSource(text, { layout: "compact" | "pretty", range? })`
 - `validate(text, options?)`
 - `render(input, options?)`
-- `serialize(ast)`
+
+There is intentionally no AST-to-source serializer. Parsing is a semantic projection
+and cannot retain every comment, malformed fragment, spacing choice, or provenance
+detail. Use `formatSource` for source layout changes and editor document commands for
+source-preserving semantic edits.
 
 Editor package exports:
 
-- `@nachoggodino/cello/editor-core` provides source-preserving workbook models, commands, selectors, serialization helpers, and editor evaluation helpers.
-- `@nachoggodino/cello/editor-react` exports `CelloVisualEditor` for React hosts.
+- `@nachoggodino/cello/editor-core` provides source-preserving document models, the
+  serializable `EditorDocumentCommand` API, and `createEditorSession` for revisioned
+  synchronization and independent source/visual histories.
+- `@nachoggodino/cello/editor-react` exports session-backed `CelloSourceEditor`,
+  `CelloHtmlPreview`, and `CelloVisualEditor` views plus an optional tabbed
+  `CelloWorkbench` for React hosts.
+  The source editor includes syntax highlighting, line numbers, search, bracket support,
+  and session-owned undo/redo.
+  Its optional `sourceLayout` prop applies Compact or Pretty layout to the contiguous table block affected by a visual command.
 - `@nachoggodino/cello/editor-react/styles.css` provides the visual editor stylesheet.
 
 For editor package usage, see [docs/EDITOR_PACKAGES.md](docs/EDITOR_PACKAGES.md).
@@ -209,10 +219,9 @@ Repository layout:
 - `packages/core/src/formatter/` pretty-prints native Cello pipe tables.
 - `packages/core/src/validator/` reports parse/evaluation diagnostics.
 - `packages/core/src/renderer/` creates self-contained HTML.
-- `packages/core/src/serializer/` converts ASTs back to `.cel`.
 - `packages/cli/src/` exposes the command-line interface.
-- `packages/editor-core/src/` exposes source-preserving editor commands and selectors.
-- `packages/editor-react/src/` exposes the React visual editor component and stylesheet.
+- `packages/editor-core/src/` exposes source-preserving editor commands, sessions, and selectors.
+- `packages/editor-react/src/` exposes React source, preview, and visual editor components, an optional workbench, and their stylesheet.
 - `packages/language-support/` contains reusable TextMate grammar and language configuration assets.
 - `packages/write-cel-code-skill/` contains the packaged Cello authoring skill.
 - `apps/playground/` contains the web playground and current visual editor.

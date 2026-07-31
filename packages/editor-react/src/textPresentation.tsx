@@ -19,9 +19,6 @@ export function renderInlineDisplay(source: string): ReactNode {
   const pattern = /(\*([^*]+)\*)|(_([^_]+)_)|(~~([^~]+)~~)/g;
   let cursor = 0;
   for (const match of source.matchAll(pattern)) {
-    if (match.index === undefined) {
-      continue;
-    }
     if (match.index > cursor) {
       nodes.push(source.slice(cursor, match.index));
     }

@@ -852,6 +852,173 @@
   color: var(--cello-visual-muted);
 }
 
+.celloSourceEditor,
+.celloHtmlPreview {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-strong, rgba(31, 30, 27, 0.22));
+  border-radius: var(--radius-frame, 3px);
+  background: var(--glass-panel, rgba(255, 255, 255, 0.2));
+}
+
+.celloSourceEditor {
+  --cello-source-keyword: #d48a2f;
+  --cello-source-comment: #a48f7d;
+  --cello-source-string: #f8ddbd;
+  --cello-source-number: #f1b15f;
+  --cello-source-atom: #d7a5ff;
+  --cello-source-operator: #f3c98b;
+  --cello-source-separator: #c9b7a5;
+  --cello-source-variable: #f8ddbd;
+  --cello-source-reference: #9fd4ff;
+  --cello-source-heading: #ffd99f;
+  --cello-source-attribute: #9fd4ff;
+  --cello-source-function: #f6c177;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.celloSourceToolbar {
+  display: flex;
+  gap: var(--space-6, 7px);
+  padding: var(--space-7, 8px) var(--space-11, 16px);
+  border-bottom: 1px solid var(--line, rgba(31, 30, 27, 0.12));
+}
+
+.celloSourceToolbar button {
+  min-height: var(--control-height, 34px);
+}
+
+.celloSourceInput {
+  width: 100%;
+  min-height: 240px;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--code-bg-strong, #181716);
+}
+
+.celloSourceLoading {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+  color: var(--code-text, #fffaf4);
+  background: var(--code-bg-strong, #181716);
+  font: 13px/1.55 var(--font-code, "IBM Plex Mono", "SFMono-Regular", Consolas, monospace);
+}
+
+.celloSourceInput .cm-editor {
+  height: 100%;
+  min-height: 240px;
+  color: var(--code-text, #fffaf4);
+  background: transparent;
+  font: 13px/1.55 var(--font-code, "IBM Plex Mono", "SFMono-Regular", Consolas, monospace);
+}
+
+.celloSourceInput .cm-scroller {
+  min-height: 0;
+  overflow: auto;
+  font-family: inherit;
+  line-height: inherit;
+  font-variant-ligatures: contextual;
+}
+
+.celloSourceInput .cm-content {
+  padding: var(--space-5, 6px) 0;
+  caret-color: var(--orange, #e7662f);
+}
+
+.celloSourceInput .cm-line {
+  padding: 0 var(--space-8, 10px);
+}
+
+.celloSourceInput .cm-gutters {
+  border-right: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  color: var(--code-muted, #a48f7d);
+  background: var(--code-bg-2-strong, #211f1d);
+}
+
+.celloSourceInput .cm-activeLine,
+.celloSourceInput .cm-activeLineGutter {
+  background: var(--surface-on-dark-subtle, rgba(255, 255, 255, 0.045));
+}
+
+.celloSourceInput .cm-selectionBackground,
+.celloSourceInput .cm-focused .cm-selectionBackground {
+  background: var(--orange-selection, rgba(231, 102, 47, 0.32));
+}
+
+.celloSourceInput .cm-editor.cm-focused {
+  outline: 2px solid var(--orange, #e7662f);
+  outline-offset: -2px;
+}
+
+.celloSourceInput .cm-panels {
+  color: var(--code-text, #fffaf4);
+  background: var(--code-bg-2-strong, #211f1d);
+}
+
+.celloSourceInput .cm-panels input,
+.celloSourceInput .cm-panels button {
+  color: inherit;
+  background: var(--code-bg-strong, #181716);
+}
+
+.celloHtmlPreview {
+  position: relative;
+}
+
+.celloPreviewFrame {
+  width: 100%;
+  min-height: 320px;
+  border: 0;
+  background: #ffffff;
+}
+
+.celloPreviewError {
+  padding: var(--space-7, 8px) var(--space-11, 16px);
+  color: var(--cello-tone-warn-color, #9a3412);
+  background: var(--cello-tone-warn-background, #ffedd5);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.celloWorkbench {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.celloWorkbenchTabs {
+  display: flex;
+  gap: var(--space-2, 3px);
+  padding: var(--space-2, 3px);
+  border: 1px solid var(--line, rgba(31, 30, 27, 0.12));
+  border-radius: var(--radius-mobile-switch, 6px);
+  background: var(--glass-mobile, rgba(255, 255, 255, 0.34));
+}
+
+.celloWorkbenchTabs button {
+  min-height: var(--control-height, 34px);
+  flex: 1;
+}
+
+.celloWorkbenchTabs button[aria-selected="true"] {
+  border-color: var(--orange-border, rgba(231, 102, 47, 0.52));
+  color: var(--white-warm, #fffaf4);
+  background: var(--orange, #e7662f);
+}
+
+.celloWorkbenchPanel,
+.celloWorkbenchPanel > .celloSourceEditor,
+.celloWorkbenchPanel > .celloVisualEditorShell,
+.celloWorkbenchPanel > .celloHtmlPreview {
+  min-height: 0;
+  height: 100%;
+}
+
 @media (max-width: 1080px) {
   .celloVisualToolbarRow {
     align-items: flex-start;

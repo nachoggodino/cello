@@ -96,7 +96,7 @@ export function ValueMenu({
       }
     };
     document.addEventListener("mousedown", closeMenu);
-    return () => document.removeEventListener("mousedown", closeMenu);
+    return () => { document.removeEventListener("mousedown", closeMenu); };
   }, [open]);
 
   const commitCustom = () => {
@@ -120,7 +120,7 @@ export function ValueMenu({
         aria-haspopup="menu"
         aria-label={ariaLabel}
         disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => { setOpen((current) => !current); }}
       >
         {displayValue}
       </button>
@@ -149,7 +149,7 @@ export function ValueMenu({
               aria-label={customPlaceholder}
               value={customValue}
               placeholder={customPlaceholder}
-              onChange={(event) => setCustomValue(event.target.value)}
+              onChange={(event) => { setCustomValue(event.target.value); }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   commitCustom();
