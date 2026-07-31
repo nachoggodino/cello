@@ -41,8 +41,8 @@ Status legend:
 
 5b. Persisted layout controls and aliases (`[columns:fit]`, `[rows:wrap]`, `[width:...]`, `[height:...]`, `@tone`, `@width`, `@height`)
 - Status: `implemented`
-- Code: `packages/core/src/parser/parse.ts` (`tryHandleAliasDeclaration`, `parseSheetLayout`), `packages/core/src/shared/layout.ts`, `packages/core/src/renderer/render.ts`, `packages/core/src/serializer/serialize.ts`, `packages/editor-core/src/commands.ts`
-- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/unit/serializer/serialize.unit.test.ts`, `tests/it/renderer/render.test.ts`, `tests/unit/editor-core/editorCore.unit.test.ts`, `tests/unit/editor-react/CelloVisualEditor.unit.test.tsx`
+- Code: `packages/core/src/parser/parse.ts` (`tryHandleAliasDeclaration`, `parseSheetLayout`), `packages/core/src/shared/layout.ts`, `packages/core/src/renderer/render.ts`, `packages/editor-core/src/commands.ts`, `packages/editor-core/src/syntax-emitter.ts`
+- Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/unit/formatter/format.unit.test.ts`, `tests/it/renderer/render.test.ts`, `tests/unit/editor-core/editorCore.unit.test.ts`, `tests/unit/editor-react/CelloVisualEditor.unit.test.tsx`
 
 6. Formula parsing + evaluation engine integration
 - Status: `implemented`

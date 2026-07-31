@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+- Added a source-authoritative editor session shared by React source, HTML preview, and
+  visual views, with source-preserving commands, scoped Compact/Pretty formatting,
+  independent mode histories, and revision-safe derived output.
+- Removed the public core and editor whole-workbook serializers and the `cello serialize`
+  command. Source changes now use `formatSource` or verified editor document commands.
+
 ## 0.2.0 - 2026-07-28
 
 - Reorganized the repository into `packages/` and `apps/`, with published package entry points now built from `packages/core`, `packages/cli`, `packages/editor-core`, and `packages/editor-react`.

@@ -2,15 +2,16 @@
 
 ## Pipeline
 
-1. `parse(text)` -> AST
+1. `parse(text)` -> AST, or `parseDocument(text)` -> source + AST + source map
 2. `evaluate(ast)` -> AST with computed formula values when possible
 3. `render(text|ast)` -> self-contained HTML
-4. `serialize(ast)` -> `.cel` text
 
 ## Main modules
 
 - `packages/core/src/parser/parse.ts`
   - Parses workbook/sheets/rows/cells
+  - Produces semantic nodes and accepted source locations in the same tolerant pass through `parseDocument`
+  - Records whether native cells are explicit values, explicit empty cells, or omitted, and whether their values are default-derived
   - Handles `@sheet`, `@header`, `@defaults`, rows, row modifiers, merges, external sheet source (`-> path`), formats (`csv/tsv/excel/markdown/json`)
   - Emits parser diagnostics
 
@@ -28,8 +29,10 @@
   - Generates HTML tabs + tables
   - Applies inline formatting and style modifiers (`bold`, `italic`, `bg`, color)
 
-- `packages/core/src/serializer/serialize.ts`
-  - Converts AST back to `.cel` text for roundtrip workflows
+- `packages/core/src/formatter/`
+  - Keeps the legacy `format(text)` Pretty API
+  - Provides Compact, Pretty, and range-scoped formatting through `formatSource`
+  - Uses parser-produced source locations and never materializes omitted cells
 
 - `packages/cli/src/serve.ts`
   - Serves a rendered workbook over local HTTP
@@ -37,14 +40,45 @@
   - Injects a small live-reload script for browser previews
 
 - `packages/editor-core/src/`
-  - Builds source-preserving editor documents from parsed workbooks
-  - Applies workbook editing commands without requiring callers to manipulate AST internals
+  - Builds source-preserving editor documents from core `parseDocument` results
+  - Treats core source locations as authoritative instead of parsing document structure again
+  - Uses cell provenance to avoid accidentally materializing inherited defaults during structural edits
+  - Applies a selected source layout only to table blocks affected by visual commands
+  - Keeps equality and layout orchestration outside the source patching module
+  - Exposes serializable, discriminated document commands through `executeEditorCommand`
+  - Validates commands before reduction; batch validation is atomic and follows the
+    workbook produced by each preceding child command
+  - Reduces commands internally, creates minimal source patches, reparses once, and
+    verifies the semantic postcondition
+  - Anchors structural insertions to recognized rows while retaining surrounding
+    comments, blank lines, spacing, malformed source, and CRLF/LF line endings
+  - Uses internal cell, row, declaration, and new-sheet syntax emitters only where a
+    command must create syntax; no whole-workbook serializer is public
+  - Provides a synchronous framework-independent session with immutable snapshots,
+    monotonic source revisions, shared active-sheet/layout state, and bounded source
+    and visual histories
+  - Rejects commands against stale revisions; changes from one editing mode clear the
+    other mode's undo and redo history
   - Provides selectors, serialization helpers, and evaluation helpers for editor hosts
 
 - `packages/editor-react/src/`
-  - Exposes `CelloVisualEditor` for React applications
-  - Imports editor-core commands/selectors and core renderer/evaluator helpers
+  - Exposes `CelloSourceEditor`, `CelloHtmlPreview`, `CelloVisualEditor`, and the
+    optional tabbed `CelloWorkbench` for React applications
+  - Subscribes to editor sessions through `useSyncExternalStore`, keeping React state
+    out of the framework-independent session
+  - Uses React CodeMirror for the source surface with an internal Cello language
+    extension aligned to the packaged TextMate grammar; CodeMirror history is disabled
+    in favor of session source history
+  - Discards asynchronous preview results whose source revision is no longer current
+  - Shares active-sheet changes made in preview tabs or the visual editor
+  - Dispatches editor-core document commands and imports selectors plus core renderer/evaluator helpers
+  - Keeps finite-table cell, row, column, and merged-range selection logic in `selection.ts`
   - Ships its stylesheet through the `@nachoggodino/cello/editor-react/styles.css` export
+
+- `apps/playground/src/`
+  - Composes the public source, preview, and visual React views over one editor session
+  - Keeps only playground-specific chrome such as examples, split resizing, diagnostics,
+    copying, downloads, and the syntax reference
 
 - `packages/language-support/`
   - Stores reusable TextMate grammar and VS Code language configuration files

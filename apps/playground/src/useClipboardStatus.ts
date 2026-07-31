@@ -11,7 +11,7 @@ export function useClipboardStatus() {
       await navigator.clipboard.writeText(value);
       setActionMessage(`${label} copied.`);
       setCopiedTarget(label);
-      window.setTimeout(() => setCopiedTarget((current) => (current === label ? "" : current)), copiedStatusMs);
+      window.setTimeout(() => { setCopiedTarget((current) => (current === label ? "" : current)); }, copiedStatusMs);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setActionMessage(`Copy failed: ${message}`);
@@ -36,12 +36,12 @@ export function useClipboardStatus() {
       }
       setActionMessage(`${label} copied.`);
       setCopiedTarget(label);
-      window.setTimeout(() => setCopiedTarget((current) => (current === label ? "" : current)), copiedStatusMs);
+      window.setTimeout(() => { setCopiedTarget((current) => (current === label ? "" : current)); }, copiedStatusMs);
     } catch (error) {
       if (copyViaExecCommand(payload)) {
         setActionMessage(`${label} copied.`);
         setCopiedTarget(label);
-        window.setTimeout(() => setCopiedTarget((current) => (current === label ? "" : current)), copiedStatusMs);
+        window.setTimeout(() => { setCopiedTarget((current) => (current === label ? "" : current)); }, copiedStatusMs);
         return;
       }
       const message = error instanceof Error ? error.message : String(error);
@@ -53,6 +53,8 @@ export function useClipboardStatus() {
 }
 
 function copyViaExecCommand(payload: ClipboardPayload): boolean {
+  // ClipboardItem is not uniformly available; keep this deprecated API as a last-resort fallback.
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
   if (typeof document === "undefined" || typeof document.execCommand !== "function") {
     return false;
   }
@@ -88,6 +90,7 @@ function copyViaExecCommand(payload: ClipboardPayload): boolean {
   document.addEventListener("copy", listener);
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     return document.execCommand("copy");
   } finally {
     document.removeEventListener("copy", listener);

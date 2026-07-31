@@ -7,7 +7,6 @@ import { evaluate } from "../../core/src/evaluator/evaluate.js";
 import { format as formatCello } from "../../core/src/formatter/format.js";
 import { parse } from "../../core/src/parser/parse.js";
 import { render } from "../../core/src/renderer/render.js";
-import { serialize } from "../../core/src/serializer/serialize.js";
 import { validate } from "../../core/src/validator/validate.js";
 import { VERSION } from "../../core/src/version.js";
 import { startServe } from "./serve.js";
@@ -77,7 +76,6 @@ function printUsage(write: (text: string) => void): void {
       "  cello format <file.cel> [--check] [-o out.cel]",
       "  cello validate <file.cel>",
       "  cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]",
-      "  cello serialize <file.cel> [-o out.cel]",
       "  cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]"
     ].join("\n")
   );
@@ -95,12 +93,11 @@ const HELP_TEXT: Record<string, string> = {
     "Usage: cello validate <file.cel>\n\nParse and evaluate diagnostics. Prints JSON with valid and diagnostics fields. Exits 0 when valid, 1 when diagnostics exist.\n",
   render:
     "Usage: cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]\n\nRender a workbook to HTML. The default format is document. Use fragment for an embeddable chunk without html/head/body wrappers. Use --no-eval to leave formula cells unevaluated.\n",
-  serialize: "Usage: cello serialize <file.cel> [-o out.cel]\n\nParse and serialize a workbook back to .cel text.\n",
   serve:
     "Usage: cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]\n\nServe a live HTML preview. The server keeps the process warm for faster repeated renders. Use --open to open the URL in a browser.\n"
 };
 
-type CliCommand = "parse" | "evaluate" | "format" | "validate" | "render" | "serialize" | "serve";
+type CliCommand = "parse" | "evaluate" | "format" | "validate" | "render" | "serve";
 type NonServeCliCommand = Exclude<CliCommand, "serve">;
 
 interface CliRequest {
@@ -138,13 +135,13 @@ function parseCliRequest(argv: string[], cwd: string): CliRequest | HelpRequest 
   }
   if (command === "help" || command === "--help" || command === "-h") {
     if (rest.length > 0) {
-      return { error: `Unexpected argument for help: ${rest[0]}` };
+      return { error: `Unexpected argument for help: ${rest[0] ?? ""}` };
     }
     return { command: "help", topic: inputArg ?? "" };
   }
   if (inputArg === "--help" || inputArg === "-h") {
     if (rest.length > 0) {
-      return { error: `Unexpected argument for help: ${rest[0]}` };
+      return { error: `Unexpected argument for help: ${rest[0] ?? ""}` };
     }
     return { command: "help", topic: command ?? "" };
   }
@@ -211,7 +208,6 @@ function isCliCommand(command: string | undefined): command is CliCommand {
     command === "format" ||
     command === "validate" ||
     command === "render" ||
-    command === "serialize" ||
     command === "serve"
   );
 }
@@ -232,7 +228,7 @@ function validateServeOptionScope(command: CliCommand, rest: string[]): CliReque
 function validateArguments(command: CliCommand, rest: string[]): CliRequestError | undefined {
   const optionsWithValues = new Set(command === "serve" ? ["--host", "--port"] : ["--out", "-o", "--format"]);
   const allowedOptions = new Set<string>();
-  if (command === "render" || command === "serialize" || command === "format") {
+  if (command === "render" || command === "format") {
     allowedOptions.add("--out");
     allowedOptions.add("-o");
   }
@@ -372,10 +368,8 @@ async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest,
           ...(request.renderFormat ? { format: request.renderFormat } : {})
         }),
         request.outPath,
-        deps,
-        false
-      ),
-    serialize: async () => writeCliOutput(serialize(getAst()), request.outPath, deps, true)
+        deps
+      )
   };
 
   return handlers[request.command]();
@@ -440,8 +434,7 @@ function writeStdoutJson(value: unknown, stdoutWrite: (text: string) => void): n
 async function writeCliOutput(
   output: string,
   outPath: string,
-  deps: CliDeps,
-  appendTrailingNewline: boolean
+  deps: CliDeps
 ): Promise<number> {
   if (outPath) {
     await deps.writeFileFn(outPath, output, "utf8");
@@ -449,7 +442,7 @@ async function writeCliOutput(
     return 0;
   }
 
-  deps.stdoutWrite(appendTrailingNewline ? `${output}\n` : output);
+  deps.stdoutWrite(output);
   return 0;
 }
 

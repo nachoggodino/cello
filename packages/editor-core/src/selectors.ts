@@ -21,8 +21,6 @@ import {
 } from "../../core/src/index.js";
 import type { CellAddress, ComputedCellValue, EditorCell, EditorCellStyle, EditorRow, EditorSheet, EditorWorkbook, ModifierScope } from "./model.js";
 import type { CellKind } from "../../core/src/index.js";
-import type { EditorLayoutOptions } from "./options.js";
-import { resolveEditorLayoutOptions } from "./options.js";
 import { createBlankCell, createBlankRow } from "./workbook.js";
 import { isMergeToken } from "./source.js";
 
@@ -38,8 +36,8 @@ export function getDefaultCellAt(sheet: EditorSheet | undefined, colIndex: numbe
   return sheet?.defaults[colIndex] ?? createBlankCell();
 }
 
-export function getRowAt(sheet: EditorSheet | undefined, rowIndex: number, options?: EditorLayoutOptions): EditorRow {
-  return sheet?.rows[rowIndex] ?? createBlankRow(getVisibleColumnCount(sheet, options) - 1);
+export function getRowAt(sheet: EditorSheet | undefined, rowIndex: number): EditorRow {
+  return sheet?.rows[rowIndex] ?? createBlankRow(getVisibleColumnCount(sheet));
 }
 
 export function getColumnName(index: number): string {
@@ -53,15 +51,13 @@ export function getColumnName(index: number): string {
   return out;
 }
 
-export function getVisibleRowCount(sheet: EditorSheet | undefined, options?: EditorLayoutOptions): number {
-  const { minimumVisibleRows } = resolveEditorLayoutOptions(options);
-  return Math.max(minimumVisibleRows, (sheet?.rows.length ?? 0) + 1);
+export function getVisibleRowCount(sheet: EditorSheet | undefined): number {
+  return sheet?.rows.length ?? 0;
 }
 
-export function getVisibleColumnCount(sheet: EditorSheet | undefined, options?: EditorLayoutOptions): number {
-  const { minimumVisibleColumns } = resolveEditorLayoutOptions(options);
+export function getVisibleColumnCount(sheet: EditorSheet | undefined): number {
   const actual = sheet ? Math.max(sheet.defaults.length, ...sheet.rows.map((row) => row.cells.length)) : 0;
-  return Math.max(minimumVisibleColumns, actual + 1);
+  return actual;
 }
 
 export function getCellStyle(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number, workbook?: Pick<EditorWorkbook, "aliases">): EditorCellStyle {

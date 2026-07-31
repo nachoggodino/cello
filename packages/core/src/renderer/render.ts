@@ -309,8 +309,5 @@ function getSheetColumnCount(sheet: SheetNode): number {
 
 function columnWidthToCss(width: ResolvedWidth): string {
   const resolved = width.kind === "fit" ? DEFAULT_COLUMN_WIDTH : width;
-  if (!resolved || resolved.kind === "fit") {
-    return columnWidthToCss(DEFAULT_COLUMN_WIDTH);
-  }
   return `width:${widthOuterToCss(resolved)}`;
 }

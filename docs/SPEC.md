@@ -577,12 +577,16 @@ The reference implementation is a TypeScript/JavaScript npm package called `@nac
 parse(text: string, options?): AST
 evaluate(ast: AST, options?): Promise<AST>
 format(text: string): string
+formatSource(text: string, options?: { layout?: "compact" | "pretty", range?: { start: number, end: number } }): string
 validate(text: string, options?): Promise<{ valid: boolean, diagnostics: Diagnostic[] }>
 render(input: string | AST, options?: { strict?, title?, baseDir?, evaluate?, format?: "document" | "fragment" }): Promise<string>
-serialize(ast: AST): string
 ```
 
-The package also exports editor-oriented helpers from `@nachoggodino/cello/editor-core` and a React visual editor from `@nachoggodino/cello/editor-react`.
+The package also exports editor-oriented helpers from `@nachoggodino/cello/editor-core`
+and session-backed source, HTML preview, visual editor, and optional workbench React
+components from `@nachoggodino/cello/editor-react`.
+The source component provides Cello-aware code editing while delegating undo/redo and
+all source changes to the shared editor session.
 
 ### 17.2 Parser design
 
@@ -653,31 +657,33 @@ The renderer evaluates by default, unless `evaluate: false` is passed. It walks 
 
 `format: "document"` is the default and returns a self-contained HTML document (`<!doctype html>`) with `html`, `head`, and `body` wrappers. `format: "fragment"` returns only the inline CSS, workbook container, and inline JS so the output can be embedded inside an existing page. No external dependencies are required in either format.
 
-Rendered tables include spreadsheet coordinate chrome: a synthetic top row displays column letters (`A`, `B`, `C`...), and a synthetic first column displays semantic row numbers. This chrome is presentation-only; it is not part of the AST or serialized `.cel` text. Header rows use the same row numbering as formulas, so a header at the top of a sheet is row `1` and the first value row below it is row `2`.
+Rendered tables include spreadsheet coordinate chrome: a synthetic top row displays column letters (`A`, `B`, `C`...), and a synthetic first column displays semantic row numbers. This chrome is presentation-only; it is not part of the AST or `.cel` source text. Header rows use the same row numbering as formulas, so a header at the top of a sheet is row `1` and the first value row below it is row `2`.
 
-### 17.5 Serializer
+### 17.5 Source-preserving changes
 
-The serializer converts an AST back to valid `.cel` text. This enables round-trip editing: parse → mutate → serialize → parse again.
+The AST is a semantic projection and is not a lossless source representation. The public
+API therefore does not provide an AST-to-`.cel` serializer. Source-authoritative tools
+retain the original text and apply bounded changes through `formatSource` or editor
+document commands.
 
 ```
-AST → serializer → .cel text
+source + command → minimal source patch → reparse and verify
 ```
 
-Rules:
-- Emits normalized Cello row text (`| ... |`) rather than preserving original spacing/alignment
-- Reconstructs header rows from column metadata
-- Outputs row modifiers before data rows where they exist in the AST
-- Preserves modifier order from parsed AST (`modifiers` array order)
+This preserves comments, unknown or malformed fragments, line endings, spacing outside
+the authorized formatting scope, and explicit/omitted/default-derived cell provenance.
+Internal syntax emitters may create individual cells, rows, declarations, or entirely
+new sheets when a document command has no existing source span to patch.
 
 ### 17.6 Ecosystem components
 
 | Component | Description | Priority |
 |-----------|-------------|----------|
-| `@nachoggodino/cello` (npm) | GPLv3 core library: parse, evaluate, format, validate, render, serialize | v1 |
+| `@nachoggodino/cello` (npm) | GPLv3 core library: parse, evaluate, format, validate, render | v1 |
 | `cello` CLI | CLI tool: `cello render file.cel > out.html`; `cello serve file.cel` for live previews | v1 |
 | `cello-playground` | Web playground: split-view editor + live preview | v1 |
 | `@nachoggodino/cello/editor-core` | Source-preserving workbook editing model, commands, selectors, and evaluation helpers | v1 |
-| `@nachoggodino/cello/editor-react` | React visual editor component and stylesheet for Cello workbooks | v1 |
+| `@nachoggodino/cello/editor-react` | React source, preview, visual editor, optional workbench, and stylesheet | v1 |
 | `cello-python` | Python port of parser + renderer | v2 |
 | `cello-vscode` | VSCode extension with live preview | v2 |
 

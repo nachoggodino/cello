@@ -118,15 +118,15 @@ describe("cli", () => {
   });
 
   it("rejects --check outside format", async () => {
-    const { code, stderr } = await runCliCase(["node", "cli", "serialize", "sample.cel", "--check"]);
+    const { code, stderr } = await runCliCase(["node", "cli", "parse", "sample.cel", "--check"]);
     expect(code).toBe(1);
     expect(stderr).toContain("--check is only supported by format.");
   });
 
   it("rejects unsupported options with a command-specific message", async () => {
-    const { code, stderr } = await runCliCase(["node", "cli", "serialize", "sample.cel", "--format", "json"]);
+    const { code, stderr } = await runCliCase(["node", "cli", "parse", "sample.cel", "--format", "json"]);
     expect(code).toBe(1);
-    expect(stderr).toContain("Unsupported option for serialize: --format");
+    expect(stderr).toContain("Unsupported option for parse: --format");
   });
 
   it("rejects invalid render output formats", async () => {
@@ -289,22 +289,12 @@ describe("cli", () => {
       }
     },
     {
-      name: "runs serialize and writes output file when -o is provided",
-      argv: ["node", "cli", "serialize", "sample.cel", "-o", "out.cel"],
-      source: "@sheet S\n| A | 1 |",
-      assert: async ({ code, cwd, stdout }: { code: number; cwd: string; stdout: string }) => {
-        expect(code).toBe(0);
-        expect(stdout).toContain("Wrote");
-        expect(await readFile(join(cwd, "out.cel"), "utf8")).toContain("@sheet S");
-      }
-    },
-    {
-      name: "runs serialize and prints output to stdout when no -o is provided",
+      name: "rejects the removed serialize command",
       argv: ["node", "cli", "serialize", "sample.cel"],
       source: "@sheet S\n| A | 1 |",
-      assert: ({ code, stdout }: { code: number; stdout: string }) => {
-        expect(code).toBe(0);
-        expect(stdout).toContain("@sheet S");
+      assert: ({ code, stderr }: { code: number; stderr: string }) => {
+        expect(code).toBe(1);
+        expect(stderr).toContain("Unknown command: serialize");
       }
     },
     {

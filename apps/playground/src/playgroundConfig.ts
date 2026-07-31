@@ -10,4 +10,5 @@ export const splitPane = {
 
 export const renderDebounceMs = 400;
 export const copiedStatusMs = 1500;
+export const mobileBreakpointPx = 860;
 export const previewDownloadFileName = "cello-preview.html";

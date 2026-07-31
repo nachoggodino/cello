@@ -1,5 +1,5 @@
-import { isSheetFormatModifier, parse, parseSheetFormat, parseTrailingModifiers } from "../../core/src/index.js";
-import type { AliasDeclaration, Modifier, SheetFormat, SheetLayout } from "../../core/src/index.js";
+import { parseDocument } from "../../core/src/index.js";
+import type { SheetFormat } from "../../core/src/index.js";
 import type {
   EditorCell,
   EditorCommandFailure,
@@ -10,46 +10,66 @@ import type {
   EditorRowSourceLocation,
   EditorSheet,
   EditorSheetSourceLocation,
-  EditorSourceMap,
   EditorSourceSpan,
   EditorWorkbook
 } from "./model.js";
 import { rejectExternalSource } from "./options.js";
 import type { CreateEditorWorkbookOptions } from "./options.js";
 import {
-  serializeEditorCell,
-  serializeEditorCellsAsRow,
-  serializeEditorDefaultsRow,
-  serializeEditorRow,
-  serializeEditorSheetDeclaration,
-  serializeEditorWorkbook
-} from "./serialization.js";
+  emitEditorCell,
+  emitEditorCellsAsRow,
+  emitEditorDefaultsRow,
+  emitEditorRow,
+  emitEditorSheet,
+  emitEditorSheetDeclaration,
+  emitEditorSheetName
+} from "./syntax-emitter.js";
 import { createEditorWorkbookFromAst } from "./workbook.js";
+import {
+  aliasesEqual,
+  cellEqual,
+  cellsEqual,
+  modifiersEqual,
+  persistedWorkbooksEqual,
+  rowEqual,
+  rowsEqual,
+  sheetEqual,
+  sheetLayoutsEqual,
+  sheetsEqual
+} from "./equality.js";
+import { formatChangedSource } from "./layout-scope.js";
 
 interface Patch {
   span: EditorSourceSpan;
   text: string;
 }
 
-interface SourceLine {
-  text: string;
-  start: number;
-  end: number;
-  line: number;
-}
-
 export function createEditorDocument(source: string, options: CreateEditorWorkbookOptions = {}): EditorDocument {
   const diagnostics: EditorDiagnostic[] = [];
-  const ast = parse(source, {
+  const parsed = parseDocument(source, {
     ...(options.anonymousSheetName === undefined ? {} : { anonymousSheetName: options.anonymousSheetName }),
     ...(options.baseDir === undefined ? {} : { baseDir: options.baseDir }),
     readExternalSource: options.readExternalSource ?? rejectExternalSource,
     ...(options.strict === undefined ? {} : { strict: options.strict })
   });
-  diagnostics.push(...ast.diagnostics);
+  diagnostics.push(...parsed.workbook.diagnostics);
 
-  const sourceMap = buildEditorSourceMap(source, options, diagnostics);
-  const workbook = createEditorWorkbookFromAst(ast);
+  const sourceMap = parsed.sourceMap.sheets.length > 0
+    ? parsed.sourceMap
+    : { sheets: [createImplicitSheet()] };
+  if (!options.readExternalSource) {
+    for (const sourceSheet of sourceMap.sheets) {
+      for (const externalSource of sourceSheet.externalSources) {
+        diagnostics.push({
+          level: "warning",
+          line: externalSource.line,
+          code: "external-source-unsupported",
+          message: "External sources are not available in this editor host: " + externalSource.path
+        });
+      }
+    }
+  }
+  const workbook = createEditorWorkbookFromAst(parsed.workbook);
   for (const [sheetIndex, sheet] of workbook.sheets.entries()) {
     const sourceSheet = sourceMap.sheets[sheetIndex];
     if (sourceSheet?.externalSources[0]) {
@@ -79,11 +99,21 @@ export function applyWorkbookPatch(
     };
   }
 
-  const nextSource = applyPatches(document.source, patchesOrFailure);
+  const patchedSource = applyPatches(document.source, patchesOrFailure);
+  const nextSource = formatChangedSource(document.source, patchedSource, options.sourceLayout);
+  const nextDocument = createEditorDocument(nextSource, options);
+  if (!persistedWorkbooksEqual(nextDocument.workbook, nextWorkbook)) {
+    return {
+      ok: false,
+      reason: "postcondition-failed",
+      message: "The command result did not reparse to the requested workbook, so the source change was discarded.",
+      document
+    };
+  }
   return {
     ok: true,
     source: nextSource,
-    document: createEditorDocument(nextSource, options)
+    document: nextDocument
   };
 }
 
@@ -93,17 +123,40 @@ function buildWorkbookPatches(
 ): Patch[] | Pick<EditorCommandFailure, "reason" | "message"> {
   const current = document.workbook;
   const patches: Patch[] = [];
+  const lineEnding = getSourceLineEnding(document.source);
   if (!aliasesEqual(current.aliases ?? [], nextWorkbook.aliases ?? [])) {
     return { reason: "unsupported-source-region", message: "Alias edits cannot be source-preserved in visual mode yet." };
   }
 
-  if (shouldMaterializeImplicitWorkbook(document, nextWorkbook)) {
-    return [{ span: { start: 0, end: document.source.length }, text: serializeEditorWorkbook(nextWorkbook) }];
+  if (nextWorkbook.sheets.length === current.sheets.length + 1 && sheetsEqual(nextWorkbook.sheets.slice(0, -1), current.sheets)) {
+    if (document.source.length === 0) {
+      return [{
+        span: { start: 0, end: 0 },
+        text: toLineEndings(nextWorkbook.sheets.map(emitEditorSheet).join("\n\n"), lineEnding)
+      }];
+    }
+    const firstSourceSheet = document.sourceMap.sheets[0];
+    const firstCurrentSheet = current.sheets[0];
+    if (firstSourceSheet && firstCurrentSheet && !firstSourceSheet.declaration) {
+      patches.push({
+        span: { start: firstSourceSheet.sheetSpan.start, end: firstSourceSheet.sheetSpan.start },
+        text: `${emitEditorSheetDeclaration(firstCurrentSheet)}${lineEnding}`
+      });
+    }
+    const appendedSheet = nextWorkbook.sheets.at(-1);
+    if (!appendedSheet) {
+      return { reason: "stale-source-map", message: "The appended sheet could not be resolved." };
+    }
+    const emittedSheet = toLineEndings(emitEditorSheet(appendedSheet), lineEnding);
+    patches.push({
+      span: { start: document.source.length, end: document.source.length },
+      text: `${document.source.endsWith(lineEnding) ? lineEnding : lineEnding + lineEnding}${emittedSheet}`
+    });
+    return patches;
   }
 
-  if (nextWorkbook.sheets.length === current.sheets.length + 1 && sheetsEqual(nextWorkbook.sheets.slice(0, -1), current.sheets)) {
-    patches.push({ span: { start: document.source.length, end: document.source.length }, text: `${document.source.endsWith("\n") ? "\n" : "\n\n"}${serializeEditorWorkbook({ sheets: [nextWorkbook.sheets[nextWorkbook.sheets.length - 1] as EditorSheet] })}` });
-    return patches;
+  if (shouldMaterializeImplicitWorkbook(document, nextWorkbook)) {
+    return materializeImplicitWorkbook(document, nextWorkbook, lineEnding);
   }
 
   if (nextWorkbook.sheets.length === current.sheets.length - 1) {
@@ -133,7 +186,7 @@ function buildWorkbookPatches(
       };
     }
 
-    const sheetPatch = patchSheetDeclaration(sourceSheet, currentSheet, nextSheet);
+    const sheetPatch = patchSheetDeclaration(document.source, sourceSheet, currentSheet, nextSheet);
     if (sheetPatch) {
       patches.push(sheetPatch);
     }
@@ -154,14 +207,27 @@ function buildWorkbookPatches(
   return patches;
 }
 
-function patchSheetDeclaration(sourceSheet: EditorSheetSourceLocation, current: EditorSheet, next: EditorSheet): Patch | undefined {
-  if (current.name === next.name && sheetLayoutsEqual(current.layout, next.layout)) {
+function patchSheetDeclaration(
+  source: string,
+  sourceSheet: EditorSheetSourceLocation,
+  current: EditorSheet,
+  next: EditorSheet
+): Patch | undefined {
+  const nameChanged = current.name !== next.name;
+  const layoutChanged = !sheetLayoutsEqual(current.layout, next.layout);
+  if (!nameChanged && !layoutChanged) {
     return undefined;
   }
   if (!sourceSheet.declaration) {
-    return { span: { start: sourceSheet.sheetSpan.start, end: sourceSheet.sheetSpan.start }, text: `${serializeEditorSheetDeclaration(next)}\n` };
+    return {
+      span: { start: sourceSheet.sheetSpan.start, end: sourceSheet.sheetSpan.start },
+      text: `${emitEditorSheetDeclaration(next)}${getSourceLineEnding(source)}`
+    };
   }
-  return { span: sourceSheet.declaration.lineSpan, text: serializeEditorSheetDeclaration(next) };
+  if (nameChanged && !layoutChanged) {
+    return { span: sourceSheet.declaration.nameSpan, text: emitEditorSheetName(next.name) };
+  }
+  return { span: sourceSheet.declaration.lineSpan, text: emitEditorSheetDeclaration(next) };
 }
 
 function patchDefaults(
@@ -169,7 +235,7 @@ function patchDefaults(
   sourceSheet: EditorSheetSourceLocation,
   current: EditorSheet,
   next: EditorSheet
-): Patch[] | { reason: "unsupported-source-region" | "stale-source-map" | "ambiguous-cell-location"; message: string } {
+): Patch[] | Pick<EditorCommandFailure, "reason" | "message"> {
   if (cellsEqual(current.defaults, next.defaults)) {
     return [];
   }
@@ -178,8 +244,11 @@ function patchDefaults(
     if (!anchor) {
       return { reason: "stale-source-map", message: "A defaults row cannot be inserted without a mapped sheet anchor." };
     }
-    const defaults = serializeEditorDefaultsRow(next);
-    return defaults ? [{ span: { start: anchor.lineSpan.end, end: anchor.lineSpan.end }, text: `\n${defaults}` }] : [];
+    const defaults = emitEditorDefaultsRow(next);
+    return defaults ? [{
+      span: { start: anchor.lineSpan.end, end: anchor.lineSpan.end },
+      text: `${getSourceLineEnding(source)}${defaults}`
+    }] : [];
   }
   return patchRowCells(source, sourceSheet.defaults, current.defaults, next.defaults, "defaults");
 }
@@ -189,9 +258,14 @@ function patchRows(
   sourceSheet: EditorSheetSourceLocation,
   current: EditorSheet,
   next: EditorSheet
-): Patch[] | { reason: "unsupported-source-region" | "stale-source-map" | "ambiguous-cell-location"; message: string } {
+): Patch[] | Pick<EditorCommandFailure, "reason" | "message"> {
   if (rowsEqual(current.rows, next.rows)) {
     return [];
+  }
+
+  const insertionPatch = getInsertedRowsPatch(source, sourceSheet, current.rows, next.rows);
+  if (insertionPatch) {
+    return [insertionPatch];
   }
 
   if (current.rows.length === next.rows.length) {
@@ -206,24 +280,20 @@ function patchRows(
         return { reason: "stale-source-map", message: `Row ${rowIndex + 1} could not be mapped to source.` };
       }
       if (currentRow.kind !== nextRow.kind || currentRow.cells.length !== nextRow.cells.length) {
-        const currentCells = trimTrailingEmptyCells(currentRow.cells);
-        const nextCells = trimTrailingEmptyCells(nextRow.cells);
-        if (currentRow.kind !== nextRow.kind || currentCells.length > sourceRow.cells.length || !modifiersEqual(currentRow.modifiers, nextRow.modifiers)) {
-          patches.push({ span: sourceRow.lineSpan, text: serializeEditorRow({ ...nextRow, cells: nextCells }) });
-          continue;
+        if (rowContainsDefaultDerivedCell(sourceRow, currentRow)) {
+          return sourceProvenanceFailure(rowIndex);
         }
-        const cellPatches = patchRowCells(source, sourceRow, currentCells, nextCells, "row");
-        if (!Array.isArray(cellPatches)) {
-          return cellPatches;
-        }
-        patches.push(...cellPatches);
+        patches.push({ span: sourceRow.lineSpan, text: emitEditorRow(nextRow) });
         continue;
       }
       if (!modifiersEqual(currentRow.modifiers, nextRow.modifiers)) {
-        patches.push({ span: sourceRow.lineSpan, text: serializeEditorRow(nextRow) });
+        if (rowContainsDefaultDerivedCell(sourceRow, currentRow)) {
+          return sourceProvenanceFailure(rowIndex);
+        }
+        patches.push({ span: sourceRow.lineSpan, text: emitEditorRow(nextRow) });
         continue;
       }
-      const cellPatches = patchRowCells(source, sourceRow, trimTrailingEmptyCells(currentRow.cells), trimTrailingEmptyCells(nextRow.cells), "row");
+      const cellPatches = patchRowCells(source, sourceRow, currentRow.cells, nextRow.cells, "row");
       if (!Array.isArray(cellPatches)) {
         return cellPatches;
       }
@@ -232,20 +302,42 @@ function patchRows(
     return patches;
   }
 
-  if (next.rows.length === current.rows.length + 1) {
-    const insertIndex = findInsertedRowIndex(current.rows, next.rows);
-    if (insertIndex < 0) {
-      return { reason: "ambiguous-cell-location", message: "The inserted row location could not be determined." };
+  if (next.rows.length > current.rows.length) {
+    const sharedRows = next.rows.slice(0, current.rows.length);
+    const sharedPatches = patchRows(source, sourceSheet, current, { ...next, rows: sharedRows });
+    if (!Array.isArray(sharedPatches)) {
+      return sharedPatches;
     }
-    const previous = sourceSheet.rows[insertIndex - 1] ?? sourceSheet.declaration;
+    const previous = sourceSheet.rows[current.rows.length - 1] ?? sourceSheet.defaults ?? sourceSheet.declaration;
     if (!previous) {
-      return { reason: "stale-source-map", message: "The inserted row anchor could not be mapped to source." };
+      return { reason: "stale-source-map", message: "The appended row anchor could not be mapped to source." };
     }
-    const insertedRow = next.rows[insertIndex] as EditorRow;
-    return [{ span: { start: previous.lineSpan.end, end: previous.lineSpan.end }, text: `\n${serializeEditorRow({ ...insertedRow, cells: trimTrailingEmptyCells(insertedRow.cells) })}` }];
+    const appendedRows = next.rows.slice(current.rows.length)
+      .map((row) => emitEditorRow(row))
+      .join("\n");
+    return [
+      ...sharedPatches,
+      {
+        span: { start: previous.lineSpan.end, end: previous.lineSpan.end },
+        text: `${getSourceLineEnding(source)}${toLineEndings(appendedRows, getSourceLineEnding(source))}`
+      }
+    ];
   }
 
   return { reason: "unsupported-source-region", message: "This row change cannot be source-preserved yet." };
+}
+
+function rowContainsDefaultDerivedCell(sourceRow: EditorRowSourceLocation, row: EditorRow): boolean {
+  return row.cells.some((_, index) => sourceRow.cells[index]?.valueOrigin === "default-derived");
+}
+
+function sourceProvenanceFailure(
+  rowIndex: number
+): { reason: "source-provenance-required"; message: string } {
+  return {
+    reason: "source-provenance-required",
+    message: `Row ${rowIndex + 1} contains inherited defaults. This structural edit is blocked because preserving inherited-default provenance is not implemented yet.`
+  };
 }
 
 function patchRowCells(
@@ -254,16 +346,12 @@ function patchRowCells(
   currentCells: EditorCell[],
   nextCells: EditorCell[],
   label: string
-): Patch[] | { reason: "unsupported-source-region" | "stale-source-map" | "ambiguous-cell-location"; message: string } {
+): Patch[] | Pick<EditorCommandFailure, "reason" | "message"> {
   if (currentCells.length !== nextCells.length) {
-    const trimmedCurrentCells = trimTrailingEmptyCells(currentCells);
-    const trimmedNextCells = trimTrailingEmptyCells(nextCells);
-    if (trimmedCurrentCells.length === trimmedNextCells.length) {
-      return patchRowCells(source, sourceRow, trimmedCurrentCells, trimmedNextCells, label);
-    }
-    return [{ span: sourceRow.lineSpan, text: serializeCellsAsRowSource(source, sourceRow, trimmedNextCells) }];
+    return [{ span: sourceRow.lineSpan, text: serializeCellsAsRowSource(source, sourceRow, nextCells) }];
   }
   const patches: Patch[] = [];
+  const omittedChanges = new Set<number>();
   for (const [cellIndex, nextCell] of nextCells.entries()) {
     const currentCell = currentCells[cellIndex];
     if (!currentCell || cellEqual(currentCell, nextCell)) {
@@ -273,116 +361,67 @@ function patchRowCells(
     if (!sourceCell) {
       return { reason: "stale-source-map", message: `The edited ${label} cell ${cellIndex + 1} could not be mapped to source.` };
     }
-    patches.push({ span: expandCellPatchSpan(source, sourceRow, sourceCell.span), text: serializeEditorCell(nextCell) });
+    if (sourceCell.sourceKind === "omitted") {
+      omittedChanges.add(cellIndex);
+      continue;
+    }
+    if (sourceCell.sourceKind === "explicit-empty") {
+      const token = source.slice(sourceCell.tokenSpan.start, sourceCell.tokenSpan.end);
+      const emitted = emitEditorCell(nextCell);
+      patches.push({
+        span: sourceCell.tokenSpan,
+        text: token.length > 0 ? `${token}${emitted} ` : emitted
+      });
+      continue;
+    }
+    patches.push({ span: expandCellPatchSpan(source, sourceRow, sourceCell.span), text: emitEditorCell(nextCell) });
+  }
+  if (omittedChanges.size > 0) {
+    const omittedPatch = materializeOmittedCells(source, sourceRow, nextCells, omittedChanges);
+    if (!Array.isArray(omittedPatch)) {
+      return omittedPatch;
+    }
+    patches.push(...omittedPatch);
   }
   return patches;
+}
+
+function materializeOmittedCells(
+  source: string,
+  sourceRow: EditorRowSourceLocation,
+  nextCells: EditorCell[],
+  changedIndexes: ReadonlySet<number>
+): Patch[] | Pick<EditorCommandFailure, "reason" | "message"> {
+  const line = source.slice(sourceRow.lineSpan.start, sourceRow.lineSpan.end);
+  if (!line.trimEnd().endsWith("|")) {
+    return {
+      reason: "ambiguous-cell-location",
+      message: "An omitted cell cannot be materialized safely in a row without a closing pipe."
+    };
+  }
+  const firstOmitted = sourceRow.cells.findIndex((cell) => cell.sourceKind === "omitted");
+  const lastChanged = Math.max(...changedIndexes);
+  const insertion = sourceRow.cells[firstOmitted];
+  if (firstOmitted < 0 || !insertion || lastChanged < firstOmitted) {
+    return { reason: "stale-source-map", message: "The omitted cell insertion point could not be mapped to source." };
+  }
+  const tokens: string[] = [];
+  for (let index = firstOmitted; index <= lastChanged; index += 1) {
+    const cell = nextCells[index];
+    tokens.push(changedIndexes.has(index) && cell ? emitEditorCell(cell) : "");
+  }
+  return [{ span: insertion.span, text: `| ${tokens.join(" | ")} ` }];
 }
 
 function serializeCellsAsRowSource(source: string, sourceRow: EditorRowSourceLocation, cells: EditorCell[]): string {
   const line = source.slice(sourceRow.lineSpan.start, sourceRow.lineSpan.end);
   if (line.trimStart().startsWith("@header")) {
-    return serializeEditorCellsAsRow(cells, "header");
+    return emitEditorCellsAsRow(cells, "header");
   }
   if (line.trimStart().startsWith("@defaults")) {
-    return serializeEditorCellsAsRow(cells, "defaults");
+    return emitEditorCellsAsRow(cells, "defaults");
   }
-  return serializeEditorCellsAsRow(cells, "row");
-}
-
-function findInsertedRowIndex(currentRows: EditorRow[], nextRows: EditorRow[]): number {
-  for (let index = 0; index < nextRows.length; index += 1) {
-    const currentAtIndex = currentRows[index];
-    const nextAtIndex = nextRows[index];
-    if (!currentAtIndex || !nextAtIndex || !rowEqual(currentAtIndex, nextAtIndex)) {
-      return index;
-    }
-  }
-  return -1;
-}
-
-function buildEditorSourceMap(source: string, options: CreateEditorWorkbookOptions, diagnostics: EditorDiagnostic[]): EditorSourceMap {
-  const lines = splitSourceLines(source);
-  const sheets: EditorSheetSourceLocation[] = [];
-  let currentSheet = createImplicitSheet();
-  let currentFormat: SheetFormat = { kind: "cello" };
-  let hasSheetContent = false;
-
-  const pushCurrentSheet = () => {
-    if (hasSheetContent || currentSheet.declaration || currentSheet.rows.length > 0 || currentSheet.externalSources.length > 0) {
-      sheets.push(currentSheet);
-    }
-  };
-
-  for (const line of lines) {
-    const trimmed = line.text.trim();
-    const declaration = getSheetDeclaration(line);
-    if (declaration) {
-      pushCurrentSheet();
-      currentSheet = {
-        declaration,
-        sheetSpan: { start: line.start, end: line.end },
-        rows: [],
-        externalSources: [],
-        editable: declaration.format.kind === "cello",
-        format: declaration.format
-      };
-      currentFormat = declaration.format;
-      hasSheetContent = true;
-      continue;
-    }
-
-    if (trimmed.length === 0 || trimmed.startsWith("//")) {
-      continue;
-    }
-
-    if (isAliasDeclaration(trimmed)) {
-      continue;
-    }
-
-    if (/^->\s+(.+)$/.test(trimmed)) {
-      hasSheetContent = true;
-      currentSheet.sheetSpan.end = line.end;
-      const path = trimmed.replace(/^->\s+/, "").trim();
-      currentSheet.externalSources.push({ path, line: line.line, lineSpan: { start: line.start, end: line.end } });
-      if (!options.readExternalSource) {
-        diagnostics.push({
-          level: "warning",
-          line: line.line,
-          code: "external-source-unsupported",
-          message: `External sources are not available in this editor host: ${path}`
-        });
-      }
-      currentSheet.editable = false;
-      continue;
-    }
-
-    if (currentFormat.kind !== "cello") {
-      hasSheetContent = true;
-      currentSheet.sheetSpan.end = line.end;
-      currentSheet.editable = false;
-      continue;
-    }
-
-    const row = getNativeRowLocation(line);
-    if (!row) {
-      hasSheetContent = true;
-      currentSheet.sheetSpan.end = line.end;
-      continue;
-    }
-    hasSheetContent = true;
-    currentSheet.sheetSpan.end = line.end;
-    if (row.sourceKind === "defaults") {
-      currentSheet.defaults = row;
-    } else {
-      currentSheet.rows.push(row);
-    }
-  }
-
-  pushCurrentSheet();
-  if (sheets.length === 0) {
-    sheets.push(createImplicitSheet());
-  }
-  return { sheets };
+  return emitEditorCellsAsRow(cells, "row");
 }
 
 function createImplicitSheet(): EditorSheetSourceLocation {
@@ -404,16 +443,89 @@ function buildReadonlySheetMessage(name: string, format: SheetFormat, external: 
 }
 
 function shouldMaterializeImplicitWorkbook(document: EditorDocument, nextWorkbook: EditorWorkbook): boolean {
-  const hasImplicitSheet = document.sourceMap.sheets.some((sourceSheet) => !sourceSheet.declaration);
-  if (!hasImplicitSheet) {
-    return false;
-  }
-  if (document.workbook.sheets.length !== nextWorkbook.sheets.length) {
-    return true;
-  }
   return document.sourceMap.sheets.some((sourceSheet, sheetIndex) =>
-    !sourceSheet.declaration && !sheetEqual(document.workbook.sheets[sheetIndex], nextWorkbook.sheets[sheetIndex])
+    !sourceSheet.declaration &&
+    sourceSheet.rows.length === 0 &&
+    !sourceSheet.defaults &&
+    !sheetEqual(document.workbook.sheets[sheetIndex], nextWorkbook.sheets[sheetIndex])
   );
+}
+
+function materializeImplicitWorkbook(
+  document: EditorDocument,
+  nextWorkbook: EditorWorkbook,
+  lineEnding: string
+): Patch[] {
+  if (document.source.length === 0) {
+    return [{
+      span: { start: 0, end: 0 },
+      text: toLineEndings(nextWorkbook.sheets.map(emitEditorSheet).join("\n\n"), lineEnding)
+    }];
+  }
+  const sheet = nextWorkbook.sheets[0];
+  if (!sheet) {
+    return [];
+  }
+  const emitted = emitEditorSheet(sheet);
+  const [declaration = emitEditorSheetDeclaration(sheet), ...bodyLines] = emitted.split("\n");
+  const patches: Patch[] = [{ span: { start: 0, end: 0 }, text: `${declaration}${lineEnding}` }];
+  if (bodyLines.length > 0) {
+    patches.push({
+      span: { start: document.source.length, end: document.source.length },
+      text: `${document.source.endsWith(lineEnding) ? "" : lineEnding}${bodyLines.join(lineEnding)}`
+    });
+  }
+  return patches;
+}
+
+function getInsertedRowsPatch(
+  source: string,
+  sourceSheet: EditorSheetSourceLocation,
+  currentRows: EditorRow[],
+  nextRows: EditorRow[]
+): Patch | undefined {
+  if (nextRows.length <= currentRows.length) {
+    return undefined;
+  }
+  let prefix = 0;
+  while (prefix < currentRows.length && rowEqual(currentRows[prefix], nextRows[prefix])) {
+    prefix += 1;
+  }
+  let suffix = 0;
+  while (
+    suffix < currentRows.length - prefix &&
+    rowEqual(currentRows[currentRows.length - suffix - 1], nextRows[nextRows.length - suffix - 1])
+  ) {
+    suffix += 1;
+  }
+  if (prefix + suffix !== currentRows.length) {
+    return undefined;
+  }
+  const inserted = nextRows.slice(prefix, nextRows.length - suffix);
+  const lineEnding = getSourceLineEnding(source);
+  const text = inserted.map(emitEditorRow).join(lineEnding);
+  if (prefix > 0) {
+    const previous = sourceSheet.rows[prefix - 1];
+    return previous
+      ? { span: { start: previous.lineSpan.end, end: previous.lineSpan.end }, text: `${lineEnding}${text}` }
+      : undefined;
+  }
+  const next = sourceSheet.rows[0];
+  if (next) {
+    return { span: { start: next.lineSpan.start, end: next.lineSpan.start }, text: `${text}${lineEnding}` };
+  }
+  const anchor = sourceSheet.defaults ?? sourceSheet.declaration;
+  return anchor
+    ? { span: { start: anchor.lineSpan.end, end: anchor.lineSpan.end }, text: `${lineEnding}${text}` }
+    : undefined;
+}
+
+function getSourceLineEnding(source: string): "\n" | "\r\n" {
+  return source.includes("\r\n") ? "\r\n" : "\n";
+}
+
+function toLineEndings(source: string, lineEnding: string): string {
+  return lineEnding === "\n" ? source : source.replaceAll("\n", lineEnding);
 }
 
 function formatLabel(format: SheetFormat): string {
@@ -421,93 +533,6 @@ function formatLabel(format: SheetFormat): string {
     return (format.alias ?? "delimited").toUpperCase();
   }
   return format.kind.toUpperCase();
-}
-
-function getSheetDeclaration(line: SourceLine): (NonNullable<EditorSheetSourceLocation["declaration"]> & { format: SheetFormat }) | undefined {
-  const marker = line.text.match(/^(\s*)@sheet(?:\s+|$)/);
-  if (!marker) {
-    return undefined;
-  }
-  const nameStartInLine = marker[0].length;
-  const modifierStart = line.text.indexOf("[", nameStartInLine);
-  const nameEndInLine = modifierStart >= 0 ? modifierStart : line.text.length;
-  const rawName = line.text.slice(nameStartInLine, nameEndInLine);
-  const trimmedNameStart = rawName.search(/\S/);
-  const nameStart = line.start + nameStartInLine + (trimmedNameStart < 0 ? 0 : trimmedNameStart);
-  const trimmedNameEnd = rawName.trimEnd().length;
-  const format = getSheetFormatFromDeclaration(line.text);
-  return {
-    line: line.line,
-    lineSpan: { start: line.start, end: line.end },
-    nameSpan: { start: nameStart, end: line.start + nameStartInLine + trimmedNameEnd },
-    format
-  };
-}
-
-function getSheetFormatFromDeclaration(line: string): SheetFormat {
-  const sheetMatch = line.trim().match(/^@sheet\s+(.+)$/);
-  const parsed = parseTrailingModifiers(sheetMatch?.[1] ?? "");
-  const format = parsed.modifiers.find(isSheetFormatModifier);
-  return parseSheetFormat(format?.raw);
-}
-
-function isAliasDeclaration(trimmed: string): boolean {
-  return /^@(tone|width|height)(?:\s|$)/.test(trimmed);
-}
-
-function getNativeRowLocation(line: SourceLine): EditorRowSourceLocation | undefined {
-  const trimmed = line.text.trim();
-  const kind = trimmed.startsWith("@header") ? "header" : trimmed.startsWith("@defaults") ? "defaults" : "row";
-  if (!line.text.includes("|")) {
-    return undefined;
-  }
-  if ((kind === "header" || kind === "defaults") && !new RegExp(`^\\s*@${kind}(?:\\s|$)`).test(line.text)) {
-    return undefined;
-  }
-  const pipeStart = line.text.indexOf("|");
-  return {
-    line: line.line,
-    sourceKind: kind,
-    lineSpan: { start: line.start, end: line.end },
-    cells: getCellSpans(line.text, line.start, pipeStart)
-  };
-}
-
-function getCellSpans(text: string, lineStart: number, firstPipe: number): Array<{ span: EditorSourceSpan }> {
-  const pipeIndexes: number[] = [];
-  for (let index = firstPipe; index < text.length; index += 1) {
-    if (text[index] === "|") {
-      pipeIndexes.push(index);
-    }
-  }
-  const spans: Array<{ span: EditorSourceSpan }> = [];
-  for (let index = 0; index < pipeIndexes.length - 1; index += 1) {
-    const leftPipe = pipeIndexes[index];
-    const rawEnd = pipeIndexes[index + 1];
-    if (leftPipe === undefined || rawEnd === undefined) {
-      continue;
-    }
-    const rawStart = leftPipe + 1;
-    const token = text.slice(rawStart, rawEnd);
-    const leading = token.match(/^\s*/)?.[0].length ?? 0;
-    const trailing = token.match(/\s*$/)?.[0].length ?? 0;
-    spans.push({ span: { start: lineStart + rawStart + leading, end: lineStart + rawEnd - trailing } });
-  }
-  return spans;
-}
-
-function splitSourceLines(source: string): SourceLine[] {
-  const lines: SourceLine[] = [];
-  let start = 0;
-  let line = 1;
-  for (let index = 0; index <= source.length; index += 1) {
-    if (index === source.length || source[index] === "\n") {
-      lines.push({ text: source.slice(start, index), start, end: index, line });
-      start = index + 1;
-      line += 1;
-    }
-  }
-  return lines;
 }
 
 function applyPatches(source: string, patches: Patch[]): string {
@@ -547,103 +572,4 @@ function expandRemovedSheetSpan(source: string, span: EditorSourceSpan): EditorS
     }
   }
   return { start, end };
-}
-
-function sheetsEqual(left: EditorSheet[], right: EditorSheet[]): boolean {
-  return left.length === right.length && left.every((sheet, index) => sheetEqual(sheet, right[index]));
-}
-
-function sheetEqual(left: EditorSheet | undefined, right: EditorSheet | undefined): boolean {
-  if (!left || !right) {
-    return false;
-  }
-  return (
-    left.name === right.name &&
-    sheetFormatsEqual(left.format, right.format) &&
-    sheetLayoutsEqual(left.layout, right.layout) &&
-    rowsEqual(left.rows, right.rows) &&
-    cellsEqual(left.defaults, right.defaults)
-  );
-}
-
-function rowsEqual(left: EditorRow[], right: EditorRow[]): boolean {
-  return left.length === right.length && left.every((row, index) => rowEqual(row, right[index]));
-}
-
-function rowEqual(left: EditorRow | undefined, right: EditorRow | undefined): boolean {
-  if (!left || !right) {
-    return false;
-  }
-  return (
-    left.kind === right.kind &&
-    modifiersEqual(left.modifiers, right.modifiers) &&
-    cellsEqual(left.cells, right.cells)
-  );
-}
-
-function cellsEqual(left: EditorCell[], right: EditorCell[]): boolean {
-  const trimmedLeft = trimTrailingEmptyCells(left);
-  const trimmedRight = trimTrailingEmptyCells(right);
-  return trimmedLeft.length === trimmedRight.length && trimmedLeft.every((cell, index) => cellEqual(cell, trimmedRight[index]));
-}
-
-function cellEqual(left: EditorCell | undefined, right: EditorCell | undefined): boolean {
-  if (!left || !right) {
-    return false;
-  }
-  return left.raw === right.raw && modifiersEqual(left.modifiers, right.modifiers);
-}
-
-function modifiersEqual(left: Modifier[], right: Modifier[]): boolean {
-  return left.length === right.length && left.every((modifier, index) => modifierEqual(modifier, right[index]));
-}
-
-function modifierEqual(left: Modifier, right: Modifier | undefined): boolean {
-  if (!right) {
-    return false;
-  }
-  return left.raw === right.raw && left.key === right.key && left.value === right.value;
-}
-
-function aliasesEqual(left: AliasDeclaration[], right: AliasDeclaration[]): boolean {
-  return left.length === right.length && left.every((alias, index) => {
-    const candidate = right[index];
-    if (!candidate) {
-      return false;
-    }
-    return (
-      alias.namespace === candidate.namespace &&
-      alias.name === candidate.name &&
-      modifiersEqual(alias.modifiers, candidate.modifiers)
-    );
-  });
-}
-
-function sheetLayoutsEqual(left: SheetLayout | undefined, right: SheetLayout | undefined): boolean {
-  return (left?.columns ?? undefined) === (right?.columns ?? undefined) && (left?.rows ?? undefined) === (right?.rows ?? undefined);
-}
-
-function sheetFormatsEqual(left: SheetFormat, right: SheetFormat): boolean {
-  if (left.kind !== right.kind) {
-    return false;
-  }
-  if (left.kind === "delimited" && right.kind === "delimited") {
-    return left.delimiter === right.delimiter && left.noHeader === right.noHeader && left.alias === right.alias;
-  }
-  if (left.kind === "json" && right.kind === "json") {
-    return left.path === right.path;
-  }
-  return true;
-}
-
-function trimTrailingEmptyCells(cells: EditorCell[]): EditorCell[] {
-  let end = cells.length;
-  while (end > 0 && isEmptyCell(cells[end - 1])) {
-    end -= 1;
-  }
-  return cells.slice(0, end);
-}
-
-function isEmptyCell(cell: EditorCell | undefined): boolean {
-  return Boolean(cell) && cell?.raw.trim() === "" && cell.modifiers.length === 0;
 }

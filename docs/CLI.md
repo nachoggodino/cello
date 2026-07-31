@@ -32,11 +32,6 @@ The package exposes a `cello` CLI binary from `dist/cli/src/cli.js`.
   - If `-o/--out` is provided, writes to file and prints `Wrote <absolute-path>`.
   - Otherwise prints HTML to stdout.
 
-- `cello serialize <file.cel> [-o out.cel]`
-  - Parses and serializes AST back to `.cel`.
-  - If `-o/--out` is provided, writes to file and prints `Wrote <absolute-path>`.
-  - Otherwise prints to stdout.
-
 - `cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]`
   - Serves a live HTML preview for a workbook.
   - Prints a local URL containing the served file name.
@@ -45,7 +40,7 @@ The package exposes a `cello` CLI binary from `dist/cli/src/cli.js`.
   - Does not open a browser unless `--open` is provided.
 
 - `cello help [command]`
-  - Prints basic CLI help, or command-specific help for `parse`, `evaluate`, `format`, `validate`, `render`, `serialize`, or `serve`.
+  - Prints basic CLI help, or command-specific help for `parse`, `evaluate`, `format`, `validate`, `render`, or `serve`.
 
 ## Exit codes
 

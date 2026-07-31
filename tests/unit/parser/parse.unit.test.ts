@@ -1,10 +1,77 @@
 import { describe, expect, it } from "vitest";
-import { parse } from "../../../packages/core/src/parser/parse.js";
+import { parse, parseDocument } from "../../../packages/core/src/parser/parse.js";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 describe("parse (unit-focused edge cases)", () => {
+  it("builds source locations from the same decisions as tolerant parsing", () => {
+    const source = "@sheet One\n| A |\n@sheet\n| B |\n@sheet Two\n| C |";
+    const document = parseDocument(source);
+
+    expect(document.workbook.sheets).toHaveLength(2);
+    expect(document.sourceMap.sheets).toHaveLength(2);
+    expect(document.sourceMap.sheets[0]?.rows).toHaveLength(2);
+    expect(document.sourceMap.sheets[1]?.rows).toHaveLength(1);
+    expect(document.sourceMap.sheets[1]?.declaration?.line).toBe(5);
+  });
+
+  it("keeps CRLF outside source spans while preserving exact offsets", () => {
+    const source = "@sheet Report\r\n| Ada | 5 |\r\n";
+    const document = parseDocument(source);
+    const sheet = document.sourceMap.sheets[0];
+    const row = sheet?.rows[0];
+
+    expect(source.slice(sheet?.declaration?.lineSpan.start, sheet?.declaration?.lineSpan.end)).toBe("@sheet Report");
+    expect(source.slice(row?.lineSpan.start, row?.lineSpan.end)).toBe("| Ada | 5 |");
+    expect(row?.cells.map((cell) => source.slice(cell.span.start, cell.span.end))).toEqual(["Ada", "5"]);
+  });
+
+  it("preserves anonymous-sheet mapping around comments and aliases", () => {
+    const source = "// comment\n@tone note [bold]\n\n| A | B |";
+    const document = parseDocument(source);
+
+    expect(document.workbook.sheets).toHaveLength(1);
+    expect(document.sourceMap.sheets).toHaveLength(1);
+    expect(document.sourceMap.sheets[0]?.declaration).toBeUndefined();
+    expect(document.sourceMap.sheets[0]?.rows[0]?.line).toBe(4);
+  });
+
+  it("records external directives as read-only source locations", () => {
+    const source = "@sheet Imported\n-> data.cel";
+    const document = parseDocument(source, { readExternalSource: () => "| A |" });
+    const sheet = document.sourceMap.sheets[0];
+
+    expect(sheet?.editable).toBe(false);
+    expect(sheet?.externalSources).toEqual([{
+      path: "data.cel",
+      line: 2,
+      lineSpan: { start: 16, end: 27 }
+    }]);
+  });
+
+  it("distinguishes explicit, empty, omitted, and default-derived cell provenance", () => {
+    const source = [
+      "@sheet Report",
+      "@header | Name | Status | Total | Note |",
+      "@defaults | | Pending | =1 | |",
+      "| Ada | |"
+    ].join("\n");
+    const document = parseDocument(source);
+    const row = document.sourceMap.sheets[0]?.rows[1];
+
+    expect(row?.cells.map((cell) => ({
+      sourceKind: cell.sourceKind,
+      valueOrigin: cell.valueOrigin,
+      defaultText: cell.defaultSpan ? source.slice(cell.defaultSpan.start, cell.defaultSpan.end) : undefined
+    }))).toEqual([
+      { sourceKind: "explicit-value", valueOrigin: "explicit", defaultText: undefined },
+      { sourceKind: "explicit-empty", valueOrigin: "default-derived", defaultText: "Pending" },
+      { sourceKind: "omitted", valueOrigin: "default-derived", defaultText: "=1" },
+      { sourceKind: "omitted", valueOrigin: "absent", defaultText: undefined }
+    ]);
+  });
+
   it("ignores blank lines and preserves compact row numbering", () => {
     const ast = parse("@sheet S\n| A |\n\n| B |");
     const sheet = ast.sheets[0];

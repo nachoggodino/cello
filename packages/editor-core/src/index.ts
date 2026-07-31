@@ -25,21 +25,34 @@ export type {
   TextTone,
   ToggleModifierKey
 } from "./model.js";
-export type { CreateEditorWorkbookOptions, EditorLayoutOptions, ResolvedEditorLayoutOptions } from "./options.js";
+export type { CreateEditorWorkbookOptions } from "./options.js";
 export type { EvaluateEditorWorkbookOptions } from "./evaluation.js";
+export type { CellRange } from "./ranges.js";
+export type { EditorCommandTarget, EditorDocumentCommand } from "./document-command-model.js";
+export type {
+  CreateEditorSessionOptions,
+  EditorHistoryRecording,
+  EditorSession,
+  EditorSessionCommandOptions,
+  EditorSessionHistoryState,
+  EditorSessionMode,
+  EditorSessionSnapshot,
+  EditorSessionSourceOptions,
+  EditorSessionSourceResult
+} from "./session-model.js";
 
 export { TEXT_TONES } from "./model.js";
 export {
-  DEFAULT_EDITOR_LAYOUT_OPTIONS,
   DEFAULT_SHEET_NAME,
   GENERATED_SHEET_NAME_PREFIX,
-  rejectExternalSource,
-  resolveEditorLayoutOptions
+  rejectExternalSource
 } from "./options.js";
 export { createBlankCell, createBlankRow, createBlankSheet, createEditorWorkbook, createHeaderRow } from "./workbook.js";
 export { applyWorkbookPatch, createEditorDocument } from "./document.js";
+export { executeEditorCommand } from "./execute-command.js";
+export { createEditorSession } from "./session.js";
+export { formatEditorDocument } from "./layout.js";
 export { composeCellSource, getCellContentText, getCellModifierSourceText, getCellSourceText, isMergeToken, parseCellSource, toBaseRaw } from "./source.js";
-export { serializeEditorWorkbook } from "./serialization.js";
 export {
   getCellAt,
   getCellDisplayText,
@@ -81,6 +94,7 @@ export {
   setCellToneModifier,
   setColumnWidth,
   setColumnColorModifier,
+  setColumnToneModifier,
   setRowHeight,
   setRowColorModifier,
   setRowToneModifier,
@@ -91,11 +105,25 @@ export {
   toggleColumnFit,
   toggleRowWrap,
   toggleRowModifier,
+  updateCellContentSource,
   updateDefaultCellSource,
+  updateColumnModifierSource,
   updateCellRaw,
-  updateCellSource
+  updateCellSource,
+  updateRowModifierSource
 } from "./commands.js";
 export { evaluateEditorWorkbookSource, getCellAddressKey } from "./evaluation.js";
+export {
+  clearRange,
+  clearRangeAll,
+  copyRangeAsTsv,
+  fillRange,
+  getCellRangeSize,
+  isAddressInRange,
+  normalizeCellRange,
+  parseClipboardMatrix,
+  pasteMatrixAt
+} from "./ranges.js";
 export {
   ROW_HEIGHT_PRESETS,
   CELLO_HEADING_STYLES,

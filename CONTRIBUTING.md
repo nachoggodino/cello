@@ -21,7 +21,7 @@
    - VS Code extension: `apps/vscode/src/`
 2. Add or update tests in `tests/`:
    - Unit tests for edge/isolated behavior.
-   - Integration tests for parse/evaluate/render/serialize flows.
+   - Integration tests for parse/evaluate/render and editor-command flows.
 3. Update docs when behavior changes:
    - `docs/SPEC.md` (if public behavior changes)
    - `docs/COMPLIANCE.md`

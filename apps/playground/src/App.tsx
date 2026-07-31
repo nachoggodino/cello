@@ -1,21 +1,30 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
-import { format as formatCello } from "@cello/core";
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import type { Diagnostic } from "@cello/core";
-import { CelloVisualEditor } from "@cello/editor-react";
+import { createEditorSession } from "@cello/editor-core";
+import type { EditorSession } from "@cello/editor-core";
+import {
+  CelloHtmlPreview,
+  CelloSourceEditor,
+  CelloVisualEditor,
+  useEditorSession
+} from "@cello/editor-react";
+import type { CelloPreviewState } from "@cello/editor-react";
 import "@cello/editor-react/styles.css";
 import logoUrl from "./assets/cello-logo.svg?url";
 import { examples, getExample } from "./examples";
 import { ToolbarIcon } from "./icons";
-import { bylawsUrl, githubUrl, previewDownloadFileName } from "./playgroundConfig";
+import {
+  bylawsUrl,
+  githubUrl,
+  previewDownloadFileName,
+  renderDebounceMs
+} from "./playgroundConfig";
 import { loadStoredState, saveStoredState } from "./playgroundState";
-import { buildActiveSheetClipboardPayload, buildActiveSheetClipboardPayloadFromHtml } from "./previewClipboard";
 import { syntaxExamples } from "./syntaxReference";
 import { useClipboardStatus } from "./useClipboardStatus";
-import { usePreviewRender } from "./usePreviewRender";
+import { usePreviewFrame } from "./usePreviewFrame";
 import { useResizableSplit } from "./useResizableSplit";
-
-const CodeEditor = lazy(async () => ({ default: (await import("./CodeEditor")).CodeEditor }));
 
 type MobilePanel = "editor" | "preview" | "syntax";
 type PlaygroundPage = "source" | "visual";
@@ -26,15 +35,26 @@ const mobilePanels: Array<{ id: MobilePanel; label: string }> = [
   { id: "syntax", label: "Syntax" }
 ];
 
+const initialPreviewState: CelloPreviewState = {
+  revision: -1,
+  html: "",
+  status: "idle"
+};
+
 export function App() {
   const initialState = useMemo(() => loadStoredState(window.localStorage), []);
+  const [session] = useState(() => createEditorSession({
+    source: initialState.source,
+    readExternalSource(path) {
+      throw new Error(`External file sources are not available in the browser playground: ${path}`);
+    }
+  }));
+  const snapshot = useEditorSession(session);
   const [page, setPage] = useState<PlaygroundPage>(() => getPageFromHash(window.location.hash));
   const [selectedExampleId, setSelectedExampleId] = useState(initialState.exampleId);
-  const [source, setSource] = useState(initialState.source);
+  const [previewState, setPreviewState] = useState<CelloPreviewState>(initialPreviewState);
   const [syntaxOpen, setSyntaxOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("editor");
-  const [activeSheetName, setActiveSheetName] = useState<string | undefined>(undefined);
-  const { diagnostics, lastGoodHtml, previewHtml, renderState } = usePreviewRender(source);
   const { actionMessage, copiedTarget, copyPayload, copyText, setActionMessage } = useClipboardStatus();
   const {
     editorBasis,
@@ -46,58 +66,60 @@ export function App() {
   } = useResizableSplit();
 
   useEffect(() => {
-    saveStoredState(window.localStorage, { exampleId: selectedExampleId, source });
-  }, [selectedExampleId, source]);
+    saveStoredState(window.localStorage, { exampleId: selectedExampleId, source: snapshot.source });
+  }, [selectedExampleId, snapshot.source]);
 
   useEffect(() => {
-    if (!activeSheetName) {
+    if (!snapshot.activeSheetName) {
       return;
     }
     try {
-      window.localStorage.setItem(`cello:active-sheet:${window.location.pathname}`, activeSheetName);
+      window.localStorage.setItem(
+        `cello:active-sheet:${window.location.pathname}`,
+        snapshot.activeSheetName
+      );
     } catch {
       // Best effort only; the preview frame is still synchronized directly.
     }
-  }, [activeSheetName]);
+  }, [snapshot.activeSheetName]);
 
   useEffect(() => {
-    const handleHashChange = () => setPage(getPageFromHash(window.location.hash));
+    const handleHashChange = () => { setPage(getPageFromHash(window.location.hash)); };
     window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    return () => { window.removeEventListener("hashchange", handleHashChange); };
   }, []);
 
   const selectedExample = getExample(selectedExampleId);
+  const diagnostics = getPlaygroundDiagnostics(snapshot.document.diagnostics, previewState);
   const issueCount = diagnostics.length;
   const hasErrors = diagnostics.some((diagnostic) => diagnostic.level === "error");
 
   const chooseExample = (exampleId: string) => {
     const next = getExample(exampleId);
     setSelectedExampleId(next.id);
-    setSource(next.source);
+    session.replaceExternalSource(next.source);
     setMobilePanel("editor");
   };
 
   const resetExample = () => {
     const current = getExample(selectedExampleId);
-    setSource(current.source);
+    session.replaceExternalSource(current.source);
   };
 
   const formatSource = () => {
-    try {
-      const formatted = formatCello(source);
-      setSource(formatted);
+    const result = session.format("pretty");
+    if (result.ok) {
       setActionMessage("Source formatted.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setActionMessage(`Format failed: ${message}`);
+    } else {
+      setActionMessage(`Format failed: ${result.message}`);
     }
   };
 
   const downloadHtml = () => {
-    if (!previewHtml) {
+    if (!previewState.html) {
       return;
     }
-    const blob = new Blob([previewHtml], { type: "text/html" });
+    const blob = new Blob([previewState.html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -105,7 +127,7 @@ export function App() {
     document.body.append(link);
     link.click();
     link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    window.setTimeout(() => { URL.revokeObjectURL(url); }, 0);
     setActionMessage("HTML download started.");
   };
 
@@ -116,15 +138,13 @@ export function App() {
 
   return (
     <div className="appShell">
-      <Topbar currentPage={page} syntaxOpen={syntaxOpen} onNavigate={navigateToPage} onToggleSyntax={() => setSyntaxOpen((open) => !open)} />
+      <Topbar currentPage={page} syntaxOpen={syntaxOpen} onNavigate={navigateToPage} onToggleSyntax={() => { setSyntaxOpen((open) => !open); }} />
 
-      <div className="mobileControls">
-        <div className="mobilePageSwitch" role="tablist" aria-label="Playground pages">
-          <button type="button" role="tab" aria-selected={page === "source"} className={page === "source" ? "active" : ""} onClick={() => navigateToPage("source")}>Source</button>
-          <button type="button" role="tab" aria-selected={page === "visual"} className={page === "visual" ? "active" : ""} onClick={() => navigateToPage("visual")}>Visual</button>
+      {page === "source" ? (
+        <div className="mobileControls">
+          <MobileSwitch activePanel={mobilePanel} onChange={setMobilePanel} />
         </div>
-        {page === "source" && <MobileSwitch activePanel={mobilePanel} onChange={setMobilePanel} />}
-      </div>
+      ) : null}
 
       {page === "source" ? (
         <>
@@ -136,12 +156,12 @@ export function App() {
                 mobileVisible={mobilePanel === "editor"}
                 selectedExampleId={selectedExampleId}
                 selectedExampleFileName={selectedExample.fileName}
-                source={source}
+                session={session}
+                source={snapshot.source}
                 onChooseExample={chooseExample}
                 onCopy={(value, label) => void copyText(value, label)}
                 onFormat={formatSource}
                 onReset={resetExample}
-                onSourceChange={setSource}
               />
 
               <div
@@ -162,14 +182,13 @@ export function App() {
 
               <PreviewPane
                 copiedTarget={copiedTarget}
-                lastGoodHtml={lastGoodHtml}
                 mobileVisible={mobilePanel === "preview"}
-                previewHtml={previewHtml}
-                renderState={renderState}
-                activeSheetName={activeSheetName}
-                onActiveSheetChange={setActiveSheetName}
+                previewState={previewState}
+                session={session}
+                activeSheetName={snapshot.activeSheetName}
                 onCopyPayload={(payload, label) => void copyPayload(payload, label)}
                 onDownload={downloadHtml}
+                onPreviewStateChange={setPreviewState}
                 setActionMessage={setActionMessage}
               />
 
@@ -190,15 +209,9 @@ export function App() {
         </>
       ) : (
         <CelloVisualEditor
-          source={source}
-          onSourceChange={setSource}
-          activeSheetName={activeSheetName}
-          onActiveSheetChange={setActiveSheetName}
-          onCommandFailure={(failure) => setActionMessage(failure.message)}
-          onRequestSourceView={() => navigateToPage("source")}
-          readExternalSource={(path) => {
-            throw new Error(`External file sources are not available in the browser playground: ${path}`);
-          }}
+          session={session}
+          onCommandFailure={(failure) => { setActionMessage(failure.message); }}
+          onRequestSourceView={() => { navigateToPage("source"); }}
         />
       )}
 
@@ -233,8 +246,8 @@ function Topbar({
         <p>plain text and LLM friendly spreadsheets</p>
       </div>
       <nav className="topbarNav" aria-label="Playground navigation">
-        <button type="button" className={`glassButton topbarPageLink ${currentPage === "source" ? "active" : ""}`} onClick={() => onNavigate("source")}>Source</button>
-        <button type="button" className={`glassButton topbarPageLink ${currentPage === "visual" ? "active" : ""}`} onClick={() => onNavigate("visual")}>Visual editor</button>
+        <button type="button" className={`glassButton topbarPageLink ${currentPage === "source" ? "active" : ""}`} onClick={() => { onNavigate("source"); }}>Source</button>
+        <button type="button" className={`glassButton topbarPageLink ${currentPage === "visual" ? "active" : ""}`} onClick={() => { onNavigate("visual"); }}>Visual editor</button>
         <a className="navLink" href={bylawsUrl} target="_blank" rel="noreferrer">BYLAWS</a>
         <a className="navLink" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
         <button type="button" className={`glassButton iconTextButton topbarSyntaxToggle ${syntaxOpen ? "active" : ""}`} onClick={onToggleSyntax} disabled={currentPage !== "source"}>
@@ -257,7 +270,7 @@ function MobileSwitch({ activePanel, onChange }: { activePanel: MobilePanel; onC
           aria-controls={`panel-${panel.id}`}
           aria-selected={activePanel === panel.id}
           className={activePanel === panel.id ? "active" : ""}
-          onClick={() => onChange(panel.id)}
+          onClick={() => { onChange(panel.id); }}
         >
           {panel.label}
         </button>
@@ -272,24 +285,24 @@ function EditorPane({
   mobileVisible,
   selectedExampleFileName,
   selectedExampleId,
+  session,
   source,
   onChooseExample,
   onCopy,
   onFormat,
-  onReset,
-  onSourceChange
+  onReset
 }: {
   copiedTarget: string;
   editorBasis: number;
   mobileVisible: boolean;
   selectedExampleFileName: string;
   selectedExampleId: string;
+  session: EditorSession;
   source: string;
   onChooseExample: (exampleId: string) => void;
   onCopy: (value: string, label: string) => void;
   onFormat: () => void;
   onReset: () => void;
-  onSourceChange: (value: string) => void;
 }) {
   const sourceLabel = ".cel source";
   const [exampleMenuOpen, setExampleMenuOpen] = useState(false);
@@ -319,7 +332,7 @@ function EditorPane({
               aria-haspopup="listbox"
               aria-expanded={exampleMenuOpen}
               aria-label="Choose example"
-              onClick={() => setExampleMenuOpen((open) => !open)}
+              onClick={() => { setExampleMenuOpen((open) => !open); }}
             >
               <span>{selectedExample.name}</span>
               <ToolbarIcon name="chevron" />
@@ -333,7 +346,7 @@ function EditorPane({
                   role="option"
                   aria-selected={selectedExampleId === example.id}
                   className={selectedExampleId === example.id ? "selected" : ""}
-                  onClick={() => chooseExampleFromMenu(example.id)}
+                  onClick={() => { chooseExampleFromMenu(example.id); }}
                 >
                   <span>{example.name}</span>
                   <small>{example.fileName}</small>
@@ -352,113 +365,51 @@ function EditorPane({
             <button type="button" className="glassButton iconButton" aria-label="Reset example" title="Reset example" onClick={onReset}>
               <ToolbarIcon name="reset" />
             </button>
-            <CopyButton label={sourceLabel} copiedTarget={copiedTarget} onCopy={() => onCopy(source, sourceLabel)} />
+            <CopyButton label={sourceLabel} copiedTarget={copiedTarget} onCopy={() => { onCopy(source, sourceLabel); }} />
           </div>
         </div>
       </div>
-      <Suspense fallback={<div className="editorLoading">Loading editor...</div>}>
-        <CodeEditor value={source} onChange={onSourceChange} />
-      </Suspense>
+      <CelloSourceEditor
+        ariaLabel="Cello source"
+        className="playgroundSourceEditor"
+        session={session}
+        showToolbar={false}
+      />
     </section>
   );
 }
 
 function PreviewPane({
   copiedTarget,
-  lastGoodHtml,
   mobileVisible,
-  previewHtml,
-  renderState,
+  previewState,
+  session,
   activeSheetName,
-  onActiveSheetChange,
   onCopyPayload,
   onDownload,
+  onPreviewStateChange,
   setActionMessage
 }: {
   copiedTarget: string;
-  lastGoodHtml: string;
   mobileVisible: boolean;
-  previewHtml: string;
-  renderState: "idle" | "rendering" | "failed";
-  activeSheetName?: string;
-  onActiveSheetChange: (sheetName: string) => void;
+  previewState: CelloPreviewState;
+  session: EditorSession;
+  activeSheetName: string;
   onCopyPayload: (payload: { html: string; plainText: string }, label: string) => void;
   onDownload: () => void;
+  onPreviewStateChange: (state: CelloPreviewState) => void;
   setActionMessage: (message: string) => void;
 }) {
-  const previewTitle = renderState === "rendering" ? "Rendering" : renderState === "failed" ? "Last good render" : "Live render";
-  const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
-  const copyVisibleTable = useCallback(() => {
-    const frameDocument = previewFrameRef.current?.contentDocument;
-    const payload = frameDocument ? buildActiveSheetClipboardPayload(frameDocument, activeSheetName) : null;
-    const fallbackPayload = payload ?? buildActiveSheetClipboardPayloadFromHtml(previewHtml || lastGoodHtml, activeSheetName);
-
-    if (!fallbackPayload) {
-      setActionMessage("Copy failed: preview table is not ready yet.");
-      return;
-    }
-
-    onCopyPayload(fallbackPayload, "Table");
-  }, [activeSheetName, lastGoodHtml, onCopyPayload, previewHtml, setActionMessage]);
-
-  const syncPreviewSheet = useCallback(() => {
-    const frameDocument = previewFrameRef.current?.contentDocument;
-    if (!frameDocument || !activeSheetName) {
-      return;
-    }
-    activateRenderedSheet(frameDocument, activeSheetName);
-  }, [activeSheetName]);
-
-  const bindPreviewSheetTabs = useCallback(() => {
-    const frameDocument = previewFrameRef.current?.contentDocument;
-    if (!frameDocument) {
-      return;
-    }
-    for (const tab of frameDocument.querySelectorAll<HTMLElement>(".cello-tab")) {
-      if (tab.dataset.playgroundSheetBound === "true") {
-        continue;
-      }
-      tab.dataset.playgroundSheetBound = "true";
-      tab.addEventListener("click", () => {
-        const sheet = tab.getAttribute("data-sheet");
-        if (sheet) {
-          onActiveSheetChange(sheet);
-        }
-      });
-    }
-  }, [onActiveSheetChange]);
-
-  const resizePreviewFrame = useCallback(() => {
-    const frame = previewFrameRef.current;
-    if (!frame) {
-      return;
-    }
-
-    const frameDocument = frame.contentDocument;
-    if (!mobileVisible || !window.matchMedia("(max-width: 860px)").matches) {
-      frame.style.height = "";
-      if (frameDocument) {
-        frameDocument.documentElement.style.overflowY = "";
-        frameDocument.body.style.overflowY = "";
-      }
-      return;
-    }
-
-    if (!frameDocument) {
-      return;
-    }
-
-    const { body, documentElement } = frameDocument;
-    documentElement.style.overflowY = "hidden";
-    body.style.overflowY = "hidden";
-    frame.style.height = `${Math.ceil(Math.max(body.scrollHeight, body.offsetHeight, documentElement.scrollHeight, documentElement.offsetHeight, documentElement.clientHeight))}px`;
-  }, [mobileVisible]);
-
-  useEffect(() => {
-    syncPreviewSheet();
-    bindPreviewSheetTabs();
-    resizePreviewFrame();
-  }, [bindPreviewSheetTabs, lastGoodHtml, mobileVisible, previewHtml, resizePreviewFrame, syncPreviewSheet]);
+  const previewTitle = previewState.status === "rendering"
+    ? "Rendering"
+    : previewState.status === "error" ? "Last good render" : "Live render";
+  const { copyVisibleTable, onFrameLoad } = usePreviewFrame({
+    activeSheetName,
+    html: previewState.html,
+    mobileVisible,
+    onCopyPayload,
+    setActionMessage
+  });
 
   return (
     <div className="previewRegion">
@@ -469,40 +420,26 @@ function PreviewPane({
             <strong>Preview</strong>
           </div>
           <div className="paneActions">
-            <CopyButton label="Table" copiedTarget={copiedTarget} disabled={!previewHtml && !lastGoodHtml} onCopy={copyVisibleTable} />
-            <button type="button" className="glassButton iconButton exportAction" aria-label="Download HTML" title="Download HTML" onClick={onDownload} disabled={!previewHtml}>
+            <CopyButton label="Table" copiedTarget={copiedTarget} disabled={!previewState.html} onCopy={copyVisibleTable} />
+            <button type="button" className="glassButton iconButton exportAction" aria-label="Download HTML" title="Download HTML" onClick={onDownload} disabled={!previewState.html}>
               <ToolbarIcon name="download" />
             </button>
           </div>
         </div>
         <div className="previewFrameWrap">
-          {renderState === "rendering" && <div className="previewOverlay">Rendering...</div>}
-          <iframe
-            ref={previewFrameRef}
-            title="Rendered Cello workbook"
-            srcDoc={previewHtml || lastGoodHtml}
-            sandbox="allow-scripts allow-same-origin"
-            onLoad={() => {
-              bindPreviewSheetTabs();
-              syncPreviewSheet();
-              resizePreviewFrame();
-            }}
+          {previewState.status === "rendering" && <div className="previewOverlay">Rendering...</div>}
+          <CelloHtmlPreview
+            className="playgroundHtmlPreview"
+            debounceMs={renderDebounceMs}
+            iframeTitle="Rendered Cello workbook"
+            onFrameLoad={onFrameLoad}
+            onStateChange={onPreviewStateChange}
+            session={session}
           />
         </div>
       </section>
     </div>
   );
-}
-
-function activateRenderedSheet(document: Document, activeSheetName: string) {
-  const tabs = Array.from(document.querySelectorAll<HTMLElement>(".cello-tab"));
-  const sheets = Array.from(document.querySelectorAll<HTMLElement>(".cello-sheet"));
-  const nextTab = tabs.find((tab) => tab.getAttribute("data-sheet") === activeSheetName);
-  if (!nextTab) {
-    return;
-  }
-  tabs.forEach((tab) => tab.classList.toggle("active", tab === nextTab));
-  sheets.forEach((sheet) => sheet.classList.toggle("active", sheet.getAttribute("data-sheet") === activeSheetName));
 }
 
 function CopyButton({ copiedTarget, disabled = false, label, onCopy }: { copiedTarget: string; disabled?: boolean; label: string; onCopy: () => void }) {
@@ -547,72 +484,14 @@ function SyntaxBlock({ title, code, onCopy, copiedTarget }: { title: string; cod
     <section className="syntaxBlock">
       <div className="syntaxBlockHeader">
         <h3>{title}</h3>
-        <CopyButton label={label} copiedTarget={copiedTarget} onCopy={() => onCopy(code, label)} />
+        <CopyButton label={label} copiedTarget={copiedTarget} onCopy={() => { onCopy(code, label); }} />
       </div>
-      <pre>{highlightCelloSyntax(code)}</pre>
+      <pre><code>{code}</code></pre>
     </section>
   );
 }
 
-function highlightCelloSyntax(code: string): ReactNode[] {
-  return code.split("\n").flatMap((line, lineIndex, lines) => {
-    const nodes = highlightCelloLine(line, lineIndex);
-    return lineIndex < lines.length - 1 ? [...nodes, "\n"] : nodes;
-  });
-}
-
-function highlightCelloLine(line: string, lineIndex: number): ReactNode[] {
-  const tokenPattern =
-    /(\/\/.*$|@sheet\b|@header\b|@defaults\b|->|##?[^|]*|=[^|]*|\[[^\]]+\]|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?|[|<>^])/gi;
-  const nodes: ReactNode[] = [];
-  let cursor = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = tokenPattern.exec(line)) !== null) {
-    const value = match[0];
-    if (match.index > cursor) {
-      nodes.push(line.slice(cursor, match.index));
-    }
-    nodes.push(
-      <span key={`${lineIndex}-${match.index}`} className={`syntaxToken ${getSyntaxTokenClass(value)}`}>
-        {value}
-      </span>
-    );
-    cursor = match.index + value.length;
-  }
-
-  if (cursor < line.length) {
-    nodes.push(line.slice(cursor));
-  }
-  return nodes;
-}
-
-function getSyntaxTokenClass(value: string): string {
-  if (value.startsWith("//")) {
-    return "syntaxTokenComment";
-  }
-  if (value.startsWith("@")) {
-    return "syntaxTokenKeyword";
-  }
-  if (value.startsWith("[")) {
-    return "syntaxTokenAttribute";
-  }
-  if (value.startsWith("=")) {
-    return "syntaxTokenFormula";
-  }
-  if (value.startsWith("#")) {
-    return "syntaxTokenHeading";
-  }
-  if (value === "->" || value === "<" || value === "^" || value === "|") {
-    return "syntaxTokenOperator";
-  }
-  if (/^(?:true|false|null)$/i.test(value)) {
-    return "syntaxTokenAtom";
-  }
-  return "syntaxTokenNumber";
-}
-
-function DiagnosticsBar({ actionMessage, diagnostics, hasErrors, issueCount }: { actionMessage: string; diagnostics: Diagnostic[]; hasErrors: boolean; issueCount: number }) {
+function DiagnosticsBar({ actionMessage, diagnostics, hasErrors, issueCount }: { actionMessage: string; diagnostics: readonly Diagnostic[]; hasErrors: boolean; issueCount: number }) {
   return (
     <footer className={`diagnostics ${hasErrors ? "hasErrors" : issueCount > 0 ? "hasWarnings" : ""}`}>
       <div className="diagnosticSummary">
@@ -630,6 +509,16 @@ function DiagnosticsBar({ actionMessage, diagnostics, hasErrors, issueCount }: {
       )}
     </footer>
   );
+}
+
+function getPlaygroundDiagnostics(
+  diagnostics: readonly Diagnostic[],
+  previewState: CelloPreviewState
+): readonly Diagnostic[] {
+  if (!previewState.error) {
+    return diagnostics;
+  }
+  return [...diagnostics, { level: "error", message: `Render failed: ${previewState.error}` }];
 }
 
 function formatDiagnostic(diagnostic: Diagnostic): string {
