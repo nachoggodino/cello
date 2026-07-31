@@ -22,7 +22,7 @@ describe("preview clipboard", () => {
       }
     ]);
 
-    expect(html).toBe("<table><thead><tr><th>Name</th><th>Amount</th></tr></thead><tbody><tr><td>Ada</td><td colspan=\"2\">5</td></tr></tbody></table>");
+    expect(html).toBe('<table><thead><tr><th>Name</th><th>Amount</th></tr></thead><tbody><tr><td>Ada</td><td colspan="2">5</td></tr></tbody></table>');
   });
 
   it("serializes table rows as tab-separated text", () => {

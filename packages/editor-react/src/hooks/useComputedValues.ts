@@ -1,19 +1,10 @@
 import { useEffect, useState } from "react";
-import { evaluateEditorWorkbookSource } from "@nachoggodino/cello/editor-core";
-import type {
-  ComputedCellValues,
-  CreateEditorWorkbookOptions
-} from "@nachoggodino/cello/editor-core";
+import { evaluateEditorWorkbookSource } from "../../../editor-core/src/internal.js";
+import type { ComputedCellValues, CreateEditorWorkbookOptions } from "../../../editor-core/src/internal.js";
 
-type WorkbookParseOptions = Pick<
-  CreateEditorWorkbookOptions,
-  "baseDir" | "readExternalSource" | "strict"
->;
+type WorkbookParseOptions = Pick<CreateEditorWorkbookOptions, "baseDir" | "readExternalSource" | "strict">;
 
-export function useComputedValues(
-  source: string,
-  workbookOptions: WorkbookParseOptions
-): ComputedCellValues {
+export function useComputedValues(source: string, workbookOptions: WorkbookParseOptions): ComputedCellValues {
   const [computedValues, setComputedValues] = useState<ComputedCellValues>({});
 
   useEffect(() => {
@@ -23,9 +14,7 @@ export function useComputedValues(
       try {
         const parseOptions = {
           ...(workbookOptions.baseDir === undefined ? {} : { baseDir: workbookOptions.baseDir }),
-          ...(workbookOptions.readExternalSource === undefined
-            ? {}
-            : { readExternalSource: workbookOptions.readExternalSource }),
+          ...(workbookOptions.readExternalSource === undefined ? {} : { readExternalSource: workbookOptions.readExternalSource }),
           ...(workbookOptions.strict === undefined ? {} : { strict: workbookOptions.strict })
         };
         const nextValues = await evaluateEditorWorkbookSource(source, {

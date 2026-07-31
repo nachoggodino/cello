@@ -1,4 +1,4 @@
-import type { CelloSourceLayout } from "../../core/src/index.js";
+import type { CelloSourceLayout } from "../../core/src/internal.js";
 import { createEditorDocument } from "./document.js";
 import { executeEditorCommand } from "./execute-command.js";
 import { formatEditorDocument } from "./layout.js";
@@ -59,12 +59,7 @@ class EditorSessionStore implements EditorSession {
       sourceLayout: options.sourceLayout ?? "compact"
     };
     const document = createEditorDocument(options.source, this.#documentOptions);
-    this.#snapshot = this.#makeSnapshot(
-      document,
-      0,
-      resolveActiveSheetName(document, options.activeSheetName),
-      this.#documentOptions.sourceLayout ?? "compact"
-    );
+    this.#snapshot = this.#makeSnapshot(document, 0, resolveActiveSheetName(document, options.activeSheetName), this.#documentOptions.sourceLayout ?? "compact");
   }
 
   readonly getSnapshot = (): EditorSessionSnapshot => this.#snapshot;
@@ -136,12 +131,7 @@ class EditorSessionStore implements EditorSession {
     }
     this.#documentOptions.sourceLayout = layout;
     if (result.source === this.#snapshot.source) {
-      this.#replaceSnapshot(this.#makeSnapshot(
-        this.#snapshot.document,
-        this.#snapshot.revision,
-        this.#snapshot.activeSheetName,
-        layout
-      ));
+      this.#replaceSnapshot(this.#makeSnapshot(this.#snapshot.document, this.#snapshot.revision, this.#snapshot.activeSheetName, layout));
       return result;
     }
     this.#publish({ document: result.document, mode: "source" });
@@ -175,18 +165,10 @@ class EditorSessionStore implements EditorSession {
   }
 
   setActiveSheetName(sheetName: string): boolean {
-    if (
-      sheetName === this.#snapshot.activeSheetName ||
-      !this.#snapshot.document.workbook.sheets.some((sheet) => sheet.name === sheetName)
-    ) {
+    if (sheetName === this.#snapshot.activeSheetName || !this.#snapshot.document.workbook.sheets.some((sheet) => sheet.name === sheetName)) {
       return false;
     }
-    this.#replaceSnapshot(this.#makeSnapshot(
-      this.#snapshot.document,
-      this.#snapshot.revision,
-      sheetName,
-      this.#snapshot.sourceLayout
-    ));
+    this.#replaceSnapshot(this.#makeSnapshot(this.#snapshot.document, this.#snapshot.revision, sheetName, this.#snapshot.sourceLayout));
     return true;
   }
 
@@ -195,12 +177,7 @@ class EditorSessionStore implements EditorSession {
       return;
     }
     this.#documentOptions.sourceLayout = layout;
-    this.#replaceSnapshot(this.#makeSnapshot(
-      this.#snapshot.document,
-      this.#snapshot.revision,
-      this.#snapshot.activeSheetName,
-      layout
-    ));
+    this.#replaceSnapshot(this.#makeSnapshot(this.#snapshot.document, this.#snapshot.revision, this.#snapshot.activeSheetName, layout));
   }
 
   isCurrentRevision(revision: number): boolean {
@@ -214,7 +191,8 @@ class EditorSessionStore implements EditorSession {
       this.#clearHistory("visual");
     } else {
       const history = this.#histories[options.mode];
-      const merge = options.mode === "source" &&
+      const merge =
+        options.mode === "source" &&
         options.recording === "merge" &&
         options.historyGroup !== undefined &&
         options.historyGroup === this.#sourceHistoryGroup &&
@@ -227,22 +205,12 @@ class EditorSessionStore implements EditorSession {
       this.#sourceHistoryGroup = options.mode === "source" ? options.historyGroup : undefined;
     }
     const activeSheetName = resolveActiveSheetName(options.document, this.#snapshot.activeSheetName);
-    this.#replaceSnapshot(this.#makeSnapshot(
-      options.document,
-      this.#snapshot.revision + 1,
-      activeSheetName,
-      this.#documentOptions.sourceLayout ?? "compact"
-    ));
+    this.#replaceSnapshot(this.#makeSnapshot(options.document, this.#snapshot.revision + 1, activeSheetName, this.#documentOptions.sourceLayout ?? "compact"));
   }
 
   #publishWithoutHistory(source: string): void {
     const document = createEditorDocument(source, this.#documentOptions);
-    this.#replaceSnapshot(this.#makeSnapshot(
-      document,
-      this.#snapshot.revision + 1,
-      resolveActiveSheetName(document, this.#snapshot.activeSheetName),
-      this.#snapshot.sourceLayout
-    ));
+    this.#replaceSnapshot(this.#makeSnapshot(document, this.#snapshot.revision + 1, resolveActiveSheetName(document, this.#snapshot.activeSheetName), this.#snapshot.sourceLayout));
   }
 
   #clearHistory(mode: EditorSessionMode): void {
@@ -252,12 +220,7 @@ class EditorSessionStore implements EditorSession {
     }
   }
 
-  #makeSnapshot(
-    document: EditorDocument,
-    revision: number,
-    activeSheetName: string,
-    sourceLayout: CelloSourceLayout
-  ): EditorSessionSnapshot {
+  #makeSnapshot(document: EditorDocument, revision: number, activeSheetName: string, sourceLayout: CelloSourceLayout): EditorSessionSnapshot {
     return {
       revision,
       source: document.source,
@@ -298,9 +261,7 @@ function resolveActiveSheetName(document: EditorDocument, requested: string | un
 }
 
 function normalizeHistoryLimit(limit: number | undefined): number {
-  return limit !== undefined && Number.isSafeInteger(limit) && limit > 0
-    ? limit
-    : DEFAULT_HISTORY_LIMIT;
+  return limit !== undefined && Number.isSafeInteger(limit) && limit > 0 ? limit : DEFAULT_HISTORY_LIMIT;
 }
 
 function staleRevisionMessage(expected: number | undefined, actual: number): string {

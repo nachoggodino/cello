@@ -1,4 +1,4 @@
-import type { CelloSourceLayout } from "../../core/src/index.js";
+import type { CelloSourceLayout } from "../../core/src/internal.js";
 import type { EditorDocumentCommand } from "./document-command-model.js";
 import type { EditorCommandResult, EditorDocument } from "./model.js";
 import type { CreateEditorWorkbookOptions } from "./options.js";

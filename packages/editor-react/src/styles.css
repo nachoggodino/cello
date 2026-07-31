@@ -181,12 +181,24 @@
   background: rgba(255, 250, 244, 0.64);
 }
 
-.formula-equals { color: var(--cello-visual-formula-equals); }
-.formula-column { color: var(--cello-visual-formula-column); }
-.formula-operator { color: var(--cello-visual-formula-operator); }
-.formula-sheet { color: var(--cello-visual-formula-sheet); }
-.formula-range { color: var(--cello-visual-formula-range); }
-.formula-plain { color: var(--cello-visual-ink); }
+.formula-equals {
+  color: var(--cello-visual-formula-equals);
+}
+.formula-column {
+  color: var(--cello-visual-formula-column);
+}
+.formula-operator {
+  color: var(--cello-visual-formula-operator);
+}
+.formula-sheet {
+  color: var(--cello-visual-formula-sheet);
+}
+.formula-range {
+  color: var(--cello-visual-formula-range);
+}
+.formula-plain {
+  color: var(--cello-visual-ink);
+}
 
 .celloVisualFormulaArea {
   min-height: var(--cello-visual-control-height);
@@ -523,9 +535,7 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  background:
-    linear-gradient(135deg, var(--cello-visual-green-wash), transparent 42%),
-    rgba(255, 255, 255, 0.18);
+  background: linear-gradient(135deg, var(--cello-visual-green-wash), transparent 42%), rgba(255, 255, 255, 0.18);
 }
 
 .celloVisualGrid {
@@ -654,10 +664,18 @@
   pointer-events: none;
 }
 
-.celloVisualGrid td.rangeTop::after { border-top-width: 1px; }
-.celloVisualGrid td.rangeRight::after { border-right-width: 1px; }
-.celloVisualGrid td.rangeBottom::after { border-bottom-width: 1px; }
-.celloVisualGrid td.rangeLeft::after { border-left-width: 1px; }
+.celloVisualGrid td.rangeTop::after {
+  border-top-width: 1px;
+}
+.celloVisualGrid td.rangeRight::after {
+  border-right-width: 1px;
+}
+.celloVisualGrid td.rangeBottom::after {
+  border-bottom-width: 1px;
+}
+.celloVisualGrid td.rangeLeft::after {
+  border-left-width: 1px;
+}
 
 .celloVisualGrid td.activeCell::after {
   border: 2px solid var(--cello-visual-accent);

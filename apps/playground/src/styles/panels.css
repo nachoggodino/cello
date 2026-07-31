@@ -92,9 +92,7 @@
 
 .playgroundSourceEditor .celloSourceInput .cm-editor {
   min-height: 0;
-  background:
-    linear-gradient(135deg, var(--orange-soft), transparent 42%),
-    var(--code-bg-strong);
+  background: linear-gradient(135deg, var(--orange-soft), transparent 42%), var(--code-bg-strong);
 }
 
 .previewFrameWrap {

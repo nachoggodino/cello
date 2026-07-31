@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,8 +20,12 @@ export interface RenderFixtureCase {
 
 export async function renderFixture(caseDef: RenderFixtureCase): Promise<{ actual: string; workbook: WorkbookAst }> {
   const input = await readFixtureText(`${caseDef.name}.cel`);
-  const workbook = parse(input);
-  const actual = extractWorkbookViewHtml(await render(input, { title: caseDef.title }));
+  const externalOptions = {
+    baseDir: process.cwd(),
+    readExternalSource: (_path: string, context: { resolvedPath: string }) => readFileSync(context.resolvedPath, "utf8")
+  };
+  const workbook = parse(input, externalOptions);
+  const actual = extractWorkbookViewHtml(await render(input, { ...externalOptions, title: caseDef.title }));
   return { actual, workbook };
 }
 
@@ -96,7 +101,7 @@ function extractWorkbookViewHtml(fullDocumentHtml: string): string {
     throw new Error("Rendered HTML does not contain workbook container.");
   }
 
-  const scriptTagStart = fullDocumentHtml.indexOf("<script>", start);
+  const scriptTagStart = fullDocumentHtml.indexOf("<script ", start);
   if (scriptTagStart === -1) {
     throw new Error("Rendered HTML does not contain script section.");
   }
@@ -114,11 +119,6 @@ function visibleCells(cells: CellNode[]): CellNode[] {
 }
 
 function getSheetColumnCount(sheet: WorkbookAst["sheets"][number]): number {
-  const maxRenderedColumn = Math.max(
-    0,
-    ...sheet.rows.flatMap((row) =>
-      visibleCells(row.cells).map((cell) => cell.col + Math.max(cell.colspan, 1) - 1)
-    )
-  );
+  const maxRenderedColumn = Math.max(0, ...sheet.rows.flatMap((row) => visibleCells(row.cells).map((cell) => cell.col + Math.max(cell.colspan, 1) - 1)));
   return Math.max(sheet.columns.length, maxRenderedColumn);
 }

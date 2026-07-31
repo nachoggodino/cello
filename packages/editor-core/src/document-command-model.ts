@@ -1,18 +1,8 @@
-import type {
-  CellAddress,
-  ColorModifierKey,
-  MergeDirection,
-  SheetColumnsMode,
-  SheetRowsMode,
-  TextTone,
-  ToggleModifierKey
-} from "./model.js";
+import type { CellAddress, ColorModifierKey, MergeDirection, SheetColumnsMode, SheetRowsMode, TextTone, ToggleModifierKey } from "./model.js";
 import type { CellRange } from "./ranges.js";
 
 export type EditorCommandTarget =
-  | { scope: "cell"; addresses: CellAddress[] }
-  | { scope: "row"; addresses: CellAddress[] }
-  | { scope: "column"; sheetIndex: number; colIndexes: number[] };
+  { scope: "cell"; addresses: CellAddress[] } | { scope: "row"; addresses: CellAddress[] } | { scope: "column"; sheetIndex: number; colIndexes: number[] };
 
 export type EditorDocumentCommand =
   | {

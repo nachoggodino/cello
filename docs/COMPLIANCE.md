@@ -2,85 +2,105 @@
 
 This file maps `BYLAWS.md` expectations to current implementation in `packages/core/src/` and `packages/cli/src/` and tests in `tests/`.
 
+This is a release-maintained evidence index, not a historical snapshot. Update it
+with every public behavior change. `npm run docs:check` ensures the canonical bylaws
+and packaged authoring references remain synchronized; the referenced implementation
+and tests are exercised by the release gates in [`RELEASE.md`](./RELEASE.md).
+
 Status legend:
+
 - `implemented`: behavior present and tested
-- `partial`: behavior exists but scope/guarantees limited
-- `missing`: documented behavior not in code yet
+- `out of scope`: explicitly excluded from the 1.0 format
 
 ## Matrix
 
 1. Core file structure (`@sheet`, anonymous fallback)
+
 - Status: `implemented`
 - Code: `packages/core/src/parser/parse.ts` (`ensureSheet`, sheet declaration parsing)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/anonymous-sheet.*`
 
 2. Sheet formats (`csv/tsv/excel`, custom delimiter, markdown, json)
+
 - Status: `implemented`
 - Code: `packages/core/src/shared/utils.ts` (`parseSheetFormat`), `packages/core/src/parser/parse.ts` format handlers
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/format-matrix.*`
 
 3. External sheet source (`-> path`)
+
 - Status: `implemented`
 - Code: `packages/core/src/parser/parse.ts` (`tryHandleExternalSource`)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/external-source.*`
 
 4. Rows, blank-line handling, row-level modifiers
+
 - Status: `implemented`
 - Code: `packages/core/src/parser/parse.ts` (`splitNativeRow`, blank line handling)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/comments-blanklines.*`
 
 5. Header rows and column metadata/modifiers
+
 - Status: `implemented`
 - Code: `packages/core/src/parser/parse.ts` (`parseHeadersFromLine`, `applyHeadersToColumns`)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/e2e/fixtures/header-rebinding.*`
 
 5a. Column default formulas (`@defaults | ... |`)
+
 - Status: `implemented`
 - Code: `packages/core/src/parser/parse.ts` (`tryHandleDefaultsDirective`, `applyDefaults`, `getColumnDefaultToken`)
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/it/evaluator/evaluate.test.ts`, `tests/it/renderer/render.test.ts`
 
 5b. Persisted layout controls and aliases (`[columns:fit]`, `[rows:wrap]`, `[width:...]`, `[height:...]`, `@tone`, `@width`, `@height`)
+
 - Status: `implemented`
 - Code: `packages/core/src/parser/parse.ts` (`tryHandleAliasDeclaration`, `parseSheetLayout`), `packages/core/src/shared/layout.ts`, `packages/core/src/renderer/render.ts`, `packages/editor-core/src/commands.ts`, `packages/editor-core/src/syntax-emitter.ts`
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/unit/formatter/format.unit.test.ts`, `tests/it/renderer/render.test.ts`, `tests/unit/editor-core/editorCore.unit.test.ts`, `tests/unit/editor-react/CelloVisualEditor.unit.test.tsx`
 
 6. Formula parsing + evaluation engine integration
+
 - Status: `implemented`
 - Code: `packages/core/src/evaluator/evaluate.ts`
 - Tests: `tests/unit/evaluator/evaluate.unit.test.ts`, `tests/it/evaluator/evaluate.test.ts`
 
 7. Named column refs (`SUM(Price)`, `SUM(Sheet!Price)`, slices, `!!`)
+
 - Status: `implemented`
 - Code: `packages/core/src/evaluator/formula.ts`
 - Tests: `tests/unit/evaluator/formula.unit.test.ts`
 
 8. Row-name dot refs (`Sheet!row_name.Column`)
+
 - Status: `out of scope`
 - Code: row-name prefixes are not part of the AST or formula translation layer
 - Tests: parser regression covers unsupported row prefixes
 
 9. Merges (`<`, `^`)
-- Status: `partial`
+
+- Status: `implemented`
 - Code: `packages/core/src/parser/parse.ts` merge token handling
 - Tests: `tests/unit/parser/parse.unit.test.ts`, `tests/it/renderer/render.test.ts`
-- Note: orphan merge tokens degrade silently (no diagnostic)
+- Note: orphan merge tokens degrade tolerantly; the bylaws do not assign them a diagnostic.
 
 10. Modifiers precedence (column + row + cell)
+
 - Status: `implemented`
 - Code: `packages/core/src/renderer/render.ts` (`collectModifiers` order: column -> row -> cell)
 - Tests: `tests/e2e/fixtures/types-precedence.*`, `tests/e2e/fixtures/row-name-modifiers.*`
 
 11. Modifier coverage in renderer
-- Status: `partial`
+
+- Status: `implemented`
 - Code: `packages/core/src/renderer/render.ts` (`bold`, `italic`, `bg`, color, tone presets, numeric display)
-- Missing: `[hidden]` rendering behavior
+- Note: `[hidden]` is metadata for tooling; the 1.0 bylaws do not define render-time hiding.
 
 12. Inline formatting (`*`, `_`, `~~`, `#`, `##`)
+
 - Status: `implemented`
 - Code: `packages/core/src/renderer/render.ts` (`formatInline`)
 - Tests: `tests/it/renderer/render.test.ts`, `tests/e2e/fixtures/native-bylaws.*`
 
 13. Diagnostics and strict mode
+
 - Status: `implemented`
 - Code: `packages/core/src/parser/parse.ts`, `packages/core/src/evaluator/evaluate.ts`, `packages/core/src/renderer/render.ts`
 - Tests: parser/evaluator unit + integration tests

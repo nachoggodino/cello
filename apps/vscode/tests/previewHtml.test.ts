@@ -35,7 +35,7 @@ describe("preview html helpers", () => {
       [{ uri: { fsPath: tempRoot } }]
     );
 
-    expect(html).toContain('<th class="cello-tone-accent">State</th>');
+    expect(html).toContain('<th class="cello-wrap cello-tone-accent"><span class="cello-cell-content">State</span></th>');
     expect(html).toContain("cello-tone-ok");
   });
 

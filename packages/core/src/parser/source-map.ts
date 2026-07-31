@@ -1,10 +1,4 @@
-import type {
-  CelloCellSourceLocation,
-  CelloRowSourceLocation,
-  CelloSheetSourceLocation,
-  CelloSourceMap,
-  SheetFormat
-} from "../shared/types.js";
+import type { CelloCellSourceLocation, CelloRowSourceLocation, CelloSheetSourceLocation, CelloSourceMap, SheetFormat } from "../shared/types.js";
 
 interface NativeRowSourceOptions {
   cellCount: number;
@@ -120,7 +114,7 @@ function createDeclaredSheet(line: CelloSourceLine, format: SheetFormat): CelloS
     sheetSpan: { start: line.start, end: line.end },
     rows: [],
     externalSources: [],
-    editable: format.kind === "cello",
+    editable: true,
     format
   };
 }
@@ -130,7 +124,7 @@ function createImplicitSheet(format: SheetFormat): CelloSheetSourceLocation {
     sheetSpan: { start: 0, end: 0 },
     rows: [],
     externalSources: [],
-    editable: format.kind === "cello",
+    editable: true,
     format
   };
 }
@@ -153,11 +147,7 @@ function createNativeRow(
   };
 }
 
-function getCellLocations(
-  line: CelloSourceLine,
-  options: NativeRowSourceOptions,
-  defaults: CelloRowSourceLocation | undefined
-): CelloRowSourceLocation["cells"] {
+function getCellLocations(line: CelloSourceLine, options: NativeRowSourceOptions, defaults: CelloRowSourceLocation | undefined): CelloRowSourceLocation["cells"] {
   const explicitCells = getExplicitCellLocations(line);
   const cellCount = Math.max(explicitCells.length, options.cellCount);
   const insertionPoint = getTrailingPipeOffset(line);
@@ -184,9 +174,7 @@ function getCellLocations(
   });
 }
 
-function getExplicitCellLocations(
-  line: CelloSourceLine
-): Array<Pick<CelloCellSourceLocation, "span" | "tokenSpan">> {
+function getExplicitCellLocations(line: CelloSourceLine): Array<Pick<CelloCellSourceLocation, "span" | "tokenSpan">> {
   const firstPipe = line.text.indexOf("|");
   const pipeIndexes: number[] = [];
   for (let index = firstPipe; index >= 0 && index < line.text.length; index += 1) {

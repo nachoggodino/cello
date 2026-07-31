@@ -7,11 +7,7 @@ interface SourceHistory {
   future: string[];
 }
 
-export function useSourceHistory(
-  currentSource: string,
-  applySourceSnapshot: (source: string) => void,
-  announce: (message: string) => void
-) {
+export function useSourceHistory(currentSource: string, applySourceSnapshot: (source: string) => void, announce: (message: string) => void) {
   const [, setHistory] = useState<SourceHistory>({ past: [], future: [] });
 
   const pushHistoryEntry = (previousSource: string) => {

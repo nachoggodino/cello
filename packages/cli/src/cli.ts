@@ -1,16 +1,20 @@
 #!/usr/bin/env node
 import { realpathSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { evaluate } from "../../core/src/evaluator/evaluate.js";
-import { format as formatCello } from "../../core/src/formatter/format.js";
+import { formatSource } from "../../core/src/formatter/source-layout.js";
 import { parse } from "../../core/src/parser/parse.js";
 import { render } from "../../core/src/renderer/render.js";
 import { validate } from "../../core/src/validator/validate.js";
 import { VERSION } from "../../core/src/version.js";
+import { createNodeExternalSourceOptions } from "../../core/src/node.js";
 import { startServe } from "./serve.js";
-import type { RenderOptions } from "../../core/src/shared/types.js";
+import { parseCliRequest } from "./arguments.js";
+import type { CliRequest, HelpRequest, NonServeCliCommand, VersionRequest } from "./arguments.js";
+
+export const CLI_EXIT_CODES = { success: 0, failure: 1 } as const;
 
 export interface CliDeps {
   cwd: string;
@@ -38,11 +42,11 @@ export async function runCli(argv: string[], deps: CliDeps = createCliDeps()): P
   const request = parseCliRequest(argv, deps.cwd);
   if (request && "error" in request) {
     deps.stderrWrite(`${request.error}\n`);
-    return 1;
+    return CLI_EXIT_CODES.failure;
   }
   if (!request) {
     printUsage(deps.stdoutWrite);
-    return 1;
+    return CLI_EXIT_CODES.failure;
   }
 
   return runCliRequest(request, deps);
@@ -59,9 +63,9 @@ export async function runMain(
     const code = await runCliFn(argv, deps);
     exitFn(code);
   } catch (err) {
-    const message = err instanceof Error ? err.stack ?? err.message : String(err);
+    const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
     stderrWrite(`${message}\n`);
-    exitFn(1);
+    exitFn(CLI_EXIT_CODES.failure);
   }
 }
 
@@ -89,243 +93,17 @@ const HELP_TEXT: Record<string, string> = {
   evaluate: "Usage: cello evaluate <file.cel>\n\nParse and evaluate formulas, then print the evaluated AST as JSON.\n",
   format:
     "Usage: cello format <file.cel> [--check] [-o out.cel]\n\nPretty-print native Cello pipe tables. Writes in place by default, supports -o/--out for an alternate destination, and --check to report whether formatting changes are needed.\n",
-  validate:
-    "Usage: cello validate <file.cel>\n\nParse and evaluate diagnostics. Prints JSON with valid and diagnostics fields. Exits 0 when valid, 1 when diagnostics exist.\n",
+  validate: "Usage: cello validate <file.cel>\n\nParse and evaluate diagnostics. Prints JSON with valid and diagnostics fields. Exits 0 when valid, 1 when diagnostics exist.\n",
   render:
     "Usage: cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]\n\nRender a workbook to HTML. The default format is document. Use fragment for an embeddable chunk without html/head/body wrappers. Use --no-eval to leave formula cells unevaluated.\n",
   serve:
     "Usage: cello serve <file.cel> [--port 4321] [--host 127.0.0.1] [--open] [--no-eval]\n\nServe a live HTML preview. The server keeps the process warm for faster repeated renders. Use --open to open the URL in a browser.\n"
 };
 
-type CliCommand = "parse" | "evaluate" | "format" | "validate" | "render" | "serve";
-type NonServeCliCommand = Exclude<CliCommand, "serve">;
-
-interface CliRequest {
-  command: CliCommand;
-  inputPath: string;
-  outPath: string;
-  evaluate: boolean;
-  check?: boolean;
-  renderFormat?: RenderOptions["format"];
-  host?: string;
-  port?: number;
-  open?: boolean;
-}
-
-interface HelpRequest {
-  command: "help";
-  topic: string;
-}
-
-interface VersionRequest {
-  command: "version";
-}
-
-interface CliRequestError {
-  error: string;
-}
-
-function parseCliRequest(argv: string[], cwd: string): CliRequest | HelpRequest | VersionRequest | CliRequestError | null {
-  const [, , command, inputArg, ...rest] = argv;
-  if (command === "--version" || command === "-v" || command === "version") {
-    if (inputArg) {
-      return { error: `Unexpected argument for version: ${inputArg}` };
-    }
-    return { command: "version" };
-  }
-  if (command === "help" || command === "--help" || command === "-h") {
-    if (rest.length > 0) {
-      return { error: `Unexpected argument for help: ${rest[0] ?? ""}` };
-    }
-    return { command: "help", topic: inputArg ?? "" };
-  }
-  if (inputArg === "--help" || inputArg === "-h") {
-    if (rest.length > 0) {
-      return { error: `Unexpected argument for help: ${rest[0] ?? ""}` };
-    }
-    return { command: "help", topic: command ?? "" };
-  }
-  if (!command) {
-    return null;
-  }
-  if (!isCliCommand(command)) {
-    return { error: `Unknown command: ${command}` };
-  }
-  if (!inputArg) {
-    return { error: `Missing input file for ${command}.` };
-  }
-  if (inputArg.startsWith("-")) {
-    return { error: `Missing input file for ${command}; received option ${inputArg}.` };
-  }
-
-  const serveOptionError = validateServeOptionScope(command, rest);
-  if (serveOptionError) {
-    return serveOptionError;
-  }
-
-  const argumentError = validateArguments(command, rest);
-  if (argumentError) {
-    return argumentError;
-  }
-
-  const resolvedOutPath = resolveOutPath(cwd, rest);
-  if (typeof resolvedOutPath !== "string") {
-    return resolvedOutPath;
-  }
-  const resolvedRenderFormat = command === "render" ? resolveRenderFormat(rest) : undefined;
-  if (resolvedRenderFormat && "error" in resolvedRenderFormat) {
-    return resolvedRenderFormat;
-  }
-
-  const request: CliRequest = {
-    command,
-    inputPath: resolve(cwd, inputArg),
-    outPath: resolvedOutPath,
-    evaluate: !rest.includes("--no-eval")
-  };
-  if (command === "format") {
-    request.check = rest.includes("--check");
-  }
-  if (resolvedRenderFormat) {
-    request.renderFormat = resolvedRenderFormat.format;
-  }
-  if (command === "serve") {
-    const resolvedServeOptions = resolveServeOptions(rest);
-    if ("error" in resolvedServeOptions) {
-      return resolvedServeOptions;
-    }
-    request.host = resolvedServeOptions.host;
-    request.port = resolvedServeOptions.port;
-    request.open = resolvedServeOptions.open;
-  }
-  return request;
-}
-
-function isCliCommand(command: string | undefined): command is CliCommand {
-  return (
-    command === "parse" ||
-    command === "evaluate" ||
-    command === "format" ||
-    command === "validate" ||
-    command === "render" ||
-    command === "serve"
-  );
-}
-
-function validateServeOptionScope(command: CliCommand, rest: string[]): CliRequestError | undefined {
-  if (command !== "serve" && (rest.includes("--host") || rest.includes("--port") || rest.includes("--open"))) {
-    return { error: "--host, --port, and --open are only supported by serve." };
-  }
-  if (command !== "serve" && command !== "render" && rest.includes("--no-eval")) {
-    return { error: "--no-eval is only supported by render and serve." };
-  }
-  if (command !== "format" && rest.includes("--check")) {
-    return { error: "--check is only supported by format." };
-  }
-  return undefined;
-}
-
-function validateArguments(command: CliCommand, rest: string[]): CliRequestError | undefined {
-  const optionsWithValues = new Set(command === "serve" ? ["--host", "--port"] : ["--out", "-o", "--format"]);
-  const allowedOptions = new Set<string>();
-  if (command === "render" || command === "format") {
-    allowedOptions.add("--out");
-    allowedOptions.add("-o");
-  }
-  if (command === "render" || command === "serve") {
-    allowedOptions.add("--no-eval");
-  }
-  if (command === "render") {
-    allowedOptions.add("--format");
-  }
-  if (command === "format") {
-    allowedOptions.add("--check");
-  }
-  if (command === "serve") {
-    allowedOptions.add("--host");
-    allowedOptions.add("--port");
-    allowedOptions.add("--open");
-  }
-
-  for (let index = 0; index < rest.length; index += 1) {
-    const arg = rest[index];
-    if (arg === undefined) {
-      continue;
-    }
-    if (!arg.startsWith("-")) {
-      return { error: `Unexpected argument: ${arg}` };
-    }
-    if (!allowedOptions.has(arg)) {
-      return { error: `Unsupported option for ${command}: ${arg}` };
-    }
-    if (optionsWithValues.has(arg)) {
-      index += 1;
-      continue;
-    }
-  }
-  return undefined;
-}
-
-function resolveServeOptions(rest: string[]): { host: string; port: number; open: boolean } | CliRequestError {
-  const hostValue = readOption(rest, "--host");
-  if (hostValue && "error" in hostValue) {
-    return hostValue;
-  }
-  const portValue = readOption(rest, "--port");
-  if (portValue && "error" in portValue) {
-    return portValue;
-  }
-  const host = hostValue?.value ?? "127.0.0.1";
-  const rawPort = portValue?.value;
-  const port = rawPort === undefined ? 4321 : Number(rawPort);
-  if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    return { error: "Invalid --port value." };
-  }
-  return { host, port, open: rest.includes("--open") };
-}
-
-function readOption(rest: string[], name: string): { value: string } | CliRequestError | undefined {
-  const index = rest.findIndex((arg) => arg === name);
-  if (index < 0) {
-    return undefined;
-  }
-  const value = rest[index + 1];
-  if (!value || value.startsWith("-")) {
-    return { error: `Missing value after ${name}.` };
-  }
-  return { value };
-}
-
-function resolveOutPath(cwd: string, rest: string[]): string | CliRequestError {
-  const outIndex = rest.findIndex((arg) => arg === "--out" || arg === "-o");
-  if (outIndex < 0) {
-    return "";
-  }
-  const outArg = rest[outIndex + 1];
-  if (!outArg || outArg.startsWith("-")) {
-    return { error: "Missing output file after -o/--out." };
-  }
-  return resolve(cwd, outArg);
-}
-
-function resolveRenderFormat(rest: string[]): { format: RenderOptions["format"] } | CliRequestError | undefined {
-  const raw = readOption(rest, "--format");
-  if (!raw) {
-    return undefined;
-  }
-  if ("error" in raw) {
-    return raw;
-  }
-  if (raw.value !== "document" && raw.value !== "fragment") {
-    return { error: "Invalid --format value. Expected document or fragment." };
-  }
-  return { format: raw.value };
-}
-
 async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest, deps: CliDeps): Promise<number> {
   if (request.command === "version") {
     deps.stdoutWrite(`${VERSION}\n`);
-    return 0;
+    return CLI_EXIT_CODES.success;
   }
 
   if (request.command === "help") {
@@ -333,37 +111,26 @@ async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest,
   }
 
   if (request.command === "serve") {
-    const serveOptions: Parameters<typeof startServe>[1] = { evaluate: request.evaluate };
-    if (request.host !== undefined) {
-      serveOptions.host = request.host;
-    }
-    if (request.port !== undefined) {
-      serveOptions.port = request.port;
-    }
-    if (request.open !== undefined) {
-      serveOptions.open = request.open;
-    }
-    const handle = await deps.startServeFn(request.inputPath, serveOptions);
-    deps.stdoutWrite(`Serving ${request.inputPath}\n${formatTerminalLink(handle.url)}\n`);
-    return deps.stayOpenFn();
+    return runServeRequest(request, deps);
   }
 
   const text = await deps.readFileFn(request.inputPath, "utf8");
+  const externalSourceOptions = createNodeExternalSourceOptions(resolve(request.inputPath, ".."));
   let ast: ReturnType<typeof parse> | undefined;
   const getAst = (): ReturnType<typeof parse> => {
-    ast ??= parse(text);
+    ast ??= parse(text, externalSourceOptions);
     return ast;
   };
 
   const handlers: Record<NonServeCliCommand, () => Promise<number>> = {
     parse: () => Promise.resolve(writeStdoutJson(getAst(), deps.stdoutWrite)),
     evaluate: async () => writeStdoutJson(await evaluate(getAst()), deps.stdoutWrite),
-    format: async () => writeFormattedOutput(formatCello(text), text, request, deps),
-    validate: async () => writeValidationResult(await validate(text, { baseDir: dirname(request.inputPath) }), deps.stdoutWrite),
+    format: async () => writeFormattedOutput(formatSource(text, { layout: "pretty" }), text, request, deps),
+    validate: async () => writeValidationResult(await validate(text, externalSourceOptions), deps.stdoutWrite),
     render: async () =>
       writeCliOutput(
         await render(text, {
-          baseDir: dirname(request.inputPath),
+          ...externalSourceOptions,
           evaluate: request.evaluate,
           ...(request.renderFormat ? { format: request.renderFormat } : {})
         }),
@@ -375,46 +142,53 @@ async function runCliRequest(request: CliRequest | HelpRequest | VersionRequest,
   return handlers[request.command]();
 }
 
-async function writeFormattedOutput(
-  formatted: string,
-  original: string,
-  request: CliRequest,
-  deps: CliDeps
-): Promise<number> {
+async function runServeRequest(request: CliRequest, deps: CliDeps): Promise<number> {
+  const serveOptions: Parameters<typeof startServe>[1] = { evaluate: request.evaluate };
+  if (request.host !== undefined) {
+    serveOptions.host = request.host;
+  }
+  if (request.port !== undefined) {
+    serveOptions.port = request.port;
+  }
+  if (request.open !== undefined) {
+    serveOptions.open = request.open;
+  }
+  const handle = await deps.startServeFn(request.inputPath, serveOptions);
+  deps.stdoutWrite(`Serving ${request.inputPath}\n${formatTerminalLink(handle.url)}\n`);
+  return deps.stayOpenFn();
+}
+
+async function writeFormattedOutput(formatted: string, original: string, request: CliRequest, deps: CliDeps): Promise<number> {
   const changed = formatted !== original;
 
   if (request.check) {
     deps.stdoutWrite(`${changed ? "Needs formatting" : "Already formatted"}: ${request.inputPath}\n`);
-    return changed ? 1 : 0;
+    return changed ? CLI_EXIT_CODES.failure : CLI_EXIT_CODES.success;
   }
 
   const destination = request.outPath || request.inputPath;
   if (!changed && destination === request.inputPath) {
     deps.stdoutWrite(`Already formatted: ${request.inputPath}\n`);
-    return 0;
+    return CLI_EXIT_CODES.success;
   }
 
   await deps.writeFileFn(destination, formatted, "utf8");
   deps.stdoutWrite(`Wrote ${destination}\n`);
-  return 0;
+  return CLI_EXIT_CODES.success;
 }
 
-function writeHelp(
-  topic: string,
-  stdoutWrite: (text: string) => void,
-  stderrWrite: (text: string) => void
-): number {
+function writeHelp(topic: string, stdoutWrite: (text: string) => void, stderrWrite: (text: string) => void): number {
   if (topic.length === 0) {
     printUsage(stdoutWrite);
-    return 0;
+    return CLI_EXIT_CODES.success;
   }
   const text = HELP_TEXT[topic];
   if (!text) {
     stderrWrite(`Unknown help topic: ${topic}\n`);
-    return 1;
+    return CLI_EXIT_CODES.failure;
   }
   stdoutWrite(text);
-  return 0;
+  return CLI_EXIT_CODES.success;
 }
 
 function formatTerminalLink(url: string): string {
@@ -423,31 +197,26 @@ function formatTerminalLink(url: string): string {
 
 function writeValidationResult(value: Awaited<ReturnType<typeof validate>>, stdoutWrite: (text: string) => void): number {
   writeStdoutJson(value, stdoutWrite);
-  return value.valid ? 0 : 1;
+  return value.valid ? CLI_EXIT_CODES.success : CLI_EXIT_CODES.failure;
 }
 
 function writeStdoutJson(value: unknown, stdoutWrite: (text: string) => void): number {
   stdoutWrite(`${JSON.stringify(value, null, 2)}\n`);
-  return 0;
+  return CLI_EXIT_CODES.success;
 }
 
-async function writeCliOutput(
-  output: string,
-  outPath: string,
-  deps: CliDeps
-): Promise<number> {
+async function writeCliOutput(output: string, outPath: string, deps: CliDeps): Promise<number> {
   if (outPath) {
     await deps.writeFileFn(outPath, output, "utf8");
     deps.stdoutWrite(`Wrote ${outPath}\n`);
-    return 0;
+    return CLI_EXIT_CODES.success;
   }
 
   deps.stdoutWrite(output);
-  return 0;
+  return CLI_EXIT_CODES.success;
 }
 
-const isDirectExecution =
-  process.argv[1] !== undefined && isDirectCliExecution(process.argv[1], import.meta.url);
+const isDirectExecution = process.argv[1] !== undefined && isDirectCliExecution(process.argv[1], import.meta.url);
 
 export function isDirectCliExecution(argvPath: string, moduleUrl: string): boolean {
   try {

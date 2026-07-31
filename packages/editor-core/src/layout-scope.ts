@@ -1,11 +1,7 @@
-import { formatSource } from "../../core/src/index.js";
-import type { CelloSourceLayout, CelloSourceSpan } from "../../core/src/index.js";
+import { formatSource } from "../../core/src/internal.js";
+import type { CelloSourceLayout, CelloSourceSpan } from "../../core/src/internal.js";
 
-export function formatChangedSource(
-  previousSource: string,
-  patchedSource: string,
-  layout: CelloSourceLayout | undefined
-): string {
+export function formatChangedSource(previousSource: string, patchedSource: string, layout: CelloSourceLayout | undefined): string {
   if (!layout || previousSource === patchedSource) {
     return patchedSource;
   }

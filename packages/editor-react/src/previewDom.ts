@@ -1,8 +1,4 @@
-export function synchronizePreviewSheet(
-  document: Document,
-  activeSheetName: string,
-  onActiveSheetChange: (sheetName: string) => void
-): void {
+export function synchronizePreviewSheet(document: Document, activeSheetName: string, onActiveSheetChange: (sheetName: string) => void): void {
   const tabs = Array.from(document.querySelectorAll<HTMLElement>(".cello-tab"));
   const sheets = Array.from(document.querySelectorAll<HTMLElement>(".cello-sheet"));
   const activeTab = tabs.find((tab) => tab.dataset.sheet === activeSheetName) ?? tabs[0];

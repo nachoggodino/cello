@@ -1,20 +1,5 @@
 export type IconName =
-  | "book"
-  | "check"
-  | "chevron"
-  | "column"
-  | "copy"
-  | "download"
-  | "external"
-  | "format"
-  | "mergeLeft"
-  | "mergeUp"
-  | "paint"
-  | "reset"
-  | "row"
-  | "sheet"
-  | "trash"
-  | "x";
+  "book" | "check" | "chevron" | "column" | "copy" | "download" | "external" | "format" | "mergeLeft" | "mergeUp" | "paint" | "reset" | "row" | "sheet" | "trash" | "x";
 
 const paths: Record<IconName, string> = {
   book: "M4 6.5h7a3 3 0 0 1 3 3v9a3 3 0 0 0-3-3H4zM20 6.5h-7a3 3 0 0 0-3 3v9a3 3 0 0 1 3-3h7z",
@@ -46,7 +31,10 @@ export function ToolbarIcon({ name }: { name: IconName }) {
 export function LogoMark() {
   return (
     <svg viewBox="0 0 48 48" focusable="false">
-      <path className="logoBody" d="M30.5 5.5c-8.8 2.4-15.2 9.2-15.2 18.6 0 9.1 6.1 15.8 14.9 18.2 1.5.4 2.9-.7 2.9-2.2v-3.4c0-1.1-.7-2-1.8-2.4-4.7-1.5-8-5.1-8-10.2 0-5.2 3.4-8.9 8.2-10.4 1-.3 1.6-1.2 1.6-2.3V7.7c0-1.5-1.2-2.6-2.6-2.2Z" />
+      <path
+        className="logoBody"
+        d="M30.5 5.5c-8.8 2.4-15.2 9.2-15.2 18.6 0 9.1 6.1 15.8 14.9 18.2 1.5.4 2.9-.7 2.9-2.2v-3.4c0-1.1-.7-2-1.8-2.4-4.7-1.5-8-5.1-8-10.2 0-5.2 3.4-8.9 8.2-10.4 1-.3 1.6-1.2 1.6-2.3V7.7c0-1.5-1.2-2.6-2.6-2.2Z"
+      />
       <path className="logoString" d="M26 10.5v27M31.5 13.5v21" />
       <path className="logoF" d="M19.8 18.2c4.6.2 7.8 2.2 9.7 6M19.8 29.8c4.6-.2 7.8-2.2 9.7-6" />
     </svg>

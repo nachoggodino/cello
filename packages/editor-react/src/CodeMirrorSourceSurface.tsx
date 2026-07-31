@@ -2,11 +2,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { EditorView } from "@codemirror/view";
 import CodeMirror, { Transaction } from "@uiw/react-codemirror";
-import type {
-  BasicSetupOptions,
-  ReactCodeMirrorRef,
-  ViewUpdate
-} from "@uiw/react-codemirror";
+import type { BasicSetupOptions, ReactCodeMirrorRef, ViewUpdate } from "@uiw/react-codemirror";
 import { celloLanguage, celloSyntaxHighlighting } from "./celloLanguage.js";
 
 export interface CodeMirrorSourceSurfaceProps {
@@ -45,15 +41,7 @@ const basicSetup = {
 
 const baseExtensions = [celloLanguage, celloSyntaxHighlighting];
 
-export function CodeMirrorSourceSurface({
-  ariaLabel,
-  readOnly,
-  source,
-  onBlur,
-  onChange,
-  onRedo,
-  onUndo
-}: CodeMirrorSourceSurfaceProps) {
+export function CodeMirrorSourceSurface({ ariaLabel, readOnly, source, onBlur, onChange, onRedo, onUndo }: CodeMirrorSourceSurfaceProps) {
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const applyingExternalChangeRef = useRef(false);
   useLayoutEffect(() => {
@@ -77,37 +65,46 @@ export function CodeMirrorSourceSurface({
     }
   }, [source]);
 
-  const extensions = useMemo(() => [
-    ...baseExtensions,
-    EditorView.contentAttributes.of({
-      "aria-label": ariaLabel,
-      "aria-readonly": String(readOnly),
-      spellcheck: "false"
-    })
-  ], [ariaLabel, readOnly]);
-  const handleChange = useCallback((value: string, update: ViewUpdate) => {
-    if (applyingExternalChangeRef.current) {
-      return;
-    }
-    onChange(value, getUserEvent(update));
-  }, [onChange]);
-  const handleKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
-    if (readOnly || (!event.metaKey && !event.ctrlKey)) {
-      return;
-    }
-    const key = event.key.toLowerCase();
-    const redo = (key === "z" && event.shiftKey) || (key === "y" && event.ctrlKey);
-    if (key !== "z" && !redo) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    if (redo) {
-      onRedo();
-    } else {
-      onUndo();
-    }
-  }, [onRedo, onUndo, readOnly]);
+  const extensions = useMemo(
+    () => [
+      ...baseExtensions,
+      EditorView.contentAttributes.of({
+        "aria-label": ariaLabel,
+        "aria-readonly": String(readOnly),
+        spellcheck: "false"
+      })
+    ],
+    [ariaLabel, readOnly]
+  );
+  const handleChange = useCallback(
+    (value: string, update: ViewUpdate) => {
+      if (applyingExternalChangeRef.current) {
+        return;
+      }
+      onChange(value, getUserEvent(update));
+    },
+    [onChange]
+  );
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (readOnly || (!event.metaKey && !event.ctrlKey)) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      const redo = (key === "z" && event.shiftKey) || (key === "y" && event.ctrlKey);
+      if (key !== "z" && !redo) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (redo) {
+        onRedo();
+      } else {
+        onUndo();
+      }
+    },
+    [onRedo, onUndo, readOnly]
+  );
 
   return (
     <CodeMirror

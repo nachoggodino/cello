@@ -1,14 +1,5 @@
-import {
-  getColumnName,
-  getVisibleColumnCount,
-  getVisualCellSpan
-} from "@nachoggodino/cello/editor-core";
-import type {
-  CellAddress,
-  CellRange,
-  EditorSheet,
-  ModifierScope
-} from "@nachoggodino/cello/editor-core";
+import { getColumnName, getVisibleColumnCount, getVisualCellSpan } from "../../editor-core/src/internal.js";
+import type { CellAddress, CellRange, EditorSheet, ModifierScope } from "../../editor-core/src/internal.js";
 
 export type SelectionKind = "cells" | "rows" | "columns" | "default";
 
@@ -24,13 +15,9 @@ export function createCellSelection(address: CellAddress): GridSelection {
 
 export function getSelectionRange(selection: GridSelection, rowCount: number, columnCount: number): CellRange {
   const startRow = selection.kind === "columns" ? 0 : Math.min(selection.anchor.rowIndex, selection.active.rowIndex);
-  const endRow = selection.kind === "columns"
-    ? Math.max(0, rowCount - 1)
-    : Math.max(selection.anchor.rowIndex, selection.active.rowIndex);
+  const endRow = selection.kind === "columns" ? Math.max(0, rowCount - 1) : Math.max(selection.anchor.rowIndex, selection.active.rowIndex);
   const startCol = selection.kind === "rows" ? 0 : Math.min(selection.anchor.colIndex, selection.active.colIndex);
-  const endCol = selection.kind === "rows"
-    ? Math.max(0, columnCount - 1)
-    : Math.max(selection.anchor.colIndex, selection.active.colIndex);
+  const endCol = selection.kind === "rows" ? Math.max(0, columnCount - 1) : Math.max(selection.anchor.colIndex, selection.active.colIndex);
   return {
     sheetIndex: selection.active.sheetIndex,
     startRow,
@@ -40,13 +27,7 @@ export function getSelectionRange(selection: GridSelection, rowCount: number, co
   };
 }
 
-export function resolveModifierScope(
-  selection: GridSelection,
-  range: CellRange,
-  sheet: EditorSheet,
-  rowCount: number,
-  columnCount: number
-): ModifierScope {
+export function resolveModifierScope(selection: GridSelection, range: CellRange, sheet: EditorSheet, rowCount: number, columnCount: number): ModifierScope {
   if (selection.kind === "rows") {
     return "row";
   }
@@ -57,8 +38,7 @@ export function resolveModifierScope(
     return "cell";
   }
 
-  const hasRangeExtent = selection.anchor.rowIndex !== selection.active.rowIndex ||
-    selection.anchor.colIndex !== selection.active.colIndex;
+  const hasRangeExtent = selection.anchor.rowIndex !== selection.active.rowIndex || selection.anchor.colIndex !== selection.active.colIndex;
   const coversEveryRow = rowCount > 0 && range.startRow === 0 && range.endRow === rowCount - 1;
   const coversEveryColumn = columnCount > 0 && range.startCol === 0 && range.endCol === columnCount - 1;
   if (hasRangeExtent && coversEveryRow && !coversEveryColumn) {
@@ -130,12 +110,7 @@ export function getMergeOwnerAddress(sheet: EditorSheet, address: CellAddress): 
       if (span.hidden) {
         continue;
       }
-      if (
-        address.rowIndex >= rowIndex &&
-        address.rowIndex < rowIndex + span.rowspan &&
-        address.colIndex >= colIndex &&
-        address.colIndex < colIndex + span.colspan
-      ) {
+      if (address.rowIndex >= rowIndex && address.rowIndex < rowIndex + span.rowspan && address.colIndex >= colIndex && address.colIndex < colIndex + span.colspan) {
         return { ...address, rowIndex, colIndex };
       }
     }
@@ -143,11 +118,7 @@ export function getMergeOwnerAddress(sheet: EditorSheet, address: CellAddress): 
   return address;
 }
 
-export function isPasteCompatibleWithMergedCells(
-  sheet: EditorSheet,
-  start: CellAddress,
-  matrix: string[][]
-): boolean {
+export function isPasteCompatibleWithMergedCells(sheet: EditorSheet, start: CellAddress, matrix: string[][]): boolean {
   const rowCount = matrix.length;
   const columnCount = Math.max(0, ...matrix.map((row) => row.length));
   if (rowCount === 0 || columnCount === 0) {
@@ -161,12 +132,7 @@ export function isPasteCompatibleWithMergedCells(
     endCol: start.colIndex + columnCount - 1
   };
   const expanded = expandRangeForMergedCells(sheet, target);
-  if (
-    expanded.startRow !== target.startRow ||
-    expanded.endRow !== target.endRow ||
-    expanded.startCol !== target.startCol ||
-    expanded.endCol !== target.endCol
-  ) {
+  if (expanded.startRow !== target.startRow || expanded.endRow !== target.endRow || expanded.startCol !== target.startCol || expanded.endCol !== target.endCol) {
     return false;
   }
 
@@ -215,8 +181,7 @@ function expandIntersectingMerges(sheet: EditorSheet, range: CellRange): boolean
         startCol: Math.min(range.startCol, colIndex),
         endCol: Math.max(range.endCol, spanEndCol)
       };
-      changed ||= next.startRow !== range.startRow || next.endRow !== range.endRow ||
-        next.startCol !== range.startCol || next.endCol !== range.endCol;
+      changed ||= next.startRow !== range.startRow || next.endRow !== range.endRow || next.startCol !== range.startCol || next.endCol !== range.endCol;
       Object.assign(range, next);
     }
   }
@@ -224,6 +189,5 @@ function expandIntersectingMerges(sheet: EditorSheet, range: CellRange): boolean
 }
 
 function rectanglesIntersect(range: CellRange, startRow: number, endRow: number, startCol: number, endCol: number): boolean {
-  return startRow <= range.endRow && endRow >= range.startRow &&
-    startCol <= range.endCol && endCol >= range.startCol;
+  return startRow <= range.endRow && endRow >= range.startRow && startCol <= range.endCol && endCol >= range.startCol;
 }

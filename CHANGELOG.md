@@ -11,6 +11,22 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   independent mode histories, and revision-safe derived output.
 - Removed the public core and editor whole-workbook serializers and the `cello serialize`
   command. Source changes now use `formatSource` or verified editor document commands.
+- Modernized the repository, runtime, React, browser-test, and VS Code extension
+  dependencies; moved the extension into the root workspace and removed all known npm
+  audit findings.
+- Adopted the TypeScript 7 native compiler while retaining the TypeScript 6 compatibility
+  API required by `typescript-eslint`. Remove the compatibility alias once
+  `typescript-eslint` supports TypeScript 7's programmatic API, as documented in
+  `docs/RELEASE.md`.
+- Added deterministic command-preservation invariants, real-browser Chromium and
+  three-engine release suites, a real VS Code extension-host suite, and clean npm,
+  browser-consumer, CLI, CSP, and VSIX distribution verification.
+- Reduced the public ESM surface to documented core, Node adapter, editor document/session, persisted-command, and React view contracts; added stable structured diagnostic codes and schema-version tests.
+- Added live parser diagnostics to the VS Code extension, including secure
+  workspace-rooted external-source resolution.
+- Added enforced runtime and artifact-size budgets, synchronized canonical authoring
+  references, complete GPL license texts, third-party notices, and release artifact
+  checks for documentation, licensing, deployment headers, and source-map hygiene.
 
 ## 0.2.0 - 2026-07-28
 

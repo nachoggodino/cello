@@ -3,23 +3,13 @@ import type { CSSProperties } from "react";
 import type { Diagnostic } from "@cello/core";
 import { createEditorSession } from "@cello/editor-core";
 import type { EditorSession } from "@cello/editor-core";
-import {
-  CelloHtmlPreview,
-  CelloSourceEditor,
-  CelloVisualEditor,
-  useEditorSession
-} from "@cello/editor-react";
+import { CelloHtmlPreview, CelloSourceEditor, CelloVisualEditor, useEditorSession } from "@cello/editor-react";
 import type { CelloPreviewState } from "@cello/editor-react";
 import "@cello/editor-react/styles.css";
 import logoUrl from "./assets/cello-logo.svg?url";
 import { examples, getExample } from "./examples";
 import { ToolbarIcon } from "./icons";
-import {
-  bylawsUrl,
-  githubUrl,
-  previewDownloadFileName,
-  renderDebounceMs
-} from "./playgroundConfig";
+import { bylawsUrl, githubUrl, previewDownloadFileName, renderDebounceMs } from "./playgroundConfig";
 import { loadStoredState, saveStoredState } from "./playgroundState";
 import { syntaxExamples } from "./syntaxReference";
 import { useClipboardStatus } from "./useClipboardStatus";
@@ -43,12 +33,14 @@ const initialPreviewState: CelloPreviewState = {
 
 export function App() {
   const initialState = useMemo(() => loadStoredState(window.localStorage), []);
-  const [session] = useState(() => createEditorSession({
-    source: initialState.source,
-    readExternalSource(path) {
-      throw new Error(`External file sources are not available in the browser playground: ${path}`);
-    }
-  }));
+  const [session] = useState(() =>
+    createEditorSession({
+      source: initialState.source,
+      readExternalSource(path) {
+        throw new Error(`External file sources are not available in the browser playground: ${path}`);
+      }
+    })
+  );
   const snapshot = useEditorSession(session);
   const [page, setPage] = useState<PlaygroundPage>(() => getPageFromHash(window.location.hash));
   const [selectedExampleId, setSelectedExampleId] = useState(initialState.exampleId);
@@ -56,14 +48,7 @@ export function App() {
   const [syntaxOpen, setSyntaxOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("editor");
   const { actionMessage, copiedTarget, copyPayload, copyText, setActionMessage } = useClipboardStatus();
-  const {
-    editorBasis,
-    onDividerKeyDown,
-    onDividerPointerDown,
-    onDividerPointerMove,
-    splitPane,
-    stopDrag
-  } = useResizableSplit();
+  const { editorBasis, onDividerKeyDown, onDividerPointerDown, onDividerPointerMove, splitPane, stopDrag } = useResizableSplit();
 
   useEffect(() => {
     saveStoredState(window.localStorage, { exampleId: selectedExampleId, source: snapshot.source });
@@ -74,25 +59,26 @@ export function App() {
       return;
     }
     try {
-      window.localStorage.setItem(
-        `cello:active-sheet:${window.location.pathname}`,
-        snapshot.activeSheetName
-      );
+      window.localStorage.setItem(`cello:active-sheet:${window.location.pathname}`, snapshot.activeSheetName);
     } catch {
       // Best effort only; the preview frame is still synchronized directly.
     }
   }, [snapshot.activeSheetName]);
 
   useEffect(() => {
-    const handleHashChange = () => { setPage(getPageFromHash(window.location.hash)); };
+    const handleHashChange = () => {
+      setPage(getPageFromHash(window.location.hash));
+    };
     window.addEventListener("hashchange", handleHashChange);
-    return () => { window.removeEventListener("hashchange", handleHashChange); };
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
   }, []);
 
   const selectedExample = getExample(selectedExampleId);
   const diagnostics = getPlaygroundDiagnostics(snapshot.document.diagnostics, previewState);
   const issueCount = diagnostics.length;
-  const hasErrors = diagnostics.some((diagnostic) => diagnostic.level === "error");
+  const hasErrors = diagnostics.some((diagnostic) => diagnostic.severity === "error");
 
   const chooseExample = (exampleId: string) => {
     const next = getExample(exampleId);
@@ -127,7 +113,9 @@ export function App() {
     document.body.append(link);
     link.click();
     link.remove();
-    window.setTimeout(() => { URL.revokeObjectURL(url); }, 0);
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 0);
     setActionMessage("HTML download started.");
   };
 
@@ -138,7 +126,14 @@ export function App() {
 
   return (
     <div className="appShell">
-      <Topbar currentPage={page} syntaxOpen={syntaxOpen} onNavigate={navigateToPage} onToggleSyntax={() => { setSyntaxOpen((open) => !open); }} />
+      <Topbar
+        currentPage={page}
+        syntaxOpen={syntaxOpen}
+        onNavigate={navigateToPage}
+        onToggleSyntax={() => {
+          setSyntaxOpen((open) => !open);
+        }}
+      />
 
       {page === "source" ? (
         <div className="mobileControls">
@@ -192,7 +187,12 @@ export function App() {
                 setActionMessage={setActionMessage}
               />
 
-              <aside id="panel-syntax" role="tabpanel" aria-labelledby="tab-syntax" className={`syntaxPanel ${syntaxOpen ? "open" : ""} ${mobilePanel === "syntax" ? "mobileVisible" : ""}`}>
+              <aside
+                id="panel-syntax"
+                role="tabpanel"
+                aria-labelledby="tab-syntax"
+                className={`syntaxPanel ${syntaxOpen ? "open" : ""} ${mobilePanel === "syntax" ? "mobileVisible" : ""}`}
+              >
                 <SyntaxPanel
                   onClose={() => {
                     setSyntaxOpen(false);
@@ -210,15 +210,21 @@ export function App() {
       ) : (
         <CelloVisualEditor
           session={session}
-          onCommandFailure={(failure) => { setActionMessage(failure.message); }}
-          onRequestSourceView={() => { navigateToPage("source"); }}
+          onCommandFailure={(failure) => {
+            setActionMessage(failure.message);
+          }}
+          onRequestSourceView={() => {
+            navigateToPage("source");
+          }}
         />
       )}
 
       <footer className="siteFooter">
         <span>BYLAWS-first syntax for durable plain text spreadsheets.</span>
         <span>Render live, copy HTML, keep the source reviewable.</span>
-        <a href={bylawsUrl} target="_blank" rel="noreferrer">Read the BYLAWS</a>
+        <a href={bylawsUrl} target="_blank" rel="noreferrer">
+          Read the BYLAWS
+        </a>
       </footer>
     </div>
   );
@@ -246,11 +252,36 @@ function Topbar({
         <p>plain text and LLM friendly spreadsheets</p>
       </div>
       <nav className="topbarNav" aria-label="Playground navigation">
-        <button type="button" className={`glassButton topbarPageLink ${currentPage === "source" ? "active" : ""}`} onClick={() => { onNavigate("source"); }}>Source</button>
-        <button type="button" className={`glassButton topbarPageLink ${currentPage === "visual" ? "active" : ""}`} onClick={() => { onNavigate("visual"); }}>Visual editor</button>
-        <a className="navLink" href={bylawsUrl} target="_blank" rel="noreferrer">BYLAWS</a>
-        <a className="navLink" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
-        <button type="button" className={`glassButton iconTextButton topbarSyntaxToggle ${syntaxOpen ? "active" : ""}`} onClick={onToggleSyntax} disabled={currentPage !== "source"}>
+        <button
+          type="button"
+          className={`glassButton topbarPageLink ${currentPage === "source" ? "active" : ""}`}
+          onClick={() => {
+            onNavigate("source");
+          }}
+        >
+          Source
+        </button>
+        <button
+          type="button"
+          className={`glassButton topbarPageLink ${currentPage === "visual" ? "active" : ""}`}
+          onClick={() => {
+            onNavigate("visual");
+          }}
+        >
+          Visual editor
+        </button>
+        <a className="navLink" href={bylawsUrl} target="_blank" rel="noreferrer">
+          BYLAWS
+        </a>
+        <a className="navLink" href={githubUrl} target="_blank" rel="noreferrer">
+          GitHub
+        </a>
+        <button
+          type="button"
+          className={`glassButton iconTextButton topbarSyntaxToggle ${syntaxOpen ? "active" : ""}`}
+          onClick={onToggleSyntax}
+          disabled={currentPage !== "source"}
+        >
           <ToolbarIcon name="book" />
           <span>Syntax</span>
         </button>
@@ -270,7 +301,9 @@ function MobileSwitch({ activePanel, onChange }: { activePanel: MobilePanel; onC
           aria-controls={`panel-${panel.id}`}
           aria-selected={activePanel === panel.id}
           className={activePanel === panel.id ? "active" : ""}
-          onClick={() => { onChange(panel.id); }}
+          onClick={() => {
+            onChange(panel.id);
+          }}
         >
           {panel.label}
         </button>
@@ -314,44 +347,57 @@ function EditorPane({
   };
 
   return (
-    <section id="panel-editor" role="tabpanel" aria-labelledby="tab-editor" className={`pane editorPane ${mobileVisible ? "mobileVisible" : ""}`} style={{ flexBasis: `${editorBasis}%` }}>
+    <section
+      id="panel-editor"
+      role="tabpanel"
+      aria-labelledby="tab-editor"
+      className={`pane editorPane ${mobileVisible ? "mobileVisible" : ""}`}
+      style={{ flexBasis: `${editorBasis}%` }}
+    >
       <div className="paneHeader">
         <div className="paneTitle">
           <span>Source</span>
           <strong className="sourceFileName">{selectedExampleFileName}</strong>
         </div>
         <div className="paneActions paneActionsStart">
-          <div className="exampleSelect" onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget)) {
-              setExampleMenuOpen(false);
-            }
-          }}>
+          <div
+            className="exampleSelect"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setExampleMenuOpen(false);
+              }
+            }}
+          >
             <button
               type="button"
               className={`exampleSelectButton ${exampleMenuOpen ? "open" : ""}`}
               aria-haspopup="listbox"
               aria-expanded={exampleMenuOpen}
               aria-label="Choose example"
-              onClick={() => { setExampleMenuOpen((open) => !open); }}
+              onClick={() => {
+                setExampleMenuOpen((open) => !open);
+              }}
             >
               <span>{selectedExample.name}</span>
               <ToolbarIcon name="chevron" />
             </button>
             {exampleMenuOpen && (
               <div className="exampleMenu" role="listbox" aria-label="Choose example">
-              {examples.map((example) => (
-                <button
-                  key={example.id}
-                  type="button"
-                  role="option"
-                  aria-selected={selectedExampleId === example.id}
-                  className={selectedExampleId === example.id ? "selected" : ""}
-                  onClick={() => { chooseExampleFromMenu(example.id); }}
-                >
-                  <span>{example.name}</span>
-                  <small>{example.fileName}</small>
-                </button>
-              ))}
+                {examples.map((example) => (
+                  <button
+                    key={example.id}
+                    type="button"
+                    role="option"
+                    aria-selected={selectedExampleId === example.id}
+                    className={selectedExampleId === example.id ? "selected" : ""}
+                    onClick={() => {
+                      chooseExampleFromMenu(example.id);
+                    }}
+                  >
+                    <span>{example.name}</span>
+                    <small>{example.fileName}</small>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -365,16 +411,17 @@ function EditorPane({
             <button type="button" className="glassButton iconButton" aria-label="Reset example" title="Reset example" onClick={onReset}>
               <ToolbarIcon name="reset" />
             </button>
-            <CopyButton label={sourceLabel} copiedTarget={copiedTarget} onCopy={() => { onCopy(source, sourceLabel); }} />
+            <CopyButton
+              label={sourceLabel}
+              copiedTarget={copiedTarget}
+              onCopy={() => {
+                onCopy(source, sourceLabel);
+              }}
+            />
           </div>
         </div>
       </div>
-      <CelloSourceEditor
-        ariaLabel="Cello source"
-        className="playgroundSourceEditor"
-        session={session}
-        showToolbar={false}
-      />
+      <CelloSourceEditor ariaLabel="Cello source" className="playgroundSourceEditor" session={session} showToolbar={false} />
     </section>
   );
 }
@@ -400,9 +447,7 @@ function PreviewPane({
   onPreviewStateChange: (state: CelloPreviewState) => void;
   setActionMessage: (message: string) => void;
 }) {
-  const previewTitle = previewState.status === "rendering"
-    ? "Rendering"
-    : previewState.status === "error" ? "Last good render" : "Live render";
+  const previewTitle = previewState.status === "rendering" ? "Rendering" : previewState.status === "error" ? "Last good render" : "Live render";
   const { copyVisibleTable, onFrameLoad } = usePreviewFrame({
     activeSheetName,
     html: previewState.html,
@@ -421,7 +466,14 @@ function PreviewPane({
           </div>
           <div className="paneActions">
             <CopyButton label="Table" copiedTarget={copiedTarget} disabled={!previewState.html} onCopy={copyVisibleTable} />
-            <button type="button" className="glassButton iconButton exportAction" aria-label="Download HTML" title="Download HTML" onClick={onDownload} disabled={!previewState.html}>
+            <button
+              type="button"
+              className="glassButton iconButton exportAction"
+              aria-label="Download HTML"
+              title="Download HTML"
+              onClick={onDownload}
+              disabled={!previewState.html}
+            >
               <ToolbarIcon name="download" />
             </button>
           </div>
@@ -484,14 +536,32 @@ function SyntaxBlock({ title, code, onCopy, copiedTarget }: { title: string; cod
     <section className="syntaxBlock">
       <div className="syntaxBlockHeader">
         <h3>{title}</h3>
-        <CopyButton label={label} copiedTarget={copiedTarget} onCopy={() => { onCopy(code, label); }} />
+        <CopyButton
+          label={label}
+          copiedTarget={copiedTarget}
+          onCopy={() => {
+            onCopy(code, label);
+          }}
+        />
       </div>
-      <pre><code>{code}</code></pre>
+      <pre>
+        <code>{code}</code>
+      </pre>
     </section>
   );
 }
 
-function DiagnosticsBar({ actionMessage, diagnostics, hasErrors, issueCount }: { actionMessage: string; diagnostics: readonly Diagnostic[]; hasErrors: boolean; issueCount: number }) {
+function DiagnosticsBar({
+  actionMessage,
+  diagnostics,
+  hasErrors,
+  issueCount
+}: {
+  actionMessage: string;
+  diagnostics: readonly Diagnostic[];
+  hasErrors: boolean;
+  issueCount: number;
+}) {
   return (
     <footer className={`diagnostics ${hasErrors ? "hasErrors" : issueCount > 0 ? "hasWarnings" : ""}`}>
       <div className="diagnosticSummary">
@@ -501,9 +571,7 @@ function DiagnosticsBar({ actionMessage, diagnostics, hasErrors, issueCount }: {
       {issueCount > 0 && (
         <ol className="diagnosticList" aria-label="Diagnostics">
           {diagnostics.map((diagnostic, index) => (
-            <li key={`${diagnostic.level}-${diagnostic.sheet ?? ""}-${diagnostic.line ?? ""}-${index}`}>
-              {formatDiagnostic(diagnostic)}
-            </li>
+            <li key={`${diagnostic.severity}-${diagnostic.sheet ?? ""}-${diagnostic.line ?? ""}-${index}`}>{formatDiagnostic(diagnostic)}</li>
           ))}
         </ol>
       )}
@@ -511,17 +579,14 @@ function DiagnosticsBar({ actionMessage, diagnostics, hasErrors, issueCount }: {
   );
 }
 
-function getPlaygroundDiagnostics(
-  diagnostics: readonly Diagnostic[],
-  previewState: CelloPreviewState
-): readonly Diagnostic[] {
+function getPlaygroundDiagnostics(diagnostics: readonly Diagnostic[], previewState: CelloPreviewState): readonly Diagnostic[] {
   if (!previewState.error) {
     return diagnostics;
   }
-  return [...diagnostics, { level: "error", message: `Render failed: ${previewState.error}` }];
+  return [...diagnostics, { level: "error", severity: "error", code: "render-error", stage: "render", category: "runtime", message: `Render failed: ${previewState.error}` }];
 }
 
 function formatDiagnostic(diagnostic: Diagnostic): string {
   const location = [diagnostic.sheet, diagnostic.line ? `line ${diagnostic.line}` : ""].filter(Boolean).join(", ");
-  return `${diagnostic.level.toUpperCase()}${location ? ` (${location})` : ""}: ${diagnostic.message}`;
+  return `${diagnostic.severity.toUpperCase()}${location ? ` (${location})` : ""}: ${diagnostic.message}`;
 }

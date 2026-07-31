@@ -1,0 +1,19 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "rootDir": "..",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "react", "react-dom", "vitest/globals"],
+    "noUncheckedIndexedAccess": false,
+    "paths": {
+      "@cello/core": ["../packages/core/src/index.ts"],
+      "@cello/editor-core": ["../packages/editor-core/src/internal.ts"],
+      "@cello/editor-react": ["../packages/editor-react/src/index.ts"],
+      "@nachoggodino/cello/editor-core": ["../packages/editor-core/src/index.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

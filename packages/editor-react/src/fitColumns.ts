@@ -1,18 +1,7 @@
 import { useLayoutEffect, useState } from "react";
 import type { CSSProperties, RefObject } from "react";
-import {
-  CELL_LAYOUT_METRICS,
-  getCellAddressKey,
-  getCellFitMeasureText,
-  getCellStyle,
-  getColumnWidthValue,
-  isColumnFit
-} from "@nachoggodino/cello/editor-core";
-import type {
-  ComputedCellValues,
-  EditorSheet,
-  EditorWorkbook
-} from "@nachoggodino/cello/editor-core";
+import { CELL_LAYOUT_METRICS, getCellAddressKey, getCellFitMeasureText, getCellStyle, getColumnWidthValue, isColumnFit } from "../../editor-core/src/internal.js";
+import type { ComputedCellValues, EditorSheet, EditorWorkbook } from "../../editor-core/src/internal.js";
 
 const fitColumnMeasurementGuardPx = 2;
 
@@ -25,10 +14,7 @@ export interface FitMeasureEntry {
   style: CSSProperties;
 }
 
-export function useMeasuredFitColumnWidths(
-  measureRef: RefObject<HTMLDivElement | null>,
-  entries: FitMeasureEntry[]
-): FitColumnWidths {
+export function useMeasuredFitColumnWidths(measureRef: RefObject<HTMLDivElement | null>, entries: FitMeasureEntry[]): FitColumnWidths {
   const [widths, setWidths] = useState<FitColumnWidths>({});
 
   useLayoutEffect(() => {
@@ -45,18 +31,11 @@ export function useMeasuredFitColumnWidths(
         continue;
       }
       const measuredTextWidth = Math.ceil(element.getBoundingClientRect().width);
-      const measuredWidth =
-        measuredTextWidth +
-        CELL_LAYOUT_METRICS.paddingInlinePx * 2 +
-        fitColumnMeasurementGuardPx;
+      const measuredWidth = measuredTextWidth + CELL_LAYOUT_METRICS.paddingInlinePx * 2 + fitColumnMeasurementGuardPx;
       if (measuredWidth <= 0) {
         continue;
       }
-      next[column] = Math.max(
-        next[column] ?? 0,
-        measuredWidth,
-        CELL_LAYOUT_METRICS.paddingInlinePx * 2
-      );
+      next[column] = Math.max(next[column] ?? 0, measuredWidth, CELL_LAYOUT_METRICS.paddingInlinePx * 2);
     }
 
     setWidths((current) => (areFitWidthsEqual(current, next) ? current : next));
@@ -86,13 +65,7 @@ export function getFitMeasureEntries(
       }
       const cellKey = getCellAddressKey({ sheetIndex, rowIndex, colIndex });
       const computed = computedValues[cellKey];
-      const text = getCellFitMeasureText(
-        sheet,
-        rowIndex,
-        colIndex,
-        computed,
-        workbook
-      );
+      const text = getCellFitMeasureText(sheet, rowIndex, colIndex, computed, workbook);
       if (text === undefined) {
         continue;
       }
@@ -107,10 +80,7 @@ export function getFitMeasureEntries(
   return entries;
 }
 
-export function withMeasuredFitWidth(
-  style: CSSProperties,
-  measuredWidth: number | undefined
-): CSSProperties {
+export function withMeasuredFitWidth(style: CSSProperties, measuredWidth: number | undefined): CSSProperties {
   if (measuredWidth === undefined) {
     return style;
   }
@@ -122,26 +92,13 @@ export function formatMeasuredWidth(width: number | undefined): string | undefin
   return width === undefined ? undefined : `${width}px`;
 }
 
-function isResolvedFitColumn(
-  sheet: EditorSheet,
-  rowIndex: number,
-  colIndex: number
-): boolean {
+function isResolvedFitColumn(sheet: EditorSheet, rowIndex: number, colIndex: number): boolean {
   const explicitWidth = getColumnWidthValue(sheet, rowIndex, colIndex);
-  return (
-    isColumnFit(sheet, rowIndex, colIndex) ||
-    (!explicitWidth && sheet.layout?.columns === "fit")
-  );
+  return isColumnFit(sheet, rowIndex, colIndex) || (!explicitWidth && sheet.layout?.columns === "fit");
 }
 
-function areFitWidthsEqual(
-  current: FitColumnWidths,
-  next: FitColumnWidths
-): boolean {
+function areFitWidthsEqual(current: FitColumnWidths, next: FitColumnWidths): boolean {
   const currentKeys = Object.keys(current);
   const nextKeys = Object.keys(next);
-  return (
-    currentKeys.length === nextKeys.length &&
-    nextKeys.every((key) => current[Number(key)] === next[Number(key)])
-  );
+  return currentKeys.length === nextKeys.length && nextKeys.every((key) => current[Number(key)] === next[Number(key)]);
 }

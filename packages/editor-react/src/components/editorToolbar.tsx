@@ -1,16 +1,5 @@
-import {
-  CELLO_HEADING_STYLES,
-  ROW_HEIGHT_PRESETS,
-  SHEET_COLUMNS_MODES,
-  SHEET_ROWS_MODES,
-  TEXT_TONES,
-  WIDTH_PRESET_NAMES
-} from "@nachoggodino/cello/editor-core";
-import type {
-  ColorModifierKey,
-  TextTone,
-  ToggleModifierKey
-} from "@nachoggodino/cello/editor-core";
+import { CELLO_HEADING_STYLES, ROW_HEIGHT_PRESETS, SHEET_COLUMNS_MODES, SHEET_ROWS_MODES, TEXT_TONES, WIDTH_PRESET_NAMES } from "../../../editor-core/src/internal.js";
+import type { ColorModifierKey, TextTone, ToggleModifierKey } from "../../../editor-core/src/internal.js";
 import { EditorIcon } from "../icons.js";
 import { renderFormulaHighlight } from "../textPresentation.js";
 import type { CelloVisualEditorLabels } from "../types.js";
@@ -73,13 +62,7 @@ export interface EditorToolbarActions {
   requestSourceView: () => void;
 }
 
-export function EditorToolbarRows({
-  actions,
-  model
-}: {
-  actions: EditorToolbarActions;
-  model: EditorToolbarModel;
-}) {
+export function EditorToolbarRows({ actions, model }: { actions: EditorToolbarActions; model: EditorToolbarModel }) {
   const { labels } = model;
 
   return (
@@ -92,15 +75,13 @@ export function EditorToolbarRows({
               {renderFormulaHighlight(model.selectedContentText)}
             </div>
             <textarea
-              className={[
-                "celloVisualFormulaInput",
-                "celloVisualFormulaArea",
-                model.selectedContentText.startsWith("=") ? "hasHighlight" : ""
-              ].filter(Boolean).join(" ")}
+              className={["celloVisualFormulaInput", "celloVisualFormulaArea", model.selectedContentText.startsWith("=") ? "hasHighlight" : ""].filter(Boolean).join(" ")}
               aria-label={labels.selectedCellSource}
               rows={1}
               value={model.selectedContentText}
-              onChange={(event) => { actions.changeContent(event.target.value); }}
+              onChange={(event) => {
+                actions.changeContent(event.target.value);
+              }}
             />
           </div>
         </div>
@@ -111,30 +92,23 @@ export function EditorToolbarRows({
             aria-label={labels.modifiers}
             value={model.selectedModifierText}
             placeholder={model.modifiersMixed ? "Mixed" : undefined}
-            onChange={(event) => { actions.changeModifiers(event.target.value); }}
+            onChange={(event) => {
+              actions.changeModifiers(event.target.value);
+            }}
           />
         </label>
 
-        <div
-          className="celloVisualInheritedPanel"
-          aria-label={labels.inherited}
-        >
+        <div className="celloVisualInheritedPanel" aria-label={labels.inherited}>
           <span>{labels.inherited}</span>
           <div>
             {model.inheritedGroups.length > 0 ? (
               model.inheritedGroups.map((group) => (
-                <span
-                  key={group.scope}
-                  className={`celloVisualInheritedToken ${group.scope}`}
-                >
-                  {group.scope}:{" "}
-                  {group.modifiers.map(formatInheritedModifier).join("")}
+                <span key={group.scope} className={`celloVisualInheritedToken ${group.scope}`}>
+                  {group.scope}: {group.modifiers.map(formatInheritedModifier).join("")}
                 </span>
               ))
             ) : (
-              <span className="celloVisualInheritedEmpty">
-                {labels.noInheritedModifiers}
-              </span>
+              <span className="celloVisualInheritedEmpty">{labels.noInheritedModifiers}</span>
             )}
           </div>
         </div>
@@ -147,7 +121,9 @@ export function EditorToolbarRows({
             active={model.boldActive}
             disabled={model.controlsDisabled}
             label={labels.bold}
-            onClick={() => { actions.toggleModifier("bold"); }}
+            onClick={() => {
+              actions.toggleModifier("bold");
+            }}
           >
             <strong>B</strong>
           </TextModifierButton>
@@ -155,7 +131,9 @@ export function EditorToolbarRows({
             active={model.italicActive}
             disabled={model.controlsDisabled}
             label={labels.italic}
-            onClick={() => { actions.toggleModifier("italic"); }}
+            onClick={() => {
+              actions.toggleModifier("italic");
+            }}
           >
             <em>I</em>
           </TextModifierButton>
@@ -163,7 +141,9 @@ export function EditorToolbarRows({
             active={model.strikeActive}
             disabled={model.controlsDisabled}
             label={labels.strike}
-            onClick={() => { actions.toggleModifier("strike"); }}
+            onClick={() => {
+              actions.toggleModifier("strike");
+            }}
             onDoubleClick={actions.toggleInlineStrike}
           >
             <span className="celloVisualStrikeIcon">S</span>
@@ -174,50 +154,37 @@ export function EditorToolbarRows({
               active={model.selectedHeadingPrefix === style.prefix}
               disabled={model.controlsDisabled}
               label={labels[style.labelKey]}
-              onClick={() => { actions.applyPrefix(style.prefix); }}
+              onClick={() => {
+                actions.applyPrefix(style.prefix);
+              }}
             />
           ))}
-          <label
-            className="celloVisualColorTool"
-            title={labels.textColor}
-            aria-label={labels.textColor}
-          >
+          <label className="celloVisualColorTool" title={labels.textColor} aria-label={labels.textColor}>
             <span style={{ color: model.selectedTextColor }}>A</span>
             <input
               type="color"
               value={model.selectedTextColor}
               disabled={model.controlsDisabled}
-              onChange={(event) =>
-                { actions.setColor("color", event.target.value); }
-              }
+              onChange={(event) => {
+                actions.setColor("color", event.target.value);
+              }}
             />
           </label>
-          <label
-            className="celloVisualColorTool"
-            title={labels.fillColor}
-            aria-label={labels.fillColor}
-            style={{ background: model.selectedFillColor }}
-          >
+          <label className="celloVisualColorTool" title={labels.fillColor} aria-label={labels.fillColor} style={{ background: model.selectedFillColor }}>
             <EditorIcon name="paint" />
             <input
               type="color"
               value={model.selectedFillColor}
               disabled={model.controlsDisabled}
-              onChange={(event) => { actions.setColor("bg", event.target.value); }}
+              onChange={(event) => {
+                actions.setColor("bg", event.target.value);
+              }}
             />
           </label>
           <ValueMenu
             ariaLabel={labels.tone}
-            buttonClassName={
-              model.selectedTone
-                ? `celloVisualTone celloVisualTone-${model.selectedTone}`
-                : ""
-            }
-            displayValue={
-              model.selectedTone
-                ? `${labels.tone}: ${model.selectedTone}`
-                : labels.tone
-            }
+            buttonClassName={model.selectedTone ? `celloVisualTone celloVisualTone-${model.selectedTone}` : ""}
+            displayValue={model.selectedTone ? `${labels.tone}: ${model.selectedTone}` : labels.tone}
             disabled={model.controlsDisabled}
             options={TEXT_TONES.map((tone) => ({
               label: tone,
@@ -225,7 +192,9 @@ export function EditorToolbarRows({
               className: `celloVisualTone celloVisualTone-${tone}`
             }))}
             value={model.selectedTone}
-            onChange={(value) => { actions.setTone(value as TextTone); }}
+            onChange={(value) => {
+              actions.setTone(value as TextTone);
+            }}
           />
         </div>
 
@@ -235,15 +204,14 @@ export function EditorToolbarRows({
             ariaLabel={labels.columnsMode}
             displayValue={`Col: ${formatLayoutValue(model.columnsMode)}`}
             options={SHEET_COLUMNS_MODES.map((mode) => ({
-              label:
-                mode === "normal" ? labels.columnsNormal : labels.columnsFit,
+              label: mode === "normal" ? labels.columnsNormal : labels.columnsFit,
               value: mode
             }))}
             value={model.columnsMode}
             disabled={model.controlsDisabled}
-            onChange={(value) =>
-              { actions.setColumnsMode(value as "normal" | "fit"); }
-            }
+            onChange={(value) => {
+              actions.setColumnsMode(value as "normal" | "fit");
+            }}
           />
           <ValueMenu
             ariaLabel={labels.rowsMode}
@@ -254,39 +222,21 @@ export function EditorToolbarRows({
             }))}
             value={model.rowsMode}
             disabled={model.controlsDisabled}
-            onChange={(value) =>
-              { actions.setRowsMode(value as "wrap" | "ellipsis"); }
-            }
+            onChange={(value) => {
+              actions.setRowsMode(value as "wrap" | "ellipsis");
+            }}
           />
-          <IconButton
-            label={labels.mergeLeft}
-            icon="mergeLeft"
-            disabled={model.controlsDisabled}
-            onClick={actions.mergeLeft}
-          />
-          <IconButton
-            label={labels.mergeUp}
-            icon="mergeUp"
-            disabled={model.controlsDisabled}
-            onClick={actions.mergeUp}
-          />
+          <IconButton label={labels.mergeLeft} icon="mergeLeft" disabled={model.controlsDisabled} onClick={actions.mergeLeft} />
+          <IconButton label={labels.mergeUp} icon="mergeUp" disabled={model.controlsDisabled} onClick={actions.mergeUp} />
           <IconButton label={labels.newRow} icon="row" onClick={actions.addRow} />
-          <IconButton
-            label={labels.newColumn}
-            icon="column"
-            disabled={!model.canAddColumn}
-            onClick={actions.addColumn}
-          />
+          <IconButton label={labels.newColumn} icon="column" disabled={!model.canAddColumn} onClick={actions.addColumn} />
         </div>
 
         <div className="celloVisualToolbarGroup celloVisualLabeledGroup">
           <span className="celloVisualGroupLabel">{labels.selectedColumn}</span>
           <button
             type="button"
-            className={[
-              "celloVisualButton",
-              model.selectedColumnResolvedFit ? "active" : ""
-            ].filter(Boolean).join(" ")}
+            className={["celloVisualButton", model.selectedColumnResolvedFit ? "active" : ""].filter(Boolean).join(" ")}
             aria-label={labels.fit}
             disabled={model.controlsDisabled}
             onClick={actions.toggleColumnFit}
@@ -303,9 +253,9 @@ export function EditorToolbarRows({
             }))}
             value={model.selectedColumnWidth}
             disabled={model.controlsDisabled}
-            onChange={(value) =>
-              { actions.setColumnWidth(value.trim() || undefined); }
-            }
+            onChange={(value) => {
+              actions.setColumnWidth(value.trim() || undefined);
+            }}
           />
         </div>
 
@@ -313,10 +263,7 @@ export function EditorToolbarRows({
           <span className="celloVisualGroupLabel">{labels.selectedRow}</span>
           <button
             type="button"
-            className={[
-              "celloVisualButton",
-              model.selectedRowWrap ? "active" : ""
-            ].filter(Boolean).join(" ")}
+            className={["celloVisualButton", model.selectedRowWrap ? "active" : ""].filter(Boolean).join(" ")}
             aria-label={labels.wrap}
             disabled={model.controlsDisabled}
             onClick={actions.toggleRowWrap}
@@ -333,7 +280,9 @@ export function EditorToolbarRows({
             }))}
             value={model.selectedRowHeight}
             disabled={model.controlsDisabled}
-            onChange={(value) => { actions.setRowHeight(value.trim() || undefined); }}
+            onChange={(value) => {
+              actions.setRowHeight(value.trim() || undefined);
+            }}
           />
         </div>
 
@@ -372,11 +321,7 @@ function TextModifierButton({
   return (
     <button
       type="button"
-      className={[
-        "celloVisualButton",
-        "celloVisualIconButton",
-        active ? "active" : ""
-      ].filter(Boolean).join(" ")}
+      className={["celloVisualButton", "celloVisualIconButton", active ? "active" : ""].filter(Boolean).join(" ")}
       aria-label={label}
       title={label}
       disabled={disabled}
@@ -392,12 +337,6 @@ function formatLayoutValue(value: string): string {
   return (value[0]?.toUpperCase() ?? "") + value.slice(1);
 }
 
-function formatInheritedModifier(modifier: {
-  key: string;
-  raw: string;
-  value?: string;
-}): string {
-  return modifier.key === "default" && modifier.value
-    ? `[${modifier.value}]`
-    : `[${modifier.raw}]`;
+function formatInheritedModifier(modifier: { key: string; raw: string; value?: string }): string {
+  return modifier.key === "default" && modifier.value ? `[${modifier.value}]` : `[${modifier.raw}]`;
 }

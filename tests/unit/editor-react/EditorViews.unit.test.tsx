@@ -7,12 +7,7 @@ import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createEditorSession } from "../../../packages/editor-core/src/session.js";
-import {
-  CelloHtmlPreview,
-  CelloSourceEditor,
-  CelloVisualEditor,
-  CelloWorkbench
-} from "../../../packages/editor-react/src/index.js";
+import { CelloHtmlPreview, CelloSourceEditor, CelloVisualEditor, CelloWorkbench } from "../../../packages/editor-react/src/index.js";
 import { synchronizePreviewSheet } from "../../../packages/editor-react/src/previewDom.js";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -53,11 +48,13 @@ describe("session-backed editor views", () => {
     });
 
     await act(async () => {
-      editor.dispatchEvent(new KeyboardEvent("keydown", {
-        bubbles: true,
-        ctrlKey: true,
-        key: "z"
-      }));
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          ctrlKey: true,
+          key: "z"
+        })
+      );
     });
 
     expect(session.getSnapshot().source).toBe("| A |");
@@ -71,36 +68,22 @@ describe("session-backed editor views", () => {
     await renderView(<CelloSourceEditor session={session} />);
 
     clickButton("Pretty");
-    expect(session.getSnapshot().source).toBe(
-      "@sheet Report\n| A      | 1  |\n| Longer | 22 |"
-    );
+    expect(session.getSnapshot().source).toBe("@sheet Report\n| A      | 1  |\n| Longer | 22 |");
     expect(getButton("Undo").disabled).toBe(false);
 
     clickButton("Undo");
-    expect(session.getSnapshot().source).toBe(
-      "@sheet Report\n| A | 1 |\n| Longer | 22 |"
-    );
+    expect(session.getSnapshot().source).toBe("@sheet Report\n| A | 1 |\n| Longer | 22 |");
     expect(getButton("Redo").disabled).toBe(false);
 
     clickButton("Redo");
     clickButton("Compact");
-    expect(session.getSnapshot().source).toBe(
-      "@sheet Report\n|A|1|\n|Longer|22|"
-    );
+    expect(session.getSnapshot().source).toBe("@sheet Report\n|A|1|\n|Longer|22|");
   });
 
   it("supports a read-only source surface without the bundled toolbar", async () => {
     const session = createEditorSession({ source: "| A |" });
     session.setSource("| B |");
-    await renderView(
-      <CelloSourceEditor
-        session={session}
-        ariaLabel="Read-only source"
-        className="hostSource"
-        readOnly
-        showToolbar={false}
-      />
-    );
+    await renderView(<CelloSourceEditor session={session} ariaLabel="Read-only source" className="hostSource" readOnly showToolbar={false} />);
     const editor = getSourceEditor("Read-only source");
 
     expect(editor.getAttribute("contenteditable")).toBe("false");
@@ -111,11 +94,13 @@ describe("session-backed editor views", () => {
       editor.focus();
       editor.blur();
       editor.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "a" }));
-      editor.dispatchEvent(new KeyboardEvent("keydown", {
-        bubbles: true,
-        ctrlKey: true,
-        key: "z"
-      }));
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          ctrlKey: true,
+          key: "z"
+        })
+      );
     });
     expect(session.getSnapshot().source).toBe("| B |");
   });
@@ -132,11 +117,13 @@ describe("session-backed editor views", () => {
     expect(document.querySelectorAll(".cm-line span").length).toBeGreaterThan(0);
 
     await act(async () => {
-      getSourceEditor("Cello source").dispatchEvent(new KeyboardEvent("keydown", {
-        bubbles: true,
-        ctrlKey: true,
-        key: "f"
-      }));
+      getSourceEditor("Cello source").dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          ctrlKey: true,
+          key: "f"
+        })
+      );
     });
     expect(document.querySelector(".cm-search")).toBeTruthy();
   });
@@ -144,14 +131,13 @@ describe("session-backed editor views", () => {
   it("discards HTML produced for stale revisions", async () => {
     const session = createEditorSession({ source: "| A |" });
     const resolvers = new Map<string, (html: string) => void>();
-    const renderSource = vi.fn((source: string) =>
-      new Promise<string>((resolve) => {
-        resolvers.set(source, resolve);
-      })
+    const renderSource = vi.fn(
+      (source: string) =>
+        new Promise<string>((resolve) => {
+          resolvers.set(source, resolve);
+        })
     );
-    await renderView(
-      <CelloHtmlPreview session={session} renderSource={renderSource} />
-    );
+    await renderView(<CelloHtmlPreview session={session} renderSource={renderSource} />);
     await flushTimer();
 
     await act(async () => {
@@ -177,10 +163,7 @@ describe("session-backed editor views", () => {
     await flushTimer();
 
     expect(getPreviewFrame().getAttribute("srcdoc")).toContain("Ada");
-    expect(readExternalSource).toHaveBeenCalledWith(
-      "data.csv",
-      expect.objectContaining({ resolvedPath: expect.stringContaining("data.csv") })
-    );
+    expect(readExternalSource).toHaveBeenCalledWith("data.csv", expect.objectContaining({ resolvedPath: expect.stringContaining("data.csv") }));
   });
 
   it("reports preview errors without replacing the last successful HTML", async () => {
@@ -199,31 +182,21 @@ describe("session-backed editor views", () => {
 
     expect(document.querySelector("[role='alert']")?.textContent).toBe("preview failed");
     expect(getPreviewFrame().getAttribute("srcdoc")).toBe("");
-    expect(onStateChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ status: "error", error: "preview failed" })
-    );
+    expect(onStateChange).toHaveBeenLastCalledWith(expect.objectContaining({ status: "error", error: "preview failed" }));
   });
 
   it("sandboxes rendered HTML by default", async () => {
     const session = createEditorSession({ source: "| A |" });
-    await renderView(
-      <CelloHtmlPreview session={session} renderSource={async () => "<p>A</p>"} />
-    );
+    await renderView(<CelloHtmlPreview session={session} renderSource={async () => "<p>A</p>"} />);
     await flushTimer();
 
-    expect(getPreviewFrame().getAttribute("sandbox")).toBe("allow-scripts allow-same-origin");
+    expect(getPreviewFrame().getAttribute("sandbox")).toBe("allow-same-origin");
   });
 
   it("exposes the loaded preview frame to its host", async () => {
     const session = createEditorSession({ source: "| A |" });
     const onFrameLoad = vi.fn();
-    await renderView(
-      <CelloHtmlPreview
-        session={session}
-        onFrameLoad={onFrameLoad}
-        renderSource={async () => "<p>A</p>"}
-      />
-    );
+    await renderView(<CelloHtmlPreview session={session} onFrameLoad={onFrameLoad} renderSource={async () => "<p>A</p>"} />);
     await flushTimer();
     const frame = getPreviewFrame();
 
@@ -286,12 +259,7 @@ describe("session-backed editor views", () => {
 
   it("keeps source, visual, and preview synchronized in the optional workbench", async () => {
     const session = createEditorSession({ source: "@sheet Report\n| A |" });
-    await renderView(
-      <CelloWorkbench
-        session={session}
-        htmlPreviewProps={{ renderSource: async (source) => `<p>${source}</p>` }}
-      />
-    );
+    await renderView(<CelloWorkbench session={session} htmlPreviewProps={{ renderSource: async (source) => `<p>${source}</p>` }} />);
 
     changeSourceEditor(getSourceEditor("Cello source"), "@sheet Report\n| B |");
     clickButton("Visual editor");
@@ -305,13 +273,7 @@ describe("session-backed editor views", () => {
   it("reports controlled workbench view changes without changing the rendered view", async () => {
     const session = createEditorSession({ source: "| A |" });
     const onActiveViewChange = vi.fn();
-    await renderView(
-      <CelloWorkbench
-        activeView="source"
-        onActiveViewChange={onActiveViewChange}
-        session={session}
-      />
-    );
+    await renderView(<CelloWorkbench activeView="source" onActiveViewChange={onActiveViewChange} session={session} />);
 
     clickButton("Preview");
     expect(onActiveViewChange).toHaveBeenCalledWith("preview");
@@ -324,10 +286,12 @@ describe("session-backed editor views", () => {
     const sourceTab = getButton("Source");
 
     await act(async () => {
-      sourceTab.dispatchEvent(new KeyboardEvent("keydown", {
-        bubbles: true,
-        key: "ArrowRight"
-      }));
+      sourceTab.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "ArrowRight"
+        })
+      );
     });
 
     expect(getButton("Visual editor").getAttribute("aria-selected")).toBe("true");
@@ -395,8 +359,7 @@ function changeSourceEditor(editor: HTMLElement, value: string): void {
 }
 
 function getButton(label: string): HTMLButtonElement {
-  const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
-    .find((candidate) => candidate.textContent === label);
+  const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find((candidate) => candidate.textContent === label);
   expect(button).toBeTruthy();
   if (!button) {
     throw new Error(`Button ${label} was not rendered.`);
@@ -427,11 +390,7 @@ async function flushTimer(): Promise<void> {
   });
 }
 
-async function resolvePreview(
-  resolvers: Map<string, (html: string) => void>,
-  source: string,
-  html: string
-): Promise<void> {
+async function resolvePreview(resolvers: Map<string, (html: string) => void>, source: string, html: string): Promise<void> {
   const resolve = resolvers.get(source);
   if (!resolve) {
     throw new Error(`Preview render for ${source} did not start.`);

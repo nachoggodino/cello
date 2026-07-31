@@ -10,6 +10,10 @@
       "types": "./dist/core/src/index.d.ts",
       "import": "./dist/core/src/index.js"
     },
+    "./node": {
+      "types": "./dist/core/src/node.d.ts",
+      "import": "./dist/core/src/node.js"
+    },
     "./editor-core": {
       "types": "./dist/editor-core/src/index.d.ts",
       "import": "./dist/editor-core/src/index.js"
@@ -27,16 +31,26 @@
   },
   "files": [
     "dist",
-    "docs",
+    "docs/examples",
+    "docs/ARCHITECTURE.md",
+    "docs/CLI.md",
+    "docs/COMPLIANCE.md",
+    "docs/EDITOR_PACKAGES.md",
+    "docs/ERROR_MODEL.md",
+    "docs/README.md",
+    "docs/PUBLIC_API.md",
+    "docs/SPEC.md",
+    "docs/SYNTAX_HIGHLIGHTING.md",
     "packages/language-support",
     "packages/write-cel-code-skill",
     "BYLAWS.md",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "build": "npm run clean && tsc -p tsconfig.json && npm run copy:assets && npm run smoke:package",
@@ -48,15 +62,29 @@
     "playground:build": "vite build --config apps/playground/vite.config.ts",
     "playground:preview": "vite preview --config apps/playground/vite.config.ts",
     "playground:typecheck": "tsc -p apps/playground/tsconfig.json --noEmit",
-    "lint": "eslint \"packages/**/*.{ts,tsx}\" \"apps/playground/**/*.{ts,tsx}\"",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/playground/tsconfig.json --noEmit",
+    "lint": "eslint \"packages/**/*.{ts,tsx}\" \"apps/playground/**/*.{ts,tsx}\" \"apps/vscode/{src,tests}/**/*.ts\" \"tests/**/*.{ts,tsx}\" --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tests/tsconfig.json --noEmit && tsc -p apps/playground/tsconfig.json --noEmit && npm run typecheck --workspace=cello-vscode",
     "smoke:package": "node tests/package-smoke.mjs",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit apps/playground/src/**/*.test.ts",
     "test:it": "vitest run tests/it",
     "test:e2e": "vitest run tests/e2e",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "npm run coverage:root && npm run coverage --workspace=cello-vscode",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "docs:check": "node scripts/verify-docs.mjs",
+    "docs:sync": "node scripts/verify-docs.mjs --write",
+    "test:browser": "playwright test --project=chromium",
+    "test:browser:release": "playwright test",
+    "test:vscode": "npm run test --workspace=cello-vscode && npm run compile --workspace=cello-vscode",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "coverage:root": "vitest run --coverage",
+    "test:vscode:host": "npm run test:host --workspace=cello-vscode",
+    "test:distribution": "node tests/distribution/artifacts.mjs",
+    "perf:runtime": "node tests/performance/runtime.mjs --check",
+    "perf:sizes": "node tests/performance/sizes.mjs --check",
+    "perf:check": "npm run build && npm run playground:build && npm run package --workspace=cello-vscode && npm run perf:runtime && npm run perf:sizes"
   },
   "keywords": [
     "spreadsheet",
@@ -83,7 +111,7 @@
     "@codemirror/view": "^6.43.7",
     "@lezer/highlight": "^1.2.3",
     "@uiw/react-codemirror": "^4.25.11",
-    "hyperformula": "^3.0.0"
+    "hyperformula": "^3.3.0"
   },
   "peerDependencies": {
     "react": ">=18 <20",
@@ -91,21 +119,28 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.8.0",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.6",
-    "eslint": "^10.4.0",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "jsdom": "^30.0.0",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.3",
-    "vite": "^8.1.5",
-    "vitest": "^4.1.6"
-  }
+    "jszip": "^3.10.1",
+    "prettier": "^3.9.6",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-eslint": "^8.65.0",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  },
+  "workspaces": [
+    "apps/vscode"
+  ]
 }

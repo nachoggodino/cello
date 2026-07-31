@@ -1,10 +1,7 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { CellAddress } from "@nachoggodino/cello/editor-core";
+import type { CellAddress } from "../../../editor-core/src/internal.js";
 import type { EditingDraft } from "../components/gridRows.js";
-import {
-  isPrintableKey,
-  keyToDirection
-} from "./grid.js";
+import { isPrintableKey, keyToDirection } from "./grid.js";
 import type { MoveDirection } from "./grid.js";
 
 export interface GridKeyboardActions {
@@ -13,11 +10,7 @@ export interface GridKeyboardActions {
   commitAndMove: (direction: MoveDirection) => void;
   copy: () => void;
   cut: () => void;
-  enterEditMode: (
-    address: CellAddress,
-    entry: EditingDraft["entry"],
-    value?: string
-  ) => void;
+  enterEditMode: (address: CellAddress, entry: EditingDraft["entry"], value?: string) => void;
   move: (direction: MoveDirection, extendRange: boolean) => void;
   paste: (text: string) => void;
   redo: () => void;
@@ -27,16 +20,17 @@ export interface GridKeyboardActions {
 export function handleGridKeyDown(
   event: ReactKeyboardEvent,
   {
-  actions,
-  editingEntry,
-  editing,
-  selected
-}: {
-  actions: GridKeyboardActions;
-  editingEntry: EditingDraft["entry"] | undefined;
-  editing: boolean;
-  selected: CellAddress;
-}): void {
+    actions,
+    editingEntry,
+    editing,
+    selected
+  }: {
+    actions: GridKeyboardActions;
+    editingEntry: EditingDraft["entry"] | undefined;
+    editing: boolean;
+    selected: CellAddress;
+  }
+): void {
   if (editing) {
     handleEditingKey(event, editingEntry, actions);
     return;
@@ -44,11 +38,7 @@ export function handleGridKeyDown(
   handleNavigationKey(event, selected, actions);
 }
 
-function handleEditingKey(
-  event: ReactKeyboardEvent,
-  editingEntry: EditingDraft["entry"] | undefined,
-  actions: GridKeyboardActions
-): void {
+function handleEditingKey(event: ReactKeyboardEvent, editingEntry: EditingDraft["entry"] | undefined, actions: GridKeyboardActions): void {
   if (event.key === "Escape") {
     event.preventDefault();
     actions.cancelEditing();
@@ -56,10 +46,7 @@ function handleEditingKey(
   }
   const editDirection = keyToDirection(event.key);
   if (editDirection) {
-    if (
-      editingEntry === "pointer" &&
-      (editDirection === "left" || editDirection === "right")
-    ) {
+    if (editingEntry === "pointer" && (editDirection === "left" || editDirection === "right")) {
       return;
     }
     event.preventDefault();
@@ -80,11 +67,7 @@ function handleEditingKey(
   }
 }
 
-function handleNavigationKey(
-  event: ReactKeyboardEvent,
-  selected: CellAddress,
-  actions: GridKeyboardActions
-): void {
+function handleNavigationKey(event: ReactKeyboardEvent, selected: CellAddress, actions: GridKeyboardActions): void {
   const key = event.key.toLowerCase();
   const isMeta = event.metaKey || event.ctrlKey;
   if (isMeta && key === "z" && !event.shiftKey) {
@@ -92,10 +75,7 @@ function handleNavigationKey(
     actions.undo();
     return;
   }
-  if (
-    (isMeta && event.shiftKey && key === "z") ||
-    (event.ctrlKey && key === "y")
-  ) {
+  if ((isMeta && event.shiftKey && key === "z") || (event.ctrlKey && key === "y")) {
     event.preventDefault();
     actions.redo();
     return;

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import type { Uri } from "vscode";
 
@@ -22,8 +22,9 @@ export function createExternalSourceResolver(context: ExternalSourceContext): Ex
   return {
     baseDir,
     readExternalSource(_path, readContext) {
-      const resolvedPath = resolve(readContext.resolvedPath);
-      if (!isPathInside(resolvedPath, baseDir)) {
+      const realRoot = realpathSync(baseDir);
+      const resolvedPath = realpathSync(resolve(readContext.resolvedPath));
+      if (!isPathInside(resolvedPath, realRoot)) {
         throw new Error(`External source is outside the Cello preview root: ${resolvedPath}`);
       }
       return readFileSync(resolvedPath, "utf8");
@@ -56,13 +57,8 @@ export function isPathInside(candidatePath: string, rootPath: string): boolean {
   return pathToCandidate === "" || (!pathToCandidate.startsWith("..") && pathToCandidate !== ".." && !isAbsoluteRelative(pathToCandidate));
 }
 
-function findContainingWorkspaceFolder(
-  documentPath: string,
-  workspaceFolders: readonly WorkspaceFolderLike[] | undefined
-): WorkspaceFolderLike | undefined {
-  return workspaceFolders
-    ?.filter((folder) => isPathInside(documentPath, folder.uri.fsPath))
-    .sort((left, right) => right.uri.fsPath.length - left.uri.fsPath.length)[0];
+function findContainingWorkspaceFolder(documentPath: string, workspaceFolders: readonly WorkspaceFolderLike[] | undefined): WorkspaceFolderLike | undefined {
+  return workspaceFolders?.filter((folder) => isPathInside(documentPath, folder.uri.fsPath)).sort((left, right) => right.uri.fsPath.length - left.uri.fsPath.length)[0];
 }
 
 function isAbsoluteRelative(pathToCandidate: string): boolean {

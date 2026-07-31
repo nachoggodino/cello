@@ -186,16 +186,10 @@ function resolveAliasValue(aliases: AliasDeclaration[], namespace: "width" | "he
 }
 
 export function isFitCandidateCell(cell: Pick<CellNode, "kind" | "colspan" | "rowspan">): boolean {
-  return cell.kind !== "merge-left" &&
-    cell.kind !== "merge-up" &&
-    cell.colspan === 1 &&
-    cell.rowspan === 1;
+  return cell.kind !== "merge-left" && cell.kind !== "merge-up" && cell.colspan === 1 && cell.rowspan === 1;
 }
 
-export function fitCandidateValue(
-  cell: Pick<CellNode, "computed" | "kind" | "modifiers" | "raw" | "value">,
-  displayModifiers: Modifier[] = cell.modifiers
-): string | undefined {
+export function fitCandidateValue(cell: Pick<CellNode, "computed" | "kind" | "modifiers" | "raw" | "value">, displayModifiers: Modifier[] = cell.modifiers): string | undefined {
   if (cell.kind === "formula") {
     return cell.computed === undefined ? undefined : formatDisplayValue(cell.computed, displayModifiers);
   }
@@ -225,20 +219,7 @@ function removeParsedTrailingModifiers(raw: string, modifiers: Modifier[]): stri
   return value;
 }
 
-const REAL_CELL_MODIFIER_KEYS = new Set([
-  "bold",
-  "italic",
-  "strike",
-  "hidden",
-  "%",
-  "€",
-  "$",
-  "£",
-  "tone",
-  "bg",
-  "bgfg",
-  "color"
-]);
+const REAL_CELL_MODIFIER_KEYS = new Set(["bold", "italic", "strike", "hidden", "%", "€", "$", "£", "tone", "bg", "bgfg", "color"]);
 
 function isRealCellModifier(modifier: Modifier): boolean {
   return (
@@ -263,10 +244,5 @@ export function isWidthPresetName(value: string): value is WidthPresetName {
 }
 
 export function isLayoutModifierKey(key: string): boolean {
-  return (
-    (COLUMN_LAYOUT_KEYS as readonly string[]).includes(key) ||
-    (ROW_LAYOUT_KEYS as readonly string[]).includes(key) ||
-    key === "columns" ||
-    key === "rows"
-  );
+  return (COLUMN_LAYOUT_KEYS as readonly string[]).includes(key) || (ROW_LAYOUT_KEYS as readonly string[]).includes(key) || key === "columns" || key === "rows";
 }

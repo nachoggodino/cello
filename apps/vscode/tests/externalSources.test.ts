@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createExternalSourceResolver, getPreviewBaseDir, isPathInside } from "../src/externalSources.js";
@@ -60,6 +60,8 @@ describe("external source resolution", () => {
 
   it("rejects external files outside the preview base", () => {
     const workspaceRoot = join(tempRoot, "workspace");
+    mkdirSync(workspaceRoot, { recursive: true });
+    writeFileSync(join(tempRoot, "secret.csv"), "secret", "utf8");
     const resolver = createExternalSourceResolver({
       documentUri: { scheme: "file", fsPath: join(workspaceRoot, "report.cel") },
       workspaceFolders: [{ uri: { fsPath: workspaceRoot } }]
@@ -69,6 +71,27 @@ describe("external source resolution", () => {
       resolver.readExternalSource("../secret.csv", {
         baseDir: resolver.baseDir,
         resolvedPath: resolve(resolver.baseDir, "../secret.csv")
+      })
+    ).toThrow("outside the Cello preview root");
+  });
+
+  it("rejects a symlink that escapes the real preview root", () => {
+    const workspaceRoot = join(tempRoot, "workspace");
+    const outsidePath = join(tempRoot, "secret.csv");
+    const linkPath = join(workspaceRoot, "linked.csv");
+    mkdirSync(workspaceRoot, { recursive: true });
+    writeFileSync(outsidePath, "secret", "utf8");
+    symlinkSync(outsidePath, linkPath);
+
+    const resolver = createExternalSourceResolver({
+      documentUri: { scheme: "file", fsPath: join(workspaceRoot, "report.cel") },
+      workspaceFolders: [{ uri: { fsPath: workspaceRoot } }]
+    });
+
+    expect(() =>
+      resolver.readExternalSource("linked.csv", {
+        baseDir: resolver.baseDir,
+        resolvedPath: linkPath
       })
     ).toThrow("outside the Cello preview root");
   });

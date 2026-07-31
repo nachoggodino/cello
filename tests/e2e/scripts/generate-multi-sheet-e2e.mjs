@@ -464,7 +464,13 @@ East,240
     name: "multi-modifier-precedence-cross",
     title: "Multi Modifier Precedence Cross",
     covers: ["6.cross-sheet-formulas", "10.modifier-scope-precedence", "11.inline-formatting"],
-    contains: [">Summary<", 'style="background:#e5e7eb;color:#111111;font-style:italic;color:#008000"', 'style="color:purple;font-weight:700;background:#fef3c7"', 'style="background:#e5e7eb;color:#111111;font-weight:700;background:#fef3c7;background:black;color:#fff"', "<td >20</td>"],
+    contains: [
+      ">Summary<",
+      'style="background:#e5e7eb;color:#111111;font-style:italic;color:#008000"',
+      'style="color:purple;font-weight:700;background:#fef3c7"',
+      'style="background:#e5e7eb;color:#111111;font-weight:700;background:#fef3c7;background:black;color:#fff"',
+      "<td >20</td>"
+    ],
     cel: `@sheet Data
 @header | Amount |
 | 8 |

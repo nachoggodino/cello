@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { EditorSession } from "@nachoggodino/cello/editor-core";
+import type { EditorSession } from "../../editor-core/src/internal.js";
 import { render } from "../../core/src/renderer/render.js";
 import type { RenderOptions } from "../../core/src/shared/types.js";
 import { synchronizePreviewSheet } from "./previewDom.js";
@@ -38,7 +38,7 @@ export function CelloHtmlPreview({
   className,
   debounceMs = 0,
   iframeTitle = "Cello HTML preview",
-  sandbox = "allow-scripts allow-same-origin",
+  sandbox = "allow-same-origin",
   renderOptions,
   renderSource,
   onFrameLoad,
@@ -57,9 +57,7 @@ export function CelloHtmlPreview({
         html: current.html,
         status: "rendering"
       }));
-      const renderPromise = renderSource
-        ? renderSource(snapshot.source)
-        : renderDefaultPreview(session, snapshot.source, renderOptions);
+      const renderPromise = renderSource ? renderSource(snapshot.source) : renderDefaultPreview(session, snapshot.source, renderOptions);
       void renderPromise.then(
         (html) => {
           if (!cancelled && session.isCurrentRevision(revision)) {
@@ -112,30 +110,21 @@ export function CelloHtmlPreview({
   const shellClassName = ["celloHtmlPreview", className].filter(Boolean).join(" ");
   return (
     <section className={shellClassName} data-preview-status={state.status} data-revision={state.revision}>
-      {state.error ? <div className="celloPreviewError" role="alert">{state.error}</div> : null}
-      <iframe
-        className="celloPreviewFrame"
-        onLoad={handleFrameLoad}
-        ref={frameRef}
-        sandbox={sandbox}
-        srcDoc={state.html}
-        title={iframeTitle}
-      />
+      {state.error ? (
+        <div className="celloPreviewError" role="alert">
+          {state.error}
+        </div>
+      ) : null}
+      <iframe className="celloPreviewFrame" onLoad={handleFrameLoad} ref={frameRef} sandbox={sandbox} srcDoc={state.html} title={iframeTitle} />
     </section>
   );
 }
 
-function renderDefaultPreview(
-  session: EditorSession,
-  source: string,
-  renderOptions: RenderOptions | undefined
-): Promise<string> {
+function renderDefaultPreview(session: EditorSession, source: string, renderOptions: RenderOptions | undefined): Promise<string> {
   const sessionOptions = session.getDocumentOptions();
   return render(source, {
     ...(sessionOptions.baseDir === undefined ? {} : { baseDir: sessionOptions.baseDir }),
-    ...(sessionOptions.readExternalSource === undefined
-      ? {}
-      : { readExternalSource: sessionOptions.readExternalSource }),
+    ...(sessionOptions.readExternalSource === undefined ? {} : { readExternalSource: sessionOptions.readExternalSource }),
     ...(sessionOptions.strict === undefined ? {} : { strict: sessionOptions.strict }),
     ...renderOptions,
     interactive: true

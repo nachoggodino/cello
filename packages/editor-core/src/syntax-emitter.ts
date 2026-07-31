@@ -1,4 +1,4 @@
-import { sheetLayoutToToken } from "../../core/src/index.js";
+import { sheetLayoutToToken } from "../../core/src/internal.js";
 import type { EditorCell, EditorRow, EditorSheet } from "./model.js";
 import { DEFAULT_SHEET_NAME } from "./options.js";
 import { isMergeToken } from "./source.js";
@@ -19,8 +19,53 @@ export function emitEditorSheet(sheet: EditorSheet): string {
 }
 
 export function emitEditorSheetDeclaration(sheet: EditorSheet): string {
+  const formatToken = emitSheetFormatToken(sheet);
   const layoutToken = sheetLayoutToToken(sheet.layout);
-  return `@sheet ${emitEditorSheetName(sheet.name)}${layoutToken ? ` ${layoutToken}` : ""}`;
+  const tokens = [formatToken, layoutToken].filter(Boolean).join("");
+  return `@sheet ${emitEditorSheetName(sheet.name)}${tokens ? ` ${tokens}` : ""}`;
+}
+
+export function emitForeignEditorSheet(sheet: EditorSheet): string {
+  const lines = [emitEditorSheetDeclaration(sheet)];
+  if (sheet.format.kind === "delimited") {
+    const delimiter = sheet.format.delimiter;
+    lines.push(...sheet.rows.map((row) => row.cells.map((cell) => escapeDelimitedValue(cell.raw, delimiter)).join(delimiter)));
+  } else if (sheet.format.kind === "markdown") {
+    const [header, ...rows] = sheet.rows;
+    if (header) {
+      lines.push(emitMarkdownRow(header), `| ${header.cells.map(() => "---").join(" | ")} |`);
+    }
+    lines.push(...rows.map(emitMarkdownRow));
+  } else if (sheet.format.kind === "json") {
+    const header = sheet.rows.find((row) => row.kind === "header");
+    const rows = sheet.rows.filter((row) => row.kind === "data");
+    const names = header?.cells.map((cell, index) => cell.raw || `Column${index + 1}`) ?? [];
+    const records = rows.map((row) => Object.fromEntries(names.map((name, index) => [name, row.cells[index]?.raw ?? ""])));
+    lines.push(JSON.stringify(records, null, 2));
+  }
+  return lines.join("\n");
+}
+
+function emitSheetFormatToken(sheet: EditorSheet): string {
+  if (sheet.format.kind === "cello") {
+    return "";
+  }
+  if (sheet.format.kind === "markdown") {
+    return "[markdown]";
+  }
+  if (sheet.format.kind === "json") {
+    return `[json${sheet.format.path ? `:${sheet.format.path}` : ""}]`;
+  }
+  const format = sheet.format.alias ?? (sheet.format.delimiter === "\t" ? "\\t" : sheet.format.delimiter);
+  return `[${format}${sheet.format.noHeader ? ":noheader" : ""}]`;
+}
+
+function escapeDelimitedValue(value: string, delimiter: string): string {
+  return value.includes(delimiter) || /["\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+}
+
+function emitMarkdownRow(row: EditorRow): string {
+  return `| ${row.cells.map((cell) => cell.raw.replaceAll("|", "\\|")).join(" | ")} |`;
 }
 
 export function emitEditorSheetName(name: string): string {

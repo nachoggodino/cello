@@ -1,5 +1,5 @@
-import { isCellModifier, parseModifier } from "../../core/src/index.js";
-import type { Modifier } from "../../core/src/index.js";
+import { isCellModifier, parseModifier } from "../../core/src/internal.js";
+import type { Modifier } from "../../core/src/internal.js";
 import type { EditorCell } from "./model.js";
 
 const mergeLeftToken = "<";

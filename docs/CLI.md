@@ -21,7 +21,7 @@ The package exposes a `cello` CLI binary from `dist/cli/src/cli.js`.
 
 - `cello validate <file.cel>`
   - Parses and evaluates workbook diagnostics.
-  - Prints `{ "valid": boolean, "diagnostics": [...] }` as JSON.
+  - Prints `{ "valid": boolean, "diagnostics": [...] }` as JSON using the stable contract in [PUBLIC_API.md](./PUBLIC_API.md).
   - Exits `0` when there are no diagnostics, otherwise exits `1`.
 
 - `cello render <file.cel> [-o out.html] [--no-eval] [--format document|fragment]`
@@ -41,6 +41,8 @@ The package exposes a `cello` CLI binary from `dist/cli/src/cli.js`.
 
 - `cello help [command]`
   - Prints basic CLI help, or command-specific help for `parse`, `evaluate`, `format`, `validate`, `render`, or `serve`.
+
+Strict parsing throws on error diagnostics; tolerant parsing returns them. `warningsAsErrors` changes validation success without changing warning severity.
 
 ## Exit codes
 

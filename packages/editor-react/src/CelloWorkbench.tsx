@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import type { KeyboardEvent } from "react";
-import type { EditorSession } from "@nachoggodino/cello/editor-core";
+import type { EditorSession } from "../../editor-core/src/internal.js";
 import { CelloHtmlPreview } from "./CelloHtmlPreview.js";
 import type { CelloHtmlPreviewProps } from "./CelloHtmlPreview.js";
 import { CelloSourceEditor } from "./CelloSourceEditor.js";
@@ -23,11 +23,7 @@ export interface CelloWorkbenchProps {
   onActiveViewChange?: (view: CelloWorkbenchView) => void;
 }
 
-const defaultViews: readonly [CelloWorkbenchView, ...CelloWorkbenchView[]] = [
-  "source",
-  "visual",
-  "preview"
-];
+const defaultViews: readonly [CelloWorkbenchView, ...CelloWorkbenchView[]] = ["source", "visual", "preview"];
 const defaultLabels: Record<CelloWorkbenchView, string> = {
   source: "Source",
   visual: "Visual editor",
@@ -50,9 +46,7 @@ export function CelloWorkbench({
   const id = useId();
   const availableViews = normalizeViews(views);
   const [internalView, setInternalView] = useState(defaultActiveView);
-  const selectedView = availableViews.includes(activeView ?? internalView)
-    ? activeView ?? internalView
-    : availableViews[0];
+  const selectedView = availableViews.includes(activeView ?? internalView) ? (activeView ?? internalView) : availableViews[0];
 
   const selectView = (view: CelloWorkbenchView) => {
     if (activeView === undefined) {
@@ -66,10 +60,7 @@ export function CelloWorkbench({
     visualEditorProps?.onRequestSourceView?.();
   };
 
-  const handleTabKeyDown = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    view: CelloWorkbenchView
-  ) => {
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, view: CelloWorkbenchView) => {
     const offset = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (offset === 0) {
       return;
@@ -92,8 +83,12 @@ export function CelloWorkbench({
             aria-selected={selectedView === view}
             id={`${id}-tab-${view}`}
             key={view}
-            onKeyDown={(event) => { handleTabKeyDown(event, view); }}
-            onClick={() => { selectView(view); }}
+            onKeyDown={(event) => {
+              handleTabKeyDown(event, view);
+            }}
+            onClick={() => {
+              selectView(view);
+            }}
             role="tab"
             tabIndex={selectedView === view ? 0 : -1}
             type="button"
@@ -102,20 +97,11 @@ export function CelloWorkbench({
           </button>
         ))}
       </div>
-      <div
-        aria-labelledby={`${id}-tab-${selectedView}`}
-        className="celloWorkbenchPanel"
-        id={`${id}-panel-${selectedView}`}
-        role="tabpanel"
-      >
+      <div aria-labelledby={`${id}-tab-${selectedView}`} className="celloWorkbenchPanel" id={`${id}-panel-${selectedView}`} role="tabpanel">
         {selectedView === "source" ? (
           <CelloSourceEditor {...sourceEditorProps} session={session} />
         ) : selectedView === "visual" ? (
-          <CelloVisualEditor
-            {...visualEditorProps}
-            session={session}
-            onRequestSourceView={requestSourceView}
-          />
+          <CelloVisualEditor {...visualEditorProps} session={session} onRequestSourceView={requestSourceView} />
         ) : (
           <CelloHtmlPreview {...htmlPreviewProps} session={session} />
         )}
@@ -124,9 +110,7 @@ export function CelloWorkbench({
   );
 }
 
-function normalizeViews(
-  views: readonly CelloWorkbenchView[]
-): readonly [CelloWorkbenchView, ...CelloWorkbenchView[]] {
+function normalizeViews(views: readonly CelloWorkbenchView[]): readonly [CelloWorkbenchView, ...CelloWorkbenchView[]] {
   const uniqueViews = [...new Set(views)];
   const firstView = uniqueViews[0];
   return firstView === undefined ? defaultViews : [firstView, ...uniqueViews.slice(1)];

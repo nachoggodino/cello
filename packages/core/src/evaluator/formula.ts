@@ -4,12 +4,20 @@ import { columnLetter } from "../shared/utils.js";
 interface SheetRefIndex {
   firstDataRow: number;
   lastDataRow: number;
-  columnsByName: Map<string, number>;
+  columnsByName: ReadonlyMap<string, number>;
 }
 
 interface WorkbookRefIndex {
   firstSheetName: string | undefined;
   bySheetName: Map<string, SheetRefIndex>;
+}
+
+interface LocalReferenceContext {
+  sheetName: string;
+  index: WorkbookRefIndex;
+  diagnostics: Diagnostic[];
+  currentRow?: number;
+  currentColumnsByName?: ReadonlyMap<string, number>;
 }
 
 export function buildWorkbookRefIndex(workbook: WorkbookAst): WorkbookRefIndex {
@@ -30,92 +38,89 @@ export function translateFormulaForEngine(
   sheetName: string,
   index: WorkbookRefIndex,
   diagnostics: Diagnostic[],
-  currentRow?: number
+  currentRow?: number,
+  currentColumnsByName?: ReadonlyMap<string, number>
 ): string {
-  let translated = normalizeFunctionAliases(formula);
+  const normalized = normalizeFunctionAliases(formula);
+  const workbookQualified = translateWorkbookShortcut(normalized, index);
+  const sheetQualified = translateQualifiedReferences(workbookQualified, sheetName, index, diagnostics);
+  return translateLocalReferences(sheetQualified, {
+    sheetName,
+    index,
+    diagnostics,
+    ...(currentRow === undefined ? {} : { currentRow }),
+    ...(currentColumnsByName === undefined ? {} : { currentColumnsByName })
+  });
+}
 
-  translated = translated.replace(
-    /!!([A-Za-z_][A-Za-z0-9_]*(?:\[(?:\d+|\d+:\d+|\*)\])?|[A-Za-z]+\d+)/g,
-    (_m, token: string) => {
-      if (!index.firstSheetName) {
-        return `!!${token}`;
-      }
-      return `${index.firstSheetName}!${token}`;
-    }
+function translateWorkbookShortcut(formula: string, index: WorkbookRefIndex): string {
+  return formula.replace(/!!([A-Za-z_][A-Za-z0-9_]*(?:\[(?:\d+|\d+:\d+|\*)\])?|[A-Za-z]+\d+)/g, (_match, token: string) =>
+    index.firstSheetName ? `${index.firstSheetName}!${token}` : `!!${token}`
   );
+}
 
-  translated = translated.replace(
+function translateQualifiedReferences(formula: string, sheetName: string, index: WorkbookRefIndex, diagnostics: Diagnostic[]): string {
+  return formula.replace(
     /([A-Za-z_][A-Za-z0-9_]*)!([A-Za-z_][A-Za-z0-9_]*)(?:\[(?:(\d+)(?::(\d+))?|(\*))\])?/g,
-    (m, targetSheet: string, token: string, start: string, end: string | undefined, fullSpan: string | undefined) => {
-      if (isA1Ref(token)) {
-        return m;
-      }
+    (match, targetSheet: string, token: string, start: string, end: string | undefined, fullSpan: string | undefined) => {
       const target = index.bySheetName.get(targetSheet);
-      if (!target) {
-        return m;
-      }
-      const col = target.columnsByName.get(token.toLowerCase());
-      if (!col) {
-        return m;
-      }
-      if (fullSpan) {
-        return toFullColumnRange(targetSheet, col, target, m, sheetName, diagnostics, token);
-      }
-      if (start && end) {
-        return `${targetSheet}!${columnLetter(col)}${start}:${columnLetter(col)}${end}`;
-      }
-      if (start) {
-        return `${targetSheet}!${columnLetter(col)}${start}`;
-      }
-      return toFullColumnRange(targetSheet, col, target, m, sheetName, diagnostics, token);
+      const column = target?.columnsByName.get(token.toLowerCase());
+      if (isA1Ref(token) || !target || !column) return match;
+      if (fullSpan) return toFullColumnRange(targetSheet, column, target, match, sheetName, diagnostics, token);
+      if (start && end) return `${targetSheet}!${columnLetter(column)}${start}:${columnLetter(column)}${end}`;
+      if (start) return `${targetSheet}!${columnLetter(column)}${start}`;
+      return toFullColumnRange(targetSheet, column, target, match, sheetName, diagnostics, token);
     }
   );
+}
 
-  translated = translated.replace(
+function translateLocalReferences(formula: string, context: LocalReferenceContext): string {
+  return formula.replace(
     /([A-Za-z_][A-Za-z0-9_]*)(?:\[(?:(\d+)(?::(\d+))?|(\*))\])?/g,
-    (m, token: string, start: string, end: string | undefined, fullSpan: string | undefined, offset: number, source: string) => {
-      const prev = offset > 0 ? (source[offset - 1] ?? "") : "";
-      const next = source[offset + m.length] ?? "";
-      const prevOk = prev === "" || /[^\w.]/.test(prev);
-      const nextOk = next === "" || /[^\w]/.test(next);
-      if (!prevOk || !nextOk || prev === "!" || prev === '"' || next === "(" || isA1Ref(token) || isKeyword(token)) {
-        return m;
-      }
-
-      const currentSheet = index.bySheetName.get(sheetName);
-      if (!currentSheet) {
-        return m;
-      }
-      const col = currentSheet.columnsByName.get(token.toLowerCase());
-      if (!col) {
-        return m;
-      }
-
-      if (fullSpan) {
-        return toFullColumnRange(undefined, col, currentSheet, m, sheetName, diagnostics, token);
-      }
-      if (start && end) {
-        return `${columnLetter(col)}${start}:${columnLetter(col)}${end}`;
-      }
-      if (start) {
-        return `${columnLetter(col)}${start}`;
-      }
-
-      if (isAggregateReferenceContext(source, offset, token)) {
-        if (currentRow && currentRow > currentSheet.firstDataRow) {
-          return `${columnLetter(col)}${currentSheet.firstDataRow}:${columnLetter(col)}${currentRow - 1}`;
-        }
-        return toFullColumnRange(undefined, col, currentSheet, m, sheetName, diagnostics, token);
-      }
-
-      if (!currentRow) {
-        return m;
-      }
-      return `${columnLetter(col)}${currentRow}`;
-    }
+    (match, token: string, start: string, end: string | undefined, fullSpan: string | undefined, offset: number, source: string) =>
+      translateLocalReference(match, token, start, end, fullSpan, offset, source, context)
   );
+}
 
-  return translated;
+function translateLocalReference(
+  match: string,
+  token: string,
+  start: string,
+  end: string | undefined,
+  fullSpan: string | undefined,
+  offset: number,
+  source: string,
+  context: LocalReferenceContext
+): string {
+  if (!isLocalReferenceToken(match, token, offset, source)) return match;
+  const indexedSheet = context.index.bySheetName.get(context.sheetName);
+  if (!indexedSheet) return match;
+  const currentSheet = context.currentColumnsByName ? { ...indexedSheet, columnsByName: context.currentColumnsByName } : indexedSheet;
+  const column = currentSheet.columnsByName.get(token.toLowerCase());
+  if (!column) return match;
+  if (fullSpan) return toLocalFullRange(column, currentSheet, match, token, context);
+  if (start && end) return `${columnLetter(column)}${start}:${columnLetter(column)}${end}`;
+  if (start) return `${columnLetter(column)}${start}`;
+  if (isAggregateReferenceContext(source, offset, token)) return translateAggregateReference(column, currentSheet, match, token, context);
+  return context.currentRow ? `${columnLetter(column)}${context.currentRow}` : match;
+}
+
+function isLocalReferenceToken(match: string, token: string, offset: number, source: string): boolean {
+  const previous = offset > 0 ? (source[offset - 1] ?? "") : "";
+  const next = source[offset + match.length] ?? "";
+  const hasBoundaries = (previous === "" || /[^\w.]/.test(previous)) && (next === "" || /[^\w]/.test(next));
+  return hasBoundaries && previous !== "!" && previous !== '"' && next !== "(" && !isA1Ref(token) && !isKeyword(token);
+}
+
+function translateAggregateReference(column: number, sheet: SheetRefIndex, match: string, token: string, context: LocalReferenceContext): string {
+  if (context.currentRow && context.currentRow > sheet.firstDataRow) {
+    return `${columnLetter(column)}${sheet.firstDataRow}:${columnLetter(column)}${context.currentRow - 1}`;
+  }
+  return toLocalFullRange(column, sheet, match, token, context);
+}
+
+function toLocalFullRange(column: number, sheet: SheetRefIndex, match: string, token: string, context: LocalReferenceContext): string {
+  return toFullColumnRange(undefined, column, sheet, match, context.sheetName, context.diagnostics, token);
 }
 
 function normalizeFunctionAliases(formula: string): string {
@@ -134,7 +139,12 @@ function toFullColumnRange(
   if (target.firstDataRow === 0 || target.lastDataRow === 0) {
     diagnostics.push({
       level: "warning",
+      severity: "warning",
+      code: "formula-empty-reference",
+      stage: "evaluate",
+      category: "reference",
       sheet: sheetName,
+      context: { reference: token },
       message: `Named reference "${targetSheet ? `${targetSheet}!` : ""}${token}" has no data rows to resolve.`
     });
     return fallback;

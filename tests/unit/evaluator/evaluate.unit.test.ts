@@ -15,6 +15,20 @@ describe("evaluate (unit with mocked HyperFormula)", () => {
     buildFromSheetsMock.mockReset();
   });
 
+  it("does not evaluate a workbook with ambiguous sheet identities", async () => {
+    const ast = workbook([
+      sheet({ name: "S", columns: 1, rows: [{ index: 1, kind: "data", sourceLine: 1, modifiers: [], cells: [formulaCell(1, 1, "=1+1")] }] }),
+      sheet({ name: "S", columns: 1, rows: [{ index: 1, kind: "data", sourceLine: 2, modifiers: [], cells: [valueCell(1, 1, 2)] }] })
+    ]);
+
+    const out = await evaluate(ast);
+
+    expect(buildFromSheetsMock).not.toHaveBeenCalled();
+    expect(out.diagnostics).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "duplicate-sheet-identity" }), expect.objectContaining({ code: "ambiguous-workbook-identity" })])
+    );
+  });
+
   it("skips HyperFormula when workbook has no formulas", async () => {
     const ast = workbook([
       sheet({
@@ -64,7 +78,7 @@ describe("evaluate (unit with mocked HyperFormula)", () => {
 
     const ast = workbook([{ ...sheet({ name: "S", columns: 1, rows: [{ index: 1, kind: "data", sourceLine: 1, modifiers: [], cells: [formulaCell(1, 1, "=1+1")] }] }) }]);
     const out = await evaluate(ast);
-    expect(out.diagnostics.some((d) => d.level === "error" && d.message.includes("boom"))).toBe(true);
+    expect(out.diagnostics.some((d) => d.severity === "error" && d.message.includes("boom"))).toBe(true);
   });
 
   it("throws on HyperFormula failure when strict is true", async () => {

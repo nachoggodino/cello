@@ -1,0 +1,16 @@
+coverage
+dist
+node_modules
+apps/playground/dist
+apps/vscode/dist
+*.vsix
+package-lock.json
+apps/vscode/package-lock.json
+tests/e2e/fixtures
+packages/language-support/syntaxes
+.agents
+AGENTS.md
+.vscode
+test-results
+playwright-report
+.vscode-test

@@ -1,4 +1,4 @@
-import type { AliasDeclaration, Modifier, SheetFormat, SheetLayout } from "../../core/src/index.js";
+import type { AliasDeclaration, Modifier, SheetFormat, SheetLayout } from "../../core/src/internal.js";
 import type { EditorCell, EditorRow, EditorSheet, EditorWorkbook } from "./model.js";
 
 export function sheetsEqual(left: EditorSheet[], right: EditorSheet[]): boolean {
@@ -25,26 +25,23 @@ function persistedSheetEqual(left: EditorSheet, right: EditorSheet | undefined):
 }
 
 function persistedRowsEqual(left: EditorRow[], right: EditorRow[]): boolean {
-  return left.length === right.length && left.every((row, index) => {
-    const candidate = right[index];
-    return Boolean(
-      candidate &&
-      row.kind === candidate.kind &&
-      modifiersEqual(row.modifiers, candidate.modifiers) &&
-      persistedCellsEqual(row.cells, candidate.cells)
-    );
-  });
+  return (
+    left.length === right.length &&
+    left.every((row, index) => {
+      const candidate = right[index];
+      return Boolean(candidate && row.kind === candidate.kind && modifiersEqual(row.modifiers, candidate.modifiers) && persistedCellsEqual(row.cells, candidate.cells));
+    })
+  );
 }
 
 function persistedCellsEqual(left: EditorCell[], right: EditorCell[]): boolean {
-  return left.length === right.length && left.every((cell, index) => {
-    const candidate = right[index];
-    return Boolean(
-      candidate &&
-      cell.raw.trim() === candidate.raw.trim() &&
-      modifiersEqual(cell.modifiers, candidate.modifiers)
-    );
-  });
+  return (
+    left.length === right.length &&
+    left.every((cell, index) => {
+      const candidate = right[index];
+      return Boolean(candidate && cell.raw.trim() === candidate.raw.trim() && modifiersEqual(cell.modifiers, candidate.modifiers));
+    })
+  );
 }
 
 function trimTrailingBlankCells(cells: EditorCell[]): EditorCell[] {
@@ -61,7 +58,8 @@ function trimTrailingBlankCells(cells: EditorCell[]): EditorCell[] {
 
 export function sheetEqual(left: EditorSheet | undefined, right: EditorSheet | undefined): boolean {
   return Boolean(
-    left && right &&
+    left &&
+    right &&
     left.name === right.name &&
     sheetFormatsEqual(left.format, right.format) &&
     sheetLayoutsEqual(left.layout, right.layout) &&
@@ -75,12 +73,7 @@ export function rowsEqual(left: EditorRow[], right: EditorRow[]): boolean {
 }
 
 export function rowEqual(left: EditorRow | undefined, right: EditorRow | undefined): boolean {
-  return Boolean(
-    left && right &&
-    left.kind === right.kind &&
-    modifiersEqual(left.modifiers, right.modifiers) &&
-    cellsEqual(left.cells, right.cells)
-  );
+  return Boolean(left && right && left.kind === right.kind && modifiersEqual(left.modifiers, right.modifiers) && cellsEqual(left.cells, right.cells));
 }
 
 export function cellsEqual(left: EditorCell[], right: EditorCell[]): boolean {
@@ -92,34 +85,30 @@ export function cellEqual(left: EditorCell | undefined, right: EditorCell | unde
 }
 
 export function modifiersEqual(left: Modifier[], right: Modifier[]): boolean {
-  return left.length === right.length && left.every((modifier, index) => {
-    const candidate = right[index];
-    return Boolean(
-      candidate &&
-      modifier.raw === candidate.raw &&
-      modifier.key === candidate.key &&
-      modifier.value === candidate.value
-    );
-  });
+  return (
+    left.length === right.length &&
+    left.every((modifier, index) => {
+      const candidate = right[index];
+      return Boolean(candidate && modifier.raw === candidate.raw && modifier.key === candidate.key && modifier.value === candidate.value);
+    })
+  );
 }
 
 export function aliasesEqual(left: AliasDeclaration[], right: AliasDeclaration[]): boolean {
-  return left.length === right.length && left.every((alias, index) => {
-    const candidate = right[index];
-    return Boolean(
-      candidate &&
-      alias.namespace === candidate.namespace &&
-      alias.name === candidate.name &&
-      modifiersEqual(alias.modifiers, candidate.modifiers)
-    );
-  });
+  return (
+    left.length === right.length &&
+    left.every((alias, index) => {
+      const candidate = right[index];
+      return Boolean(candidate && alias.namespace === candidate.namespace && alias.name === candidate.name && modifiersEqual(alias.modifiers, candidate.modifiers));
+    })
+  );
 }
 
 export function sheetLayoutsEqual(left: SheetLayout | undefined, right: SheetLayout | undefined): boolean {
   return left?.columns === right?.columns && left?.rows === right?.rows;
 }
 
-function sheetFormatsEqual(left: SheetFormat, right: SheetFormat): boolean {
+export function sheetFormatsEqual(left: SheetFormat, right: SheetFormat): boolean {
   if (left.kind !== right.kind) {
     return false;
   }

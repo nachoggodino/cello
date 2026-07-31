@@ -25,7 +25,7 @@ npm install @nachoggodino/cello
 
 Requirements:
 
-- Node.js 22 or newer.
+- Node.js 24 or newer.
 
 For local development in this repository:
 
@@ -64,9 +64,9 @@ cello serve sales.cel --open
 
 Rendered preview:
 
-| Metric | Value |
-| --- | ---: |
-| Revenue | 8.7 |
+| Metric  | Value |
+| ------- | ----: |
+| Revenue |   8.7 |
 
 For a larger example with named references, slices, and cross-sheet formulas, see [docs/examples/advanced_kpi.cel](docs/examples/advanced_kpi.cel).
 
@@ -100,7 +100,7 @@ Command details:
 ## Library API
 
 ```ts
-import { evaluate, format, formatSource, parse, render, validate } from "@nachoggodino/cello";
+import { evaluate, formatSource, parse, render, validate } from "@nachoggodino/cello";
 
 const source = `
 @sheet KPI
@@ -109,7 +109,7 @@ const source = `
 
 const ast = parse(source);
 const evaluated = await evaluate(ast);
-const pretty = format(source);
+const pretty = formatSource(source, { layout: "pretty" });
 const compact = formatSource(source, { layout: "compact" });
 const result = await validate(source);
 const html = await render(source);
@@ -122,7 +122,6 @@ Primary exports:
 
 - `parse(text, options?)`
 - `evaluate(ast, options?)`
-- `format(text)`
 - `formatSource(text, { layout: "compact" | "pretty", range? })`
 - `validate(text, options?)`
 - `render(input, options?)`
@@ -145,7 +144,7 @@ Editor package exports:
   Its optional `sourceLayout` prop applies Compact or Pretty layout to the contiguous table block affected by a visual command.
 - `@nachoggodino/cello/editor-react/styles.css` provides the visual editor stylesheet.
 
-For editor package usage, see [docs/EDITOR_PACKAGES.md](docs/EDITOR_PACKAGES.md).
+For the supported ESM exports, diagnostics, Node adapter, and persisted-command schema, see [docs/PUBLIC_API.md](docs/PUBLIC_API.md). For editor package usage, see [docs/EDITOR_PACKAGES.md](docs/EDITOR_PACKAGES.md).
 
 ## Format Overview
 
@@ -163,12 +162,12 @@ Native Cello sheets use pipe-delimited rows:
 
 Rendered preview:
 
-| Region | Revenue | Units |
-| --- | ---: | ---: |
-| Madrid | €4,280.00 | 15 |
-| Barcelona | €2,080.00 | 7 |
-| Valencia | €760.00 | 2 |
-| Total | €7,120.00 | 24 |
+| Region    |   Revenue | Units |
+| --------- | --------: | ----: |
+| Madrid    | €4,280.00 |    15 |
+| Barcelona | €2,080.00 |     7 |
+| Valencia  |   €760.00 |     2 |
+| Total     | €7,120.00 |    24 |
 
 Useful syntax:
 
@@ -185,7 +184,7 @@ Useful syntax:
 - `<` merges with the cell on the left; `^` merges with the cell above.
 - `[€]`, `[2d]`, `[bold]`, `[bg:#fff9c4]`, and similar modifiers affect rendering.
 
-The canonical syntax rules live in [BYLAWS.md](BYLAWS.md). The public specification lives in [docs/SPEC.md](docs/SPEC.md).
+The canonical syntax rules live in [BYLAWS.md](BYLAWS.md). The public specification lives in [docs/SPEC.md](docs/SPEC.md). See the [documentation index](docs/README.md) for the complete hierarchy.
 
 Editor integrations can reuse the TextMate grammar and VS Code language configuration documented in [docs/SYNTAX_HIGHLIGHTING.md](docs/SYNTAX_HIGHLIGHTING.md).
 
@@ -201,6 +200,7 @@ The npm package publishes only the built library/CLI output and user-facing meta
 - `README.md`
 - `CHANGELOG.md`
 - `LICENSE`
+- `NOTICE`
 
 ## Development
 
@@ -236,6 +236,6 @@ Release preparation notes live in [docs/RELEASE.md](docs/RELEASE.md).
 
 ## License
 
-GPL-3.0-only.
-
-Cello uses HyperFormula for formula evaluation and configures it with `licenseKey: "gpl-v3"`. HyperFormula is available under GPLv3 or a commercial license from Handsontable; this package uses the GPLv3 option.
+Cello is licensed under GPL-3.0-only and uses HyperFormula's GPLv3 option for
+formula evaluation. See [LICENSE](LICENSE) for the complete terms and
+[NOTICE](NOTICE) for bundled third-party attribution.

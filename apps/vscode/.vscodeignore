@@ -6,6 +6,7 @@ coverage/**
 .env*
 .vercel/**
 dist/*
+dist/test/**
 !dist/syntaxes/**
 !dist/extension.js
 *.ts

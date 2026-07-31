@@ -1,4 +1,4 @@
-import { CELLO_TONE_NAMES } from "../../core/src/index.js";
+import { CELLO_TONE_NAMES } from "../../core/src/internal.js";
 import type {
   AliasDeclaration,
   CelloCellSourceLocation,
@@ -10,7 +10,7 @@ import type {
   Modifier,
   SheetFormat,
   SheetLayout
-} from "../../core/src/index.js";
+} from "../../core/src/internal.js";
 
 export interface EditorCell {
   raw: string;

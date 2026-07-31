@@ -1,0 +1,11 @@
+Cello VS Code Extension
+Copyright (c) 2026 Cello contributors
+SPDX-License-Identifier: GPL-3.0-only
+
+This extension is distributed under the GNU General Public License version 3
+only. The complete license text is in LICENSE.
+
+The extension bundles Cello and uses HyperFormula under its GPLv3 licensing
+option. It may also bundle runtime portions of software identified in the root
+repository NOTICE. Full third-party license texts and copyright notices remain
+available from their respective project distributions.

@@ -84,12 +84,15 @@ describe("editor session", () => {
     const revision = session.getSnapshot().revision;
     session.setSource("| B |");
 
-    const result = session.execute({
-      type: "update-cell",
-      address: { sheetIndex: 0, rowIndex: 0, colIndex: 0 },
-      source: "stale",
-      mode: "content"
-    }, { expectedRevision: revision });
+    const result = session.execute(
+      {
+        type: "update-cell",
+        address: { sheetIndex: 0, rowIndex: 0, colIndex: 0 },
+        source: "stale",
+        mode: "content"
+      },
+      { expectedRevision: revision }
+    );
 
     expect(result).toMatchObject({
       ok: false,
@@ -165,9 +168,7 @@ describe("editor session", () => {
       mode: "content"
     });
 
-    expect(session.getSnapshot().source).toBe(
-      "@sheet Report\n| A      | 100 |\n| Longer | 22  |"
-    );
+    expect(session.getSnapshot().source).toBe("@sheet Report\n| A      | 100 |\n| Longer | 22  |");
   });
 
   it("publishes layout selection without creating a source revision", () => {

@@ -1,6 +1,7 @@
-import type { CellNode, EvaluateOptions, WorkbookAst } from "../shared/types.js";
+import type { CellNode, DiagnosticCategory, DiagnosticCode, DiagnosticLevel, EvaluateOptions, WorkbookAst } from "../shared/types.js";
 import { buildWorkbookRefIndex, translateFormulaForEngine } from "./formula.js";
 import { deepClone, workbookHasFormulas } from "../shared/utils.js";
+import { resolveWorkbookIdentity } from "../shared/identity.js";
 
 interface HyperFormulaEngine {
   getSheetId(sheetName: string): number | null | undefined;
@@ -8,16 +9,30 @@ interface HyperFormulaEngine {
 }
 
 interface HyperFormulaCtor {
-  buildFromSheets(
-    sheetsData: Record<string, Array<Array<string | number | boolean | null>>>,
-    config: { licenseKey: string }
-  ): HyperFormulaEngine;
+  buildFromSheets(sheetsData: Record<string, Array<Array<string | number | boolean | null>>>, config: { licenseKey: string }): HyperFormulaEngine;
+}
+
+function pushEvaluationDiagnostic(workbook: WorkbookAst, severity: DiagnosticLevel, code: DiagnosticCode, category: DiagnosticCategory, message: string): void {
+  workbook.diagnostics.push({ level: severity, severity, code, stage: "evaluate", category, message });
 }
 
 let hyperFormulaCtor: HyperFormulaCtor | null = null;
 
+/** Evaluates formula cells in a cloned workbook and returns structured diagnostics. */
 export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}): Promise<WorkbookAst> {
   const output = deepClone(ast);
+
+  const identity = resolveWorkbookIdentity(output);
+  if (identity.ambiguous) {
+    if (!output.diagnostics.some((diagnostic) => diagnostic.code === "duplicate-sheet-identity" || diagnostic.code === "duplicate-alias-identity")) {
+      output.diagnostics.push(...identity.diagnostics);
+    }
+    pushEvaluationDiagnostic(output, "error", "ambiguous-workbook-identity", "identity", "Formula evaluation was skipped because workbook identities are ambiguous.");
+    if (options.strict) {
+      throw new Error("Formula evaluation failed: workbook identities are ambiguous.");
+    }
+    return output;
+  }
 
   if (!workbookHasFormulas(output)) {
     return output;
@@ -28,10 +43,7 @@ export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}):
   }
   const ctor = hyperFormulaCtor;
   if (!ctor) {
-    output.diagnostics.push({
-      level: "error",
-      message: "HyperFormula failed to initialize."
-    });
+    pushEvaluationDiagnostic(output, "error", "formula-engine-initialization-error", "runtime", "HyperFormula failed to initialize.");
     return output;
   }
 
@@ -42,10 +54,7 @@ export async function evaluate(ast: WorkbookAst, options: EvaluateOptions = {}):
     applyComputedValues(output, hf);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    output.diagnostics.push({
-      level: "error",
-      message: `Formula evaluation failed: ${message}`
-    });
+    pushEvaluationDiagnostic(output, "error", "formula-evaluation-error", "runtime", `Formula evaluation failed: ${message}`);
     if (options.strict) {
       throw err;
     }
@@ -66,10 +75,7 @@ async function loadHyperFormula(output: WorkbookAst): Promise<boolean> {
     }
     return true;
   } catch {
-    output.diagnostics.push({
-      level: "warning",
-      message: "HyperFormula is not available. Formula cells were not evaluated."
-    });
+    pushEvaluationDiagnostic(output, "warning", "formula-engine-unavailable", "runtime", "HyperFormula is not available. Formula cells were not evaluated.");
     return false;
   }
 }
@@ -83,10 +89,7 @@ function isHyperFormulaCtor(value: unknown): value is HyperFormulaCtor {
   );
 }
 
-function buildSheetsData(
-  workbook: WorkbookAst,
-  refIndex: ReturnType<typeof buildWorkbookRefIndex>
-): Record<string, Array<Array<string | number | boolean | null>>> {
+function buildSheetsData(workbook: WorkbookAst, refIndex: ReturnType<typeof buildWorkbookRefIndex>): Record<string, Array<Array<string | number | boolean | null>>> {
   return Object.fromEntries(workbook.sheets.map((sheet) => [sheet.name, buildSheetMatrix(sheet, workbook, refIndex)]));
 }
 
@@ -129,22 +132,31 @@ function applyComputedValues(workbook: WorkbookAst, hf: HyperFormulaEngine): voi
           continue;
         }
         const evaluated = hf.getCellValue({ sheet: sheetId, row: row.index - 1, col: cell.col - 1 });
+        recordFormulaError(workbook, sheet.name, row.sourceLine, cell, evaluated);
         cell.computed = normalizeValue(evaluated, cell.formula);
       }
     }
   }
 }
 
-function toHyperFormulaValue(
-  cell: CellNode,
-  sheetName: string,
-  refIndex: ReturnType<typeof buildWorkbookRefIndex>,
-  output: WorkbookAst
-): string | number | boolean | null {
+function toHyperFormulaValue(cell: CellNode, sheetName: string, refIndex: ReturnType<typeof buildWorkbookRefIndex>, output: WorkbookAst): string | number | boolean | null {
   if (cell.kind === "formula" && cell.formula) {
-    return translateFormulaForEngine(cell.formula, sheetName, refIndex, output.diagnostics, cell.row);
+    return translateFormulaForEngine(cell.formula, sheetName, refIndex, output.diagnostics, cell.row, buildHeaderIndex(cell.formulaHeaders));
   }
   return cell.value;
+}
+
+function buildHeaderIndex(headers: string[] | undefined): ReadonlyMap<string, number> | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  const index = new Map<string, number>();
+  for (const [column, header] of headers.entries()) {
+    if (header.trim().length > 0) {
+      index.set(header.toLowerCase(), column + 1);
+    }
+  }
+  return index;
 }
 
 function normalizeValue(value: unknown, formula?: string): string | number | boolean | null {
@@ -161,6 +173,28 @@ function normalizeValue(value: unknown, formula?: string): string | number | boo
     return value.value;
   }
   return stringifyUnknownValue(value);
+}
+
+function recordFormulaError(workbook: WorkbookAst, sheet: string, line: number, cell: CellNode, value: unknown): void {
+  if (!isDetailedCellError(value)) {
+    return;
+  }
+  const syntaxError = isFormulaParseError(value);
+  const referenceError = value.type === "NAME" || value.type === "REF" || value.value === "#NAME?" || value.value === "#REF!";
+  const code = syntaxError ? "formula-syntax-error" : referenceError ? "formula-reference-error" : "formula-runtime-error";
+  const category = syntaxError ? "syntax" : referenceError ? "reference" : "runtime";
+  workbook.diagnostics.push({
+    level: "error",
+    severity: "error",
+    code,
+    stage: "evaluate",
+    category,
+    sheet,
+    primary: { line, sheet },
+    context: { row: cell.row, column: cell.col },
+    line,
+    message: `Formula ${category} error at row ${cell.row}, column ${cell.col}: ${value.value}`
+  });
 }
 
 function isDetailedCellError(value: unknown): value is { value: string; type?: string; message?: string } {

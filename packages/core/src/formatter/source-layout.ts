@@ -34,8 +34,7 @@ export function formatSource(source: string, options: FormatSourceOptions = {}):
     if (!sheet.editable || sheet.format.kind !== "cello") {
       continue;
     }
-    const locations = [...sheet.rows, ...(sheet.defaults ? [sheet.defaults] : [])]
-      .sort((left, right) => left.line - right.line);
+    const locations = [...sheet.rows, ...(sheet.defaults ? [sheet.defaults] : [])].sort((left, right) => left.line - right.line);
     for (const block of collectBlocks(source, locations)) {
       if (range && !block.some((row) => spansIntersect(row.location.lineSpan, range))) {
         continue;
@@ -82,9 +81,7 @@ function readLayoutRow(source: string, location: CelloRowSourceLocation): Layout
   if (prefix === undefined) {
     return undefined;
   }
-  const cells = location.cells
-    .filter((cell) => cell.sourceKind !== "omitted")
-    .map((cell) => source.slice(cell.tokenSpan.start, cell.tokenSpan.end).trim());
+  const cells = location.cells.filter((cell) => cell.sourceKind !== "omitted").map((cell) => source.slice(cell.tokenSpan.start, cell.tokenSpan.end).trim());
   if (cells.length === 0) {
     return undefined;
   }
@@ -133,9 +130,7 @@ function getColumnWidths(block: LayoutRow[]): number[] {
 }
 
 function formatPrettyRow(row: LayoutRow, prefixWidth: number, widths: number[]): string {
-  const prefix = row.prefix.length > 0
-    ? `${row.prefix}${" ".repeat(prefixWidth - row.prefix.length + 1)}`
-    : prefixWidth > 0 ? " ".repeat(prefixWidth + 1) : "";
+  const prefix = row.prefix.length > 0 ? `${row.prefix}${" ".repeat(prefixWidth - row.prefix.length + 1)}` : prefixWidth > 0 ? " ".repeat(prefixWidth + 1) : "";
   const cells = row.cells.map((cell, index) => ` ${cell.padEnd(widths[index] ?? cell.length)} |`).join("");
   return `${prefix}|${cells}`;
 }

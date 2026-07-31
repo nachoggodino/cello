@@ -26,6 +26,7 @@
    - `docs/SPEC.md` (if public behavior changes)
    - `docs/COMPLIANCE.md`
    - Any relevant `docs/*.md`
+   - Run `npm run docs:sync` after changing `BYLAWS.md`, then review both packaged skill references.
 4. Update release metadata when published behavior changes:
    - `CHANGELOG.md`
    - `package.json`

@@ -1,10 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { parse, parseDocument } from "../../../packages/core/src/parser/parse.js";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 
 describe("parse (unit-focused edge cases)", () => {
+  it("reports every duplicate sheet and same-namespace alias declaration", () => {
+    const ast = parse(["@tone note [bold]", "@tone note [italic]", "@width note [width:large]", "@sheet Sales", "| 1 |", "@sheet Sales", "| 2 |"].join("\n"));
+
+    expect(ast.diagnostics.filter((diagnostic) => diagnostic.code === "duplicate-sheet-identity")).toEqual([
+      expect.objectContaining({ level: "error", line: 4, sheet: "Sales" }),
+      expect.objectContaining({ level: "error", line: 6, sheet: "Sales" })
+    ]);
+    expect(ast.diagnostics.filter((diagnostic) => diagnostic.code === "duplicate-alias-identity")).toEqual([
+      expect.objectContaining({ level: "error", line: 1 }),
+      expect.objectContaining({ level: "error", line: 2 })
+    ]);
+  });
+
+  it("keeps sheet names case-sensitive and alias namespaces independent", () => {
+    const ast = parse("@tone note [bold]\n@width note [width:large]\n@sheet Sales\n| 1 |\n@sheet sales\n| 2 |");
+    expect(ast.diagnostics).toEqual([]);
+  });
+
   it("builds source locations from the same decisions as tolerant parsing", () => {
     const source = "@sheet One\n| A |\n@sheet\n| B |\n@sheet Two\n| C |";
     const document = parseDocument(source);
@@ -43,28 +58,27 @@ describe("parse (unit-focused edge cases)", () => {
     const sheet = document.sourceMap.sheets[0];
 
     expect(sheet?.editable).toBe(false);
-    expect(sheet?.externalSources).toEqual([{
-      path: "data.cel",
-      line: 2,
-      lineSpan: { start: 16, end: 27 }
-    }]);
+    expect(sheet?.externalSources).toEqual([
+      {
+        path: "data.cel",
+        line: 2,
+        lineSpan: { start: 16, end: 27 }
+      }
+    ]);
   });
 
   it("distinguishes explicit, empty, omitted, and default-derived cell provenance", () => {
-    const source = [
-      "@sheet Report",
-      "@header | Name | Status | Total | Note |",
-      "@defaults | | Pending | =1 | |",
-      "| Ada | |"
-    ].join("\n");
+    const source = ["@sheet Report", "@header | Name | Status | Total | Note |", "@defaults | | Pending | =1 | |", "| Ada | |"].join("\n");
     const document = parseDocument(source);
     const row = document.sourceMap.sheets[0]?.rows[1];
 
-    expect(row?.cells.map((cell) => ({
-      sourceKind: cell.sourceKind,
-      valueOrigin: cell.valueOrigin,
-      defaultText: cell.defaultSpan ? source.slice(cell.defaultSpan.start, cell.defaultSpan.end) : undefined
-    }))).toEqual([
+    expect(
+      row?.cells.map((cell) => ({
+        sourceKind: cell.sourceKind,
+        valueOrigin: cell.valueOrigin,
+        defaultText: cell.defaultSpan ? source.slice(cell.defaultSpan.start, cell.defaultSpan.end) : undefined
+      }))
+    ).toEqual([
       { sourceKind: "explicit-value", valueOrigin: "explicit", defaultText: undefined },
       { sourceKind: "explicit-empty", valueOrigin: "default-derived", defaultText: "Pending" },
       { sourceKind: "omitted", valueOrigin: "default-derived", defaultText: "=1" },
@@ -124,10 +138,7 @@ describe("parse (unit-focused edge cases)", () => {
     const ast = parse("@tone notes\n@width [width:large]\n@sheet S\n| A |");
 
     expect(ast.aliases).toHaveLength(0);
-    expect(ast.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
-      "Invalid @tone alias declaration.",
-      "Invalid @width alias declaration."
-    ]);
+    expect(ast.diagnostics.map((diagnostic) => diagnostic.message)).toEqual(["Invalid @tone alias declaration.", "Invalid @width alias declaration."]);
   });
 
   it("parses sheet format and layout modifiers together", () => {
@@ -146,9 +157,7 @@ describe("parse (unit-focused edge cases)", () => {
   });
 
   it("fills empty column cells from column default formulas and literal values", () => {
-    const ast = parse(
-      '@sheet S\n@header | Status | Qty | Price | Total |\n@defaults | "Pending" | | | =Qty*Price |\n| | 2 | 3 |\n| Done | 4 | 5 | 99 |'
-    );
+    const ast = parse('@sheet S\n@header | Status | Qty | Price | Total |\n@defaults | "Pending" | | | =Qty*Price |\n| | 2 | 3 |\n| Done | 4 | 5 | 99 |');
     const sheet = ast.sheets[0];
     const firstDataRow = sheet.rows[1];
     const secondDataRow = sheet.rows[2];
@@ -222,12 +231,7 @@ describe("parse (unit-focused edge cases)", () => {
   it("warns for known layout modifiers in trailing formula cell position", () => {
     const ast = parse("@sheet S\n| =A1[width:24] | =B1[height:3] | =C1[wrap] | =D1[fit] |");
 
-    expect(ast.sheets[0].rows[0].cells.map((cell) => cell.formula)).toEqual([
-      "=A1[width:24]",
-      "=B1[height:3]",
-      "=C1[wrap]",
-      "=D1[fit]"
-    ]);
+    expect(ast.sheets[0].rows[0].cells.map((cell) => cell.formula)).toEqual(["=A1[width:24]", "=B1[height:3]", "=C1[wrap]", "=D1[fit]"]);
     expect(ast.sheets[0].rows[0].cells.flatMap((cell) => cell.modifiers)).toEqual([]);
     expect(ast.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
       "Formula cell modifier [width:24] is a known Cello modifier, but it is not valid on cells. Keeping it as formula text.",
@@ -274,22 +278,64 @@ describe("parse (unit-focused edge cases)", () => {
     expect(sheet.rows[1].cells[0]).toMatchObject({ kind: "merge-up", colspan: 0, rowspan: 0 });
   });
 
-  it("handles json arrays of objects with nested values stringified", () => {
+  it("rejects nested JSON values outside the flat table model", () => {
     const ast = parse('@sheet J [json]\n[{"a":1,"meta":{"x":2}}]');
-    const row = ast.sheets[0].rows.find((r) => r.kind === "data");
-    expect(row?.cells[0].value).toBe(1);
-    expect(row?.cells[1].value).toBe('{"x":2}');
+    expect(ast.diagnostics).toContainEqual(
+      expect.objectContaining({
+        level: "error",
+        code: "foreign-format-error"
+      })
+    );
   });
 
-  it("loads external source files via -> path for sheet content", () => {
-    const dir = mkdtempSync(join(tmpdir(), "cello-parse-"));
-    const source = join(dir, "data.csv");
-    writeFileSync(source, "name,amount\nAna,12\nLuis,7\n", "utf8");
+  it("requires an explicit host capability for external files", () => {
+    const ast = parse("@sheet Data [csv]\n-> ./data.csv", { baseDir: "/workbook" });
+    expect(ast.diagnostics).toContainEqual(
+      expect.objectContaining({
+        level: "error",
+        code: "external-source-error"
+      })
+    );
+    expect(ast.diagnostics[0]?.external).toEqual({ path: "./data.csv" });
+    expect(ast.sheets[0].rows).toHaveLength(0);
+  });
 
-    const ast = parse("@sheet Data [csv]\n-> ./data.csv", { baseDir: dir });
-    expect(ast.sheets[0].rows[0].kind).toBe("header");
-    expect(ast.sheets[0].rows[1].cells[0].value).toBe("Ana");
-    expect(ast.sheets[0].rows[2].cells[1].value).toBe(7);
+  it("keeps directive, formula, merge, and modifier-looking external values literal", () => {
+    const ast = parse("@sheet Data [csv]\n-> ./data.csv", {
+      readExternalSource: () => "kind,value\nformula,=1+1\ndirective,@sheet Pwn\nmerge,<\nmodifier,[bold]"
+    });
+    const values = ast.sheets[0].rows.slice(1).map((row) => row.cells[1]);
+
+    expect(ast.sheets).toHaveLength(1);
+    expect(values.map((cell) => cell.kind)).toEqual(["value", "value", "value", "value"]);
+    expect(values.map((cell) => cell.raw)).toEqual(["=1+1", "@sheet Pwn", "<", "[bold]"]);
+  });
+
+  it("rejects Cello files, URLs, duplicate sources, and oversized external data", () => {
+    const readExternalSource = () => "a\n1";
+    for (const source of ["@sheet Data [csv]\n-> nested.cel", "@sheet Data [csv]\n-> https://example.test/data.csv", "@sheet Data [csv]\n-> one.csv\n-> two.csv"]) {
+      expect(parse(source, { readExternalSource }).diagnostics).toContainEqual(expect.objectContaining({ level: "error", code: "external-source-error" }));
+    }
+    expect(
+      parse("@sheet Data [csv]\n-> data.csv", {
+        readExternalSource: () => "too large",
+        externalLimits: { maxBytes: 2 }
+      }).diagnostics
+    ).toContainEqual(expect.objectContaining({ level: "error", code: "external-source-error" }));
+  });
+
+  it("reports malformed external JSON with owning and external provenance", () => {
+    const ast = parse("@sheet Data [json]\n-> ./data.json", {
+      readExternalSource: () => '[\n  {"name": "Ada"},\n]'
+    });
+
+    expect(ast.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "foreign-format-error",
+        line: 2,
+        external: expect.objectContaining({ path: "./data.json", line: 3 })
+      })
+    );
   });
 
   it("supports an explicit external source loader", () => {

@@ -1,5 +1,18 @@
-import type { Modifier } from "../../core/src/index.js";
-import type { CellAddress, ColorModifierKey, EditorCell, EditorRow, EditorSheet, EditorWorkbook, HeaderRowResolution, MergeDirection, SheetColumnsMode, SheetRowsMode, TextTone, ToggleModifierKey } from "./model.js";
+import type { Modifier } from "../../core/src/internal.js";
+import type {
+  CellAddress,
+  ColorModifierKey,
+  EditorCell,
+  EditorRow,
+  EditorSheet,
+  EditorWorkbook,
+  HeaderRowResolution,
+  MergeDirection,
+  SheetColumnsMode,
+  SheetRowsMode,
+  TextTone,
+  ToggleModifierKey
+} from "./model.js";
 import { GENERATED_SHEET_NAME_PREFIX } from "./options.js";
 import { getVisibleColumnCount } from "./selectors.js";
 import { getMergeToken, isMergeToken, parseCellSource } from "./source.js";
@@ -30,9 +43,7 @@ export function updateCellContentSource(workbook: EditorWorkbook, address: CellA
     const incomingKeys = new Set(parsed.modifiers.map((modifier) => modifier.key));
     return {
       raw: parsed.raw,
-      modifiers: isMergeToken(parsed.raw)
-        ? []
-        : [...cell.modifiers.filter((modifier) => !incomingKeys.has(modifier.key)), ...parsed.modifiers]
+      modifiers: isMergeToken(parsed.raw) ? [] : [...cell.modifiers.filter((modifier) => !incomingKeys.has(modifier.key)), ...parsed.modifiers]
     };
   });
 }
@@ -41,7 +52,7 @@ export function updateDefaultCellSource(workbook: EditorWorkbook, sheetIndex: nu
   const parsed = parseCellSource(source);
   return updateSheet(workbook, sheetIndex, (sheet) => ({
     ...sheet,
-    defaults: ensureCellCount(sheet.defaults, colIndex + 1).map((cell, index) => index === colIndex ? parsed : cell)
+    defaults: ensureCellCount(sheet.defaults, colIndex + 1).map((cell, index) => (index === colIndex ? parsed : cell))
   }));
 }
 
@@ -105,7 +116,13 @@ export function toggleColumnFit(workbook: EditorWorkbook, sheetIndex: number, he
 export function setColumnWidth(workbook: EditorWorkbook, sheetIndex: number, headerRowIndex: number, colIndex: number, value: string | undefined): EditorWorkbook {
   return updateCell(workbook, { sheetIndex, rowIndex: headerRowIndex, colIndex }, (cell) => ({
     ...cell,
-    modifiers: value ? setModifierValue(cell.modifiers.filter((modifier) => modifier.key !== "fit"), "width", value) : cell.modifiers.filter((modifier) => modifier.key !== "width")
+    modifiers: value
+      ? setModifierValue(
+          cell.modifiers.filter((modifier) => modifier.key !== "fit"),
+          "width",
+          value
+        )
+      : cell.modifiers.filter((modifier) => modifier.key !== "width")
   }));
 }
 
@@ -166,7 +183,14 @@ export function setRowColorModifier(workbook: EditorWorkbook, address: CellAddre
   }));
 }
 
-export function setColumnColorModifier(workbook: EditorWorkbook, sheetIndex: number, headerRowIndex: number, colIndex: number, key: ColorModifierKey, value: string): EditorWorkbook {
+export function setColumnColorModifier(
+  workbook: EditorWorkbook,
+  sheetIndex: number,
+  headerRowIndex: number,
+  colIndex: number,
+  key: ColorModifierKey,
+  value: string
+): EditorWorkbook {
   return updateCell(workbook, { sheetIndex, rowIndex: headerRowIndex, colIndex }, (cell) => ({
     ...cell,
     modifiers: setModifierValue(cell.modifiers, key, value)
@@ -265,16 +289,12 @@ export function ensureColumnHeaderRow(workbook: EditorWorkbook, sheetIndex: numb
   };
 }
 
-function updateCell(
-  workbook: EditorWorkbook,
-  address: CellAddress,
-  update: (cell: EditorCell) => EditorCell
-): EditorWorkbook {
+function updateCell(workbook: EditorWorkbook, address: CellAddress, update: (cell: EditorCell) => EditorCell): EditorWorkbook {
   return updateSheet(workbook, address.sheetIndex, (sheet) => {
     const ensured = ensureCellAddress(sheet, address.rowIndex, address.colIndex);
     return {
       ...ensured,
-      rows: ensured.rows.map((row, rowIndex) => rowIndex === address.rowIndex ? updateCellInRow(row, address.colIndex, update) : row)
+      rows: ensured.rows.map((row, rowIndex) => (rowIndex === address.rowIndex ? updateCellInRow(row, address.colIndex, update) : row))
     };
   });
 }
@@ -282,21 +302,16 @@ function updateCell(
 function updateCellInRow(row: EditorRow, colIndex: number, update: (cell: EditorCell) => EditorCell): EditorRow {
   return {
     ...row,
-    cells: row.cells.map((cell, index) => index === colIndex ? update(cell) : cell)
+    cells: row.cells.map((cell, index) => (index === colIndex ? update(cell) : cell))
   };
 }
 
-function updateRow(
-  workbook: EditorWorkbook,
-  sheetIndex: number,
-  rowIndex: number,
-  update: (row: EditorRow) => EditorRow
-): EditorWorkbook {
+function updateRow(workbook: EditorWorkbook, sheetIndex: number, rowIndex: number, update: (row: EditorRow) => EditorRow): EditorWorkbook {
   return updateSheet(workbook, sheetIndex, (sheet) => {
     const ensured = ensureCellAddress(sheet, rowIndex, 0);
     return {
       ...ensured,
-      rows: ensured.rows.map((row, index) => index === rowIndex ? update(row) : row)
+      rows: ensured.rows.map((row, index) => (index === rowIndex ? update(row) : row))
     };
   });
 }
@@ -304,7 +319,7 @@ function updateRow(
 function updateSheet(workbook: EditorWorkbook, sheetIndex: number, update: (sheet: EditorSheet) => EditorSheet): EditorWorkbook {
   return {
     ...workbook,
-    sheets: workbook.sheets.map((sheet, index) => index === sheetIndex ? update(sheet) : sheet)
+    sheets: workbook.sheets.map((sheet, index) => (index === sheetIndex ? update(sheet) : sheet))
   };
 }
 
@@ -326,16 +341,12 @@ function ensureCellAddress(sheet: EditorSheet, rowIndex: number, colIndex: numbe
 }
 
 function ensureCellCount(cells: EditorCell[], count: number): EditorCell[] {
-  return cells.length >= count
-    ? cells
-    : [...cells, ...Array.from({ length: count - cells.length }, () => createBlankCell())];
+  return cells.length >= count ? cells : [...cells, ...Array.from({ length: count - cells.length }, () => createBlankCell())];
 }
 
 function toggleModifier(modifiers: Modifier[], key: ToggleModifierKey): Modifier[] {
   const hasModifier = modifiers.some((modifier) => modifier.key === key);
-  return hasModifier
-    ? modifiers.filter((modifier) => modifier.key !== key)
-    : [...modifiers, { raw: key, key }];
+  return hasModifier ? modifiers.filter((modifier) => modifier.key !== key) : [...modifiers, { raw: key, key }];
 }
 
 function setModifierValue(modifiers: Modifier[], key: ColorModifierKey | "tone" | "width" | "height", value: string): Modifier[] {
@@ -352,9 +363,7 @@ function setModifierValue(modifiers: Modifier[], key: ColorModifierKey | "tone" 
 
 function toggleExclusiveLayoutModifier(modifiers: Modifier[], key: "fit", exclusiveKeys: string[]): Modifier[] {
   const hasModifier = modifiers.some((modifier) => modifier.key === key);
-  return hasModifier
-    ? modifiers.filter((modifier) => modifier.key !== key)
-    : [...modifiers.filter((modifier) => !exclusiveKeys.includes(modifier.key)), { raw: key, key }];
+  return hasModifier ? modifiers.filter((modifier) => modifier.key !== key) : [...modifiers.filter((modifier) => !exclusiveKeys.includes(modifier.key)), { raw: key, key }];
 }
 
 function withoutLayoutKey(layout: EditorSheet["layout"], key: "columns" | "rows"): NonNullable<EditorSheet["layout"]> {

@@ -22,11 +22,13 @@ export function normalizeCellRange(anchor: CellAddress, active: CellAddress): Ce
 }
 
 export function isAddressInRange(address: CellAddress, range: CellRange): boolean {
-  return address.sheetIndex === range.sheetIndex &&
+  return (
+    address.sheetIndex === range.sheetIndex &&
     address.rowIndex >= range.startRow &&
     address.rowIndex <= range.endRow &&
     address.colIndex >= range.startCol &&
-    address.colIndex <= range.endCol;
+    address.colIndex <= range.endCol
+  );
 }
 
 export function getCellRangeSize(range: CellRange): { rows: number; columns: number; cells: number } {
@@ -56,28 +58,25 @@ export function parseClipboardMatrix(text: string): string[][] {
   return parseCsvMatrix(normalized);
 }
 
-export function pasteMatrixAt(
-  workbook: EditorWorkbook,
-  start: CellAddress,
-  matrix: string[][]
-): EditorWorkbook {
+export function pasteMatrixAt(workbook: EditorWorkbook, start: CellAddress, matrix: string[][]): EditorWorkbook {
   let next = workbook;
   for (const [rowOffset, row] of matrix.entries()) {
     for (const [colOffset, value] of row.entries()) {
-      next = updateCellSource(next, {
-        sheetIndex: start.sheetIndex,
-        rowIndex: start.rowIndex + rowOffset,
-        colIndex: start.colIndex + colOffset
-      }, value);
+      next = updateCellSource(
+        next,
+        {
+          sheetIndex: start.sheetIndex,
+          rowIndex: start.rowIndex + rowOffset,
+          colIndex: start.colIndex + colOffset
+        },
+        value
+      );
     }
   }
   return next;
 }
 
-export function clearRange(
-  workbook: EditorWorkbook,
-  range: CellRange
-): EditorWorkbook {
+export function clearRange(workbook: EditorWorkbook, range: CellRange): EditorWorkbook {
   let next = workbook;
   for (let rowIndex = range.startRow; rowIndex <= range.endRow; rowIndex += 1) {
     for (let colIndex = range.startCol; colIndex <= range.endCol; colIndex += 1) {
@@ -119,17 +118,17 @@ function parseCsvMatrix(text: string): string[][] {
     const char = text[index] ?? "";
     const next = text[index + 1];
     if (quoted) {
-      if (char === "\"" && next === "\"") {
-        value += "\"";
+      if (char === '"' && next === '"') {
+        value += '"';
         index += 1;
-      } else if (char === "\"") {
+      } else if (char === '"') {
         quoted = false;
       } else {
         value += char;
       }
       continue;
     }
-    if (char === "\"") {
+    if (char === '"') {
       quoted = true;
     } else if (char === ",") {
       currentRow(rows).push(value);
