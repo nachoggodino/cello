@@ -38,34 +38,34 @@ The reusable source files above can be copied or vendored into an editor integra
 
 ## Scope Map
 
-| Cello construct | Primary scope |
-|---|---|
-| `@sheet` | `keyword.control.sheet.cel` |
-| Sheet name | `entity.name.section.sheet.cel` |
-| Sheet format | `support.constant.format.cel` |
-| Alias directive `@tone`, `@width`, `@height` | `keyword.control.alias.cel` |
-| `@header` | `keyword.control.header.cel` |
-| `@defaults` | `keyword.control.defaults.cel` |
-| External source `->` | `keyword.operator.source.cel` |
-| External path | `string.unquoted.path.cel` |
-| Comment line | `comment.line.double-slash.cel` |
-| Cell separator `|` | `punctuation.separator.cell.cel` |
-| Formula cell | `meta.formula.cel` |
-| Formula function | `support.function.formula.cel` |
-| Sheet reference | `variable.other.sheet-reference.cel` |
-| Cell reference | `constant.other.cell-reference.cel` |
-| Range slice | `constant.other.range.cel` |
-| Merge token `<` or `^` | `keyword.operator.merge.cel` |
-| Modifier block | `meta.modifier.cel` |
-| Tone modifier | `support.constant.tone.cel` |
-| Layout modifier | `support.type.layout.cel` |
-| Color literal | `constant.other.color.rgb-value.cel` |
-| Forced text string | `string.quoted.double.cel` |
-| ISO date | `constant.other.date.iso.cel` |
-| Boolean | `constant.language.boolean.cel` |
-| Number | `constant.numeric.cel` |
-| Inline heading | `markup.heading.*.cel` |
-| Inline bold/italic/strike | `markup.bold.cel`, `markup.italic.cel`, `markup.strikethrough.cel` |
+| Cello construct                              | Primary scope                                                      |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| `@sheet`                                     | `keyword.control.sheet.cel`                                        |
+| Sheet name                                   | `entity.name.section.sheet.cel`                                    |
+| Sheet format                                 | `support.constant.format.cel`                                      |
+| Alias directive `@tone`, `@width`, `@height` | `keyword.control.alias.cel`                                        |
+| `@header`                                    | `keyword.control.header.cel`                                       |
+| `@defaults`                                  | `keyword.control.defaults.cel`                                     |
+| External source `->`                         | `keyword.operator.source.cel`                                      |
+| External path                                | `string.unquoted.path.cel`                                         |
+| Comment line                                 | `comment.line.double-slash.cel`                                    |
+| Cell separator `                             | `                                                                  | `punctuation.separator.cell.cel` |
+| Formula cell                                 | `meta.formula.cel`                                                 |
+| Formula function                             | `support.function.formula.cel`                                     |
+| Sheet reference                              | `variable.other.sheet-reference.cel`                               |
+| Cell reference                               | `constant.other.cell-reference.cel`                                |
+| Range slice                                  | `constant.other.range.cel`                                         |
+| Merge token `<` or `^`                       | `keyword.operator.merge.cel`                                       |
+| Modifier block                               | `meta.modifier.cel`                                                |
+| Tone modifier                                | `support.constant.tone.cel`                                        |
+| Layout modifier                              | `support.type.layout.cel`                                          |
+| Color literal                                | `constant.other.color.rgb-value.cel`                               |
+| Forced text string                           | `string.quoted.double.cel`                                         |
+| ISO date                                     | `constant.other.date.iso.cel`                                      |
+| Boolean                                      | `constant.language.boolean.cel`                                    |
+| Number                                       | `constant.numeric.cel`                                             |
+| Inline heading                               | `markup.heading.*.cel`                                             |
+| Inline bold/italic/strike                    | `markup.bold.cel`, `markup.italic.cel`, `markup.strikethrough.cel` |
 
 ## Recommended Theme Treatment
 

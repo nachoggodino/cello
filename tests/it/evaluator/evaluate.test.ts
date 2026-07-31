@@ -3,6 +3,16 @@ import { evaluate } from "../../../packages/core/src/evaluator/evaluate.js";
 import { parse } from "../../../packages/core/src/parser/parse.js";
 
 describe("evaluate", () => {
+  it("keeps each formula bound to the headers active at its source position", async () => {
+    const ast = parse(["@sheet S", "@header | Old | Total |", "| 2 | =Old |", "@header | New | Total |", "| 3 | =New |"].join("\n"));
+
+    const out = await evaluate(ast);
+
+    expect(out.sheets[0].rows[1].cells[1].computed).toBe(2);
+    expect(out.sheets[0].rows[3].cells[1].computed).toBe(3);
+    expect(out.diagnostics).toEqual([]);
+  });
+
   it("evaluates simple formulas", async () => {
     const ast = parse("@sheet S\n| 2 | 3 | =A1+B1 |");
     const out = await evaluate(ast);
@@ -85,7 +95,9 @@ describe("evaluate", () => {
   });
 
   it("uses COUNTA for string counts while COUNT keeps numeric spreadsheet semantics", async () => {
-    const ast = parse("@sheet Orders\n@header | Customer | Units |\n| Ada | 2 |\n| Luis | 3 |\n@sheet Report\n| =COUNT(Orders!Customer) | =COUNTA(Orders!Customer) | =COUNT(Orders!Units) |");
+    const ast = parse(
+      "@sheet Orders\n@header | Customer | Units |\n| Ada | 2 |\n| Luis | 3 |\n@sheet Report\n| =COUNT(Orders!Customer) | =COUNTA(Orders!Customer) | =COUNT(Orders!Units) |"
+    );
     const out = await evaluate(ast);
     expect(out.sheets[1].rows[0].cells[0].computed).toBe(0);
     expect(out.sheets[1].rows[0].cells[1].computed).toBe(2);

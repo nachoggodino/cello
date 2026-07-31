@@ -1,9 +1,4 @@
-import type {
-  CreateEditorWorkbookOptions,
-  EditorCommandFailure,
-  EditorDocument,
-  EditorSession
-} from "@nachoggodino/cello/editor-core";
+import type { CreateEditorWorkbookOptions, EditorCommandFailure, EditorDocument, EditorSession } from "../../editor-core/src/internal.js";
 
 export interface CelloVisualEditorLabels {
   bold: string;
@@ -81,6 +76,4 @@ export interface SessionCelloVisualEditorProps extends CelloVisualEditorBaseProp
   activeSheetName?: never;
 }
 
-export type CelloVisualEditorProps =
-  | ControlledCelloVisualEditorProps
-  | SessionCelloVisualEditorProps;
+export type CelloVisualEditorProps = ControlledCelloVisualEditorProps | SessionCelloVisualEditorProps;

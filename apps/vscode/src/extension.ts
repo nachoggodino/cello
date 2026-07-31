@@ -1,11 +1,13 @@
 import type { ExtensionContext, TextEditor } from "vscode";
 import * as vscode from "vscode";
+import { registerDiagnostics } from "./diagnostics.js";
 import { registerFormatting } from "./formatting.js";
 import { CelloPreviewPanel, createPreviewPanel } from "./previewPanel.js";
 
 const previews = new Map<string, CelloPreviewPanel>();
 
 export function activate(context: ExtensionContext): void {
+  registerDiagnostics(context);
   registerFormatting(context);
   context.subscriptions.push(
     vscode.commands.registerCommand("cello.openPreview", async () => {

@@ -1,12 +1,4 @@
-import type {
-  CellNode,
-  InferredType,
-  Modifier,
-  RowNode,
-  SheetFormat,
-  SheetNode,
-  WorkbookAst
-} from "../../packages/core/src/shared/types.js";
+import type { CellNode, InferredType, Modifier, RowNode, SheetFormat, SheetNode, WorkbookAst } from "../../packages/core/src/shared/types.js";
 
 type Scalar = string | number | boolean | null;
 
@@ -19,16 +11,9 @@ export function workbook(sheets: SheetNode[]): WorkbookAst {
   };
 }
 
-export function sheet(options: {
-  name: string;
-  format?: SheetFormat;
-  columns?: string[] | number;
-  rows: RowNode[];
-}): SheetNode {
+export function sheet(options: { name: string; format?: SheetFormat; columns?: string[] | number; rows: RowNode[] }): SheetNode {
   const { name, format = { kind: "cello" }, columns = 0, rows } = options;
-  const columnNames = Array.isArray(columns)
-    ? columns
-    : Array.from({ length: columns }, () => undefined);
+  const columnNames = Array.isArray(columns) ? columns : Array.from({ length: columns }, () => undefined);
 
   return {
     name,

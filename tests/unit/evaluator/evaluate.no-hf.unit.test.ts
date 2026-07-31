@@ -11,8 +11,7 @@ describe("evaluate (without HyperFormula module)", () => {
     const ast = parse("@sheet S\n| =1+1 |");
     const out = await evaluate(ast);
 
-    expect(out.diagnostics.some((d) => d.level === "warning" && d.message.includes("HyperFormula is not available"))).toBe(true);
+    expect(out.diagnostics.some((d) => d.severity === "warning" && d.message.includes("HyperFormula is not available"))).toBe(true);
     expect(out.sheets[0].rows[0].cells[0].computed).toBeUndefined();
   });
 });
-

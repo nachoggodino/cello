@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "normalization": "median operation latency divided by the median 20M-iteration integer calibration",
+    "response": "fail when a normalized median exceeds approximately 2.5x the recorded baseline",
+    "metrics": {
+      "startup.cli.version": {
+        "baselineMs": 38.2398,
+        "baselineNormalized": 2.6114,
+        "maxNormalized": 6.6
+      },
+      "startup.core.import": {
+        "baselineMs": 20.476,
+        "baselineNormalized": 1.3983,
+        "maxNormalized": 3.5
+      },
+      "startup.editorReact.import": {
+        "baselineMs": 33.4638,
+        "baselineNormalized": 2.2852,
+        "maxNormalized": 5.8
+      },
+      "parse.native.small": {
+        "baselineMs": 0.0988,
+        "baselineNormalized": 0.0067,
+        "maxNormalized": 0.03
+      },
+      "parse.native.medium": {
+        "baselineMs": 1.4446,
+        "baselineNormalized": 0.0976,
+        "maxNormalized": 0.25
+      },
+      "parse.native.large": {
+        "baselineMs": 15.0402,
+        "baselineNormalized": 1.0165,
+        "maxNormalized": 2.55
+      },
+      "format.compact.medium": {
+        "baselineMs": 2.2207,
+        "baselineNormalized": 0.1501,
+        "maxNormalized": 0.4
+      },
+      "format.pretty.medium": {
+        "baselineMs": 3.8021,
+        "baselineNormalized": 0.257,
+        "maxNormalized": 0.65
+      },
+      "format.compact.large": {
+        "baselineMs": 120.1996,
+        "baselineNormalized": 8.124,
+        "maxNormalized": 20.4
+      },
+      "format.pretty.large": {
+        "baselineMs": 143.5293,
+        "baselineNormalized": 9.7008,
+        "maxNormalized": 24.3
+      },
+      "session.typing.medium": {
+        "baselineMs": 1.5147,
+        "baselineNormalized": 0.1024,
+        "maxNormalized": 0.3
+      },
+      "command.updateCell.medium": {
+        "baselineMs": 3.9396,
+        "baselineNormalized": 0.2663,
+        "maxNormalized": 0.7
+      },
+      "session.typing.large": {
+        "baselineMs": 12.93,
+        "baselineNormalized": 0.8739,
+        "maxNormalized": 2.2
+      },
+      "command.updateCell.large": {
+        "baselineMs": 121.8824,
+        "baselineNormalized": 8.2378,
+        "maxNormalized": 20.6
+      },
+      "external.refresh.medium": {
+        "baselineMs": 0.4369,
+        "baselineNormalized": 0.0295,
+        "maxNormalized": 0.1
+      },
+      "external.refresh.large": {
+        "baselineMs": 3.1991,
+        "baselineNormalized": 0.2162,
+        "maxNormalized": 0.6
+      },
+      "vscode.diagnostics.large": {
+        "baselineMs": 9.8165,
+        "baselineNormalized": 0.6635,
+        "maxNormalized": 1.7
+      },
+      "evaluate.formulas.medium": {
+        "baselineMs": 13.8186,
+        "baselineNormalized": 0.934,
+        "maxNormalized": 2.4
+      },
+      "evaluate.formulas.large": {
+        "baselineMs": 22.6769,
+        "baselineNormalized": 1.5327,
+        "maxNormalized": 3.9
+      },
+      "preview.render.small": {
+        "baselineMs": 0.3863,
+        "baselineNormalized": 0.0261,
+        "maxNormalized": 0.1
+      },
+      "preview.render.medium": {
+        "baselineMs": 5.2742,
+        "baselineNormalized": 0.3565,
+        "maxNormalized": 0.9
+      },
+      "preview.render.large": {
+        "baselineMs": 37.4629,
+        "baselineNormalized": 2.532,
+        "maxNormalized": 6.4
+      }
+    }
+  },
+  "sizes": {
+    "response": "fail when a deterministic artifact or attributed entry surface grows by roughly 10%",
+    "metrics": {
+      "npm.tarball.bytes": { "baseline": 217790, "maxBytes": 240000 },
+      "npm.unpacked.bytes": { "baseline": 1030081, "maxBytes": 1140000 },
+      "vscode.vsix.bytes": { "baseline": 372847, "maxBytes": 410000 },
+      "browser.core.entry.bytes": { "baseline": 57191, "maxBytes": 63000 },
+      "browser.core.static.bytes": { "baseline": 57191, "maxBytes": 63000 },
+      "browser.core.lazy.bytes": { "baseline": 696609, "maxBytes": 770000 },
+      "browser.editorCore.entry.bytes": { "baseline": 80639, "maxBytes": 89000 },
+      "browser.editorCore.static.bytes": { "baseline": 80639, "maxBytes": 89000 },
+      "browser.editorCore.lazy.bytes": { "baseline": 0, "maxBytes": 0 },
+      "browser.editorReact.entry.bytes": { "baseline": 161751, "maxBytes": 178000 },
+      "browser.editorReact.static.bytes": { "baseline": 161751, "maxBytes": 178000 },
+      "browser.editorReact.lazy.bytes": { "baseline": 1209845, "maxBytes": 1331000 },
+      "playground.initial.bytes": { "baseline": 396207, "maxBytes": 436000 },
+      "playground.entry.bytes": { "baseline": 349968, "maxBytes": 385000 },
+      "playground.codemirror.lazy.bytes": { "baseline": 403120, "maxBytes": 444000 },
+      "playground.spreadsheet.lazy.bytes": { "baseline": 556740, "maxBytes": 613000 },
+      "renderer.large.output.bytes": { "baseline": 1868073, "maxBytes": 2055000 },
+      "renderer.large.expansion.ratio": { "baseline": 8.1878, "maxRatio": 9.01 }
+    }
+  }
+}

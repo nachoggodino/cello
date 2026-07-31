@@ -18,9 +18,9 @@ import {
   type ResolvedRowLayout,
   type ResolvedWidth,
   type SheetNode
-} from "../../core/src/index.js";
+} from "../../core/src/internal.js";
 import type { CellAddress, ComputedCellValue, EditorCell, EditorCellStyle, EditorRow, EditorSheet, EditorWorkbook, ModifierScope } from "./model.js";
-import type { CellKind } from "../../core/src/index.js";
+import type { CellKind } from "../../core/src/internal.js";
 import { createBlankCell, createBlankRow } from "./workbook.js";
 import { isMergeToken } from "./source.js";
 
@@ -68,12 +68,7 @@ export function getCellStyle(sheet: EditorSheet | undefined, rowIndex: number, c
   };
 }
 
-export function getVisualCellStyle(
-  workbook: Pick<EditorWorkbook, "aliases"> | undefined,
-  sheet: EditorSheet | undefined,
-  rowIndex: number,
-  colIndex: number
-): EditorCellStyle {
+export function getVisualCellStyle(workbook: Pick<EditorWorkbook, "aliases"> | undefined, sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): EditorCellStyle {
   return {
     ...getCellStyle(sheet, rowIndex, colIndex, workbook),
     ...getVisualColumnStyle(workbook, sheet, rowIndex, colIndex),
@@ -85,12 +80,7 @@ export function getCellToneClass(sheet: EditorSheet | undefined, rowIndex: numbe
   return getToneClasses(getEffectiveModifiers(sheet, rowIndex, colIndex, workbook), "celloVisualTone").join(" ");
 }
 
-export function getVisualColumnStyle(
-  workbook: Pick<EditorWorkbook, "aliases"> | undefined,
-  sheet: EditorSheet | undefined,
-  rowIndex: number,
-  colIndex: number
-): EditorCellStyle {
+export function getVisualColumnStyle(workbook: Pick<EditorWorkbook, "aliases"> | undefined, sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): EditorCellStyle {
   const width = getVisualColumnWidth(workbook, sheet, rowIndex, colIndex);
   const cssWidth = columnWidthToCss(width);
   return {
@@ -100,12 +90,7 @@ export function getVisualColumnStyle(
   };
 }
 
-export function getVisualColumnWidth(
-  workbook: Pick<EditorWorkbook, "aliases"> | undefined,
-  sheet: EditorSheet | undefined,
-  rowIndex: number,
-  colIndex: number
-): ResolvedWidth {
+export function getVisualColumnWidth(workbook: Pick<EditorWorkbook, "aliases"> | undefined, sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): ResolvedWidth {
   return getResolvedVisualColumnWidth(workbook, sheet, rowIndex, colIndex);
 }
 
@@ -149,13 +134,7 @@ export function hasScopedModifier(sheet: EditorSheet | undefined, address: CellA
   return getScopeModifiers(sheet, address, scope).some((modifier) => modifier.key === key);
 }
 
-export function getScopedColorValue(
-  sheet: EditorSheet | undefined,
-  address: CellAddress,
-  scope: ModifierScope,
-  key: "bg" | "color",
-  fallback: string
-): string {
+export function getScopedColorValue(sheet: EditorSheet | undefined, address: CellAddress, scope: ModifierScope, key: "bg" | "color", fallback: string): string {
   return getScopeModifiers(sheet, address, scope).find((modifier) => modifier.key === key)?.value ?? fallback;
 }
 
@@ -183,10 +162,18 @@ export function getCellHeadingPrefix(cell: EditorCell): string | undefined {
   return CELLO_HEADING_STYLES.find((heading) => cell.raw.startsWith(heading.prefix))?.prefix;
 }
 
-export function getInheritedModifierGroups(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): Array<{ scope: "default" | "column" | "row"; modifiers: Modifier[] }> {
+export function getInheritedModifierGroups(
+  sheet: EditorSheet | undefined,
+  rowIndex: number,
+  colIndex: number
+): Array<{ scope: "default" | "column" | "row"; modifiers: Modifier[] }> {
   const defaultCell = getDefaultCellAt(sheet, colIndex);
   const groups: Array<{ scope: "default" | "column" | "row"; modifiers: Modifier[] }> = [
-    { scope: "default", modifiers: defaultCell.raw || defaultCell.modifiers.length > 0 ? [{ raw: `default:${getCellSourceText(defaultCell)}`, key: "default", value: getCellSourceText(defaultCell) }] : [] },
+    {
+      scope: "default",
+      modifiers:
+        defaultCell.raw || defaultCell.modifiers.length > 0 ? [{ raw: `default:${getCellSourceText(defaultCell)}`, key: "default", value: getCellSourceText(defaultCell) }] : []
+    },
     { scope: "column", modifiers: getColumnModifiers(sheet, rowIndex, colIndex).filter((modifier) => modifier.key !== "default") },
     { scope: "row", modifiers: sheet?.rows[rowIndex]?.modifiers ?? [] }
   ];
@@ -256,10 +243,7 @@ export function getCellFitMeasureText(
     value: cell.raw,
     ...(computed === undefined ? {} : { computed })
   };
-  return fitCandidateValue(
-    candidate,
-    getEffectiveModifiers(sheet, rowIndex, colIndex, workbook)
-  );
+  return fitCandidateValue(candidate, getEffectiveModifiers(sheet, rowIndex, colIndex, workbook));
 }
 
 function getEffectiveModifiers(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number, workbook?: Pick<EditorWorkbook, "aliases">): Modifier[] {
@@ -326,12 +310,7 @@ function getRawDisplayValue(cell: EditorCell, computed?: ComputedCellValue): str
   return cell.raw;
 }
 
-function getResolvedVisualColumnWidth(
-  workbook: Pick<EditorWorkbook, "aliases"> | undefined,
-  sheet: EditorSheet | undefined,
-  rowIndex: number,
-  colIndex: number
-): ResolvedWidth {
+function getResolvedVisualColumnWidth(workbook: Pick<EditorWorkbook, "aliases"> | undefined, sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): ResolvedWidth {
   const visualSheet: SheetNode = {
     name: sheet?.name ?? "",
     format: sheet?.format ?? { kind: "cello" },
@@ -356,11 +335,7 @@ function columnWidthToCss(width: ResolvedWidth): string {
   return widthOuterToCss(resolved);
 }
 
-function getResolvedVisualRowLayout(
-  workbook: Pick<EditorWorkbook, "aliases"> | undefined,
-  sheet: EditorSheet | undefined,
-  rowIndex: number
-): ResolvedRowLayout {
+function getResolvedVisualRowLayout(workbook: Pick<EditorWorkbook, "aliases"> | undefined, sheet: EditorSheet | undefined, rowIndex: number): ResolvedRowLayout {
   const visualSheet: SheetNode = {
     name: sheet?.name ?? "",
     format: sheet?.format ?? { kind: "cello" },
@@ -368,11 +343,7 @@ function getResolvedVisualRowLayout(
     rows: [],
     columns: []
   };
-  return resolveRowLayout(
-    workbook ?? {},
-    visualSheet,
-    sheet?.rows[rowIndex]?.modifiers ?? []
-  );
+  return resolveRowLayout(workbook ?? {}, visualSheet, sheet?.rows[rowIndex]?.modifiers ?? []);
 }
 
 function findMergeOrigin(sheet: EditorSheet | undefined, rowIndex: number, colIndex: number): { rowIndex: number; colIndex: number } | undefined {

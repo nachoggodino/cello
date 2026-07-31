@@ -1,4 +1,4 @@
-import type { EditorWorkbook } from "@nachoggodino/cello/editor-core";
+import type { EditorWorkbook } from "../../../editor-core/src/internal.js";
 import { IconButton } from "./controls.js";
 import type { CelloVisualEditorLabels } from "../types.js";
 
@@ -22,11 +22,7 @@ export function SheetTabs({
   const activeSheet = workbook.sheets[activeSheetIndex];
 
   return (
-    <div
-      className="celloVisualSheetTabs"
-      role="tablist"
-      aria-label={labels.workbookSheets}
-    >
+    <div className="celloVisualSheetTabs" role="tablist" aria-label={labels.workbookSheets}>
       {workbook.sheets.map((sheet, sheetIndex) => (
         <button
           key={`${sheet.name}-${sheetIndex}`}
@@ -34,29 +30,23 @@ export function SheetTabs({
           role="tab"
           aria-selected={activeSheetIndex === sheetIndex}
           className={activeSheetIndex === sheetIndex ? "active" : ""}
-          onClick={() => { onActivate(sheetIndex); }}
+          onClick={() => {
+            onActivate(sheetIndex);
+          }}
         >
           {sheet.name}
         </button>
       ))}
-      <IconButton
-        label={labels.newSheet}
-        icon="sheetPlus"
-        className="celloVisualPrimaryAction"
-        onClick={onAdd}
-      />
+      <IconButton label={labels.newSheet} icon="sheetPlus" className="celloVisualPrimaryAction" onClick={onAdd} />
       <input
         className="celloVisualSheetNameInput"
         aria-label={labels.renameSheet}
         value={activeSheet?.name ?? ""}
-        onChange={(event) => { onRename(event.target.value); }}
+        onChange={(event) => {
+          onRename(event.target.value);
+        }}
       />
-      <IconButton
-        label={labels.deleteSheet}
-        icon="trash"
-        disabled={workbook.sheets.length <= 1}
-        onClick={onRemove}
-      />
+      <IconButton label={labels.deleteSheet} icon="trash" disabled={workbook.sheets.length <= 1} onClick={onRemove} />
     </div>
   );
 }

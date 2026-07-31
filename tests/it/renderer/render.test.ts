@@ -5,7 +5,7 @@ describe("render", () => {
   it("renders full html document with tab controls", async () => {
     const html = await render("@sheet One\n| A |\n@sheet Two\n| B |", { title: "Workbook" });
     expect(html.startsWith("<!doctype html>")).toBe(true);
-    expect(html).toContain("<html lang=\"en\">");
+    expect(html).toContain('<html lang="en">');
     expect(html).toContain("<head>");
     expect(html).toContain("<body>");
     expect(html).toContain("<title>Workbook</title>");
@@ -18,6 +18,10 @@ describe("render", () => {
     expect(html).not.toContain("cello:active-sheet:");
   });
 
+  it("rejects ambiguous workbook identities instead of selecting an arbitrary sheet", async () => {
+    await expect(render("@sheet Same\n| 1 |\n@sheet Same\n| 2 |")).rejects.toThrow("ambiguous");
+  });
+
   it("renders embeddable html fragments without document wrappers", async () => {
     const html = await render("@sheet One\n| A |\n@sheet Two\n| B |", { format: "fragment" });
 
@@ -28,15 +32,13 @@ describe("render", () => {
     expect(html).not.toContain("<title>");
     expect(html).toContain("<style>");
     expect(html).toContain('<div class="cello-workbook">');
-    expect(html).toContain("<script>");
+    expect(html).toContain("<script nonce=");
     expect(html).toContain("document.currentScript");
     expect(html).toContain('data-sheet="Two"');
   });
 
   it("renders inline formatting and cell styles", async () => {
-    const html = await render(
-      "@sheet S\n| *Bold* | _Italic_ | ~~Gone~~ |\n| value[bg:red][bold] | # Big | ## Bigger |\n| mix[#bg:#111:#eee] | named[red] | ### Small[strike] |"
-    );
+    const html = await render("@sheet S\n| *Bold* | _Italic_ | ~~Gone~~ |\n| value[bg:red][bold] | # Big | ## Bigger |\n| mix[#bg:#111:#eee] | named[red] | ### Small[strike] |");
     expect(html).toContain('<span class="cello-bold">Bold</span>');
     expect(html).toContain('<span class="cello-italic">Italic</span>');
     expect(html).toContain("<del>Gone</del>");
@@ -56,6 +58,20 @@ describe("render", () => {
     expect(html).not.toContain("onclick");
     expect(html).not.toContain('style="background:red"');
     expect(html).not.toContain("not-a-color");
+  });
+
+  it("escapes hostile workbook content and binds scripts to the document CSP nonce", async () => {
+    const html = await render('@sheet <img src=x onerror=alert(1)>\n| <script>alert(1)</script> | " autofocus onfocus=alert(1) |', {
+      title: "<svg onload=alert(1)>",
+      nonce: "test-nonce"
+    });
+
+    expect(html).toContain("Content-Security-Policy");
+    expect(html).toContain("script-src 'nonce-test-nonce'");
+    expect(html).toContain('<script nonce="test-nonce">');
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).not.toContain("<svg onload=");
+    expect(html).not.toContain('data-sheet="<img');
   });
 
   it("renders supported tone modifiers as overridable css classes", async () => {
@@ -94,7 +110,7 @@ describe("render", () => {
     );
 
     expect(html).toContain("table-layout: auto");
-    expect(html).toContain("<colgroup><col style=\"width:36px\"><col><col><col><col></colgroup>");
+    expect(html).toContain('<colgroup><col style="width:36px"><col><col><col><col></colgroup>');
     expect(html).toContain(".cello-fit-measure-row { visibility: collapse; }");
     expect(html).toContain("cello-fit-measure-row");
     expect(html).toContain("€12.50");
@@ -105,7 +121,7 @@ describe("render", () => {
   it("uses formula computed values for fit width", async () => {
     const html = await render("@sheet S [columns:fit]\n@header | Formula |\n| =10000000000000 |");
 
-    expect(html).toContain("<colgroup><col style=\"width:36px\"><col></colgroup>");
+    expect(html).toContain('<colgroup><col style="width:36px"><col></colgroup>');
     expect(html).toContain(">10000000000000<");
     expect(html).not.toContain("=10000000000000");
   });
@@ -113,7 +129,7 @@ describe("render", () => {
   it("formats formula fit values and keeps only fake modifiers in literal fit values", async () => {
     const html = await render("@sheet S [columns:fit]\n@header | F | Literal |\n| =SUM(2+2)[$][bold] | hello world[fake][italic] |");
 
-    expect(html).toContain("<colgroup><col style=\"width:36px\"><col><col></colgroup>");
+    expect(html).toContain('<colgroup><col style="width:36px"><col><col></colgroup>');
     expect(html).toContain("$4");
     expect(html).toContain("hello world[fake]");
     expect(html).not.toContain("=SUM(2+2)");
@@ -127,7 +143,9 @@ describe("render", () => {
   });
 
   it("falls back for unknown layout values and supports multi-line ellipsis clamps", async () => {
-    const html = await render("@sheet S\n@header | A[width:unknown] |\n[ellipsis][height:3] | Long content that should be clamped across lines |\n[wrap][height:unknown] | Unknown height falls back |");
+    const html = await render(
+      "@sheet S\n@header | A[width:unknown] |\n[ellipsis][height:3] | Long content that should be clamped across lines |\n[wrap][height:unknown] | Unknown height falls back |"
+    );
 
     expect(html).toContain("width:calc(12ch + 16px)");
     expect(html).toContain(".cello-ellipsis:not(.cello-line-clamp) .cello-cell-content");
@@ -139,9 +157,7 @@ describe("render", () => {
 
   it("renders numeric display modifiers from columns, rows and cells", async () => {
     const html = await render(
-      "@sheet S\n@header | Item | Price[€][2d] | Margin[%][1d] | Units[0d] |\n" +
-        "[0d] | Discount | 1.2 | 0.125 | 3.8 |\n" +
-        "| Regular | 2[£][0d] | 0.5[2d] | 4.2 |"
+      "@sheet S\n@header | Item | Price[€][2d] | Margin[%][1d] | Units[0d] |\n" + "[0d] | Discount | 1.2 | 0.125 | 3.8 |\n" + "| Regular | 2[£][0d] | 0.5[2d] | 4.2 |"
     );
 
     expect(html).toContain('<span class="cello-cell-content">€1</span>');
@@ -160,9 +176,7 @@ describe("render", () => {
   });
 
   it("renders literal defaults and formula-cell numeric modifiers", async () => {
-    const html = await render(
-      '@sheet S\n@header | Status | Amount |\n@defaults | "Pending" | |\n| | 2 |\n| Done | 3 |\n[bold] | Total | =SUM(Amount)[$][2d] |'
-    );
+    const html = await render('@sheet S\n@header | Status | Amount |\n@defaults | "Pending" | |\n| | 2 |\n| Done | 3 |\n[bold] | Total | =SUM(Amount)[$][2d] |');
 
     expect(html).toContain('<span class="cello-cell-content">Pending</span>');
     expect(html).toContain('<span class="cello-cell-content">Done</span>');
@@ -172,8 +186,12 @@ describe("render", () => {
   it("renders spreadsheet coordinate chrome around sheets", async () => {
     const html = await render("@sheet S\n@header | Name | Amount |\n| Ada | 5 |");
     expect(html).toContain('<thead><tr><th class="cello-corner-index"></th><th class="cello-column-index">A</th><th class="cello-column-index">B</th></tr></thead>');
-    expect(html).toContain('<tr><th class="cello-row-index" scope="row">1</th><th class="cello-wrap"><span class="cello-cell-content">Name</span></th><th class="cello-wrap"><span class="cello-cell-content">Amount</span></th></tr>');
-    expect(html).toContain('<tr><th class="cello-row-index" scope="row">2</th><td class="cello-wrap"><span class="cello-cell-content">Ada</span></td><td class="cello-wrap"><span class="cello-cell-content">5</span></td></tr>');
+    expect(html).toContain(
+      '<tr><th class="cello-row-index" scope="row">1</th><th class="cello-wrap"><span class="cello-cell-content">Name</span></th><th class="cello-wrap"><span class="cello-cell-content">Amount</span></th></tr>'
+    );
+    expect(html).toContain(
+      '<tr><th class="cello-row-index" scope="row">2</th><td class="cello-wrap"><span class="cello-cell-content">Ada</span></td><td class="cello-wrap"><span class="cello-cell-content">5</span></td></tr>'
+    );
   });
 
   it("extends column letters to rendered row width", async () => {

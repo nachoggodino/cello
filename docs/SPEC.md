@@ -59,7 +59,7 @@ A `.cel` file contains one or more **sheets**. Each sheet is declared with `@she
 @sheet SheetName [format]
 ```
 
-- `SheetName` is case-sensitive.
+- `SheetName` is case-sensitive. Identity comparison normalizes Unicode to NFC; duplicate names and ambiguous aliases are errors.
 - `[format]` is optional — if omitted, the sheet uses native Cello syntax.
 - An optional external source line can be provided immediately after the sheet declaration:
   - `-> /ruta/al/archivo.ext`
@@ -102,11 +102,11 @@ Any single character can be used as a delimiter:
 
 Named aliases are available as shorthand:
 
-| Alias     | Equivalent | Notes |
-|-----------|------------|-------|
-| `[csv]`   | `[,]`      | RFC 4180 compliant |
-| `[tsv]`   | `[\t]`     | |
-| `[excel]` | `[;]`      | European Excel default |
+| Alias     | Equivalent | Notes                                                                                      |
+| --------- | ---------- | ------------------------------------------------------------------------------------------ |
+| `[csv]`   | `[,]`      | Quoted fields and doubled quotes; multiline quoted fields are outside the supported subset |
+| `[tsv]`   | `[\t]`     |                                                                                            |
+| `[excel]` | `[;]`      | European Excel default                                                                     |
 
 The `noheader` flag is available for all delimited formats:
 
@@ -127,9 +127,12 @@ You can load a sheet from an external file while keeping the same format declara
 ```
 
 Rules:
-- `-> path` must appear before any row content in that sheet.
-- Relative paths are resolved from the parser `baseDir` (or process cwd when omitted).
-- If loading fails, parsing continues with a warning diagnostic.
+
+- `-> path` must appear before row content and requires an explicitly declared non-Cello raw-data format.
+- Core parsing performs no filesystem access by default. A host must provide a read capability, base directory, and real-path-contained allowed root.
+- URLs, `.cel` files, unsupported/mismatched extensions, traversal, symlink escapes, nested arrows, and multiple sources are rejected.
+- Reads are bounded by configurable byte, row, column, and cell limits. Failure is an error diagnostic; tolerant parsing continues with the remaining workbook.
+- External sheets are read-only. CLI reads happen per invocation; the VS Code host watches dependencies and refreshes on creation, change, or deletion.
 
 ### 3.3 Markdown tables
 
@@ -154,8 +157,9 @@ The separator row (`|---|---|`) is ignored. First row is treated as headers. Thi
 ]
 ```
 
-- Only flat arrays of objects are supported in v1.0.
-- First object's keys become column headers.
+- Only flat arrays of objects are supported in v1.0; nested arrays and objects are diagnosed as errors.
+- First object's keys become column headers. Strings remain strings; numbers and booleans use their textual scalar form; `null` becomes an empty cell.
+- Foreign-format values are always literal data even when they resemble formulas, directives, modifiers, merges, or aliases.
 - For complex nested JSON, flatten externally first and paste the result.
 - JSONPath selection is planned for v1.1: `[json:$.items]`
 
@@ -271,12 +275,12 @@ They are used as `[tone:notes]`, `[width:description]`, and `[height:note]`; bar
 
 Types are inferred automatically:
 
-| Type    | Rule                          | Example       |
-|---------|-------------------------------|---------------|
-| Number  | Parseable as numeric          | `42`, `3.14`  |
-| Date    | Matches `YYYY-MM-DD`          | `2024-01-15`  |
-| Boolean | Literal `TRUE` or `FALSE`     | `TRUE`        |
-| Text    | Anything else                 | `hello`, `—`  |
+| Type    | Rule                      | Example      |
+| ------- | ------------------------- | ------------ |
+| Number  | Parseable as numeric      | `42`, `3.14` |
+| Date    | Matches `YYYY-MM-DD`      | `2024-01-15` |
+| Boolean | Literal `TRUE` or `FALSE` | `TRUE`       |
+| Text    | Anything else             | `hello`, `—` |
 
 Force text type with double quotes:
 
@@ -335,6 +339,12 @@ Use `!` as the separator:
 =SUM(!!amount)
 ```
 
+Named-reference translation is intentionally narrow. Row-name dot references such
+as `Sales!north.Total` and direct file-style formula addressing are not part of
+Cello 1.0; use named columns or explicit A1 coordinates instead. HyperFormula's
+`COUNT` counts numeric values, while `COUNTA` counts non-empty text and mixed
+values.
+
 ### 9.3 Formula evaluation order
 
 Dependencies are resolved automatically via topological sort (HyperFormula). Circular references are detected and reported as `#CIRCULAR!`.
@@ -372,14 +382,14 @@ Merge tokens are resolved during the single-pass parse using the previously buil
 
 Markdown-style inline formatting is supported inside cell content:
 
-| Syntax        | Result              |
-|---------------|---------------------|
-| `*texto*`     | **bold**            |
-| `_texto_`     | *italic*            |
-| `~~texto~~`   | ~~strikethrough~~   |
-| `# texto`     | Heading style (`cello-h2`) |
-| `## texto`    | Heading style (`cello-h1`) |
-| `### texto`   | Heading style (`cello-h3`) |
+| Syntax      | Result                     |
+| ----------- | -------------------------- |
+| `*texto*`   | **bold**                   |
+| `_texto_`   | _italic_                   |
+| `~~texto~~` | ~~strikethrough~~          |
+| `# texto`   | Heading style (`cello-h2`) |
+| `## texto`  | Heading style (`cello-h1`) |
+| `### texto` | Heading style (`cello-h3`) |
 
 `#`, `##`, and `###` apply to the entire cell and cannot be combined with other inline formatting in the same cell.
 
@@ -395,19 +405,19 @@ celda[bold][bg:red]
 
 **Modifier scope and inheritance:**
 
-| Where applied | Scope |
-|---------------|-------|
-| Column header `@header | Col[mod] |` | All cells in that column |
-| Row name `ref[mod]` | All cells in that row |
-| Individual cell `value[mod]` | That cell only |
+| Where applied                | Scope                 |
+| ---------------------------- | --------------------- |
+| Column header `@header       | Col[mod]              | `   | All cells in that column |
+| Row name `ref[mod]`          | All cells in that row |
+| Individual cell `value[mod]` | That cell only        |
 
 Individual cell modifiers **override** column and row modifiers on conflict. Row modifiers override column modifiers.
 
 ### 12.1 Column defaults
 
-| Modifier | Meaning |
-|----------|---------|
-| `@defaults | ... |` | Fill empty cells in each matching column with a default value or formula |
+| Modifier   | Meaning |
+| ---------- | ------- |
+| `@defaults | ...     | `   | Fill empty cells in each matching column with a default value or formula |
 
 `default` is a column-only behavior declared in a non-rendered `@defaults` row below the active header. Header, row, and cell-level default modifiers are ignored. Defaults that start with `=` are formulas. Defaults that do not start with `=` are parsed as literal values. Explicit row values and formulas always win over the column default.
 
@@ -422,46 +432,46 @@ Individual cell modifiers **override** column and row modifiers on conflict. Row
 
 ### 12.2 Numeric format
 
-| Modifier | Meaning |
-|----------|---------|
-| `[€]`    | Prefix with € symbol |
-| `[$]`    | Prefix with $ symbol |
-| `[£]`    | Prefix with £ symbol |
-| `[%]`    | Percentage format |
+| Modifier | Meaning                                |
+| -------- | -------------------------------------- |
+| `[€]`    | Prefix with € symbol                   |
+| `[$]`    | Prefix with $ symbol                   |
+| `[£]`    | Prefix with £ symbol                   |
+| `[%]`    | Percentage format                      |
 | `[Nd]`   | N decimal places (e.g. `[2d]`, `[0d]`) |
 
 These modifiers are parsed, preserved in AST, and applied by the renderer to numeric cells, including evaluated formula cells such as `=SUM(Amount)[$][2d]`. When used on a column header, they apply to every numeric cell in that column. Row and cell modifiers follow the normal precedence rules, so a row or cell can override column decimal/currency choices. Percent display multiplies numeric values by 100 before appending `%`.
 
 ### 12.3 Color
 
-| Syntax         | Meaning |
-|----------------|---------|
-| `[#rrggbb]`    | Text color (hex) |
-| `[bg:#rrggbb]` | Background color (hex) |
-| `[colorname]`  | Text color (CSS named color) |
-| `[bg:colorname]` | Background color (CSS named color) |
-| `[#bg:#fg]`    | Both colors shorthand: background:text |
+| Syntax           | Meaning                                |
+| ---------------- | -------------------------------------- |
+| `[#rrggbb]`      | Text color (hex)                       |
+| `[bg:#rrggbb]`   | Background color (hex)                 |
+| `[colorname]`    | Text color (CSS named color)           |
+| `[bg:colorname]` | Background color (CSS named color)     |
+| `[#bg:#fg]`      | Both colors shorthand: background:text |
 
 Named colors are standard CSS color names (`red`, `blue`, `green`, `orange`, `gold`, etc.).
 
 ### 12.4 Style
 
-| Modifier   | Meaning |
-|------------|---------|
-| `[bold]`   | Bold text |
-| `[italic]` | Italic text |
+| Modifier   | Meaning                                                       |
+| ---------- | ------------------------------------------------------------- |
+| `[bold]`   | Bold text                                                     |
+| `[italic]` | Italic text                                                   |
 | `[hidden]` | Parsed metadata flag (render-time hiding not implemented yet) |
 
 ### 12.5 Tone presets
 
-| Modifier | Meaning |
-|----------|---------|
-| `[tone:ok]` | Positive/success emphasis |
-| `[tone:warn]` | Warning/caution emphasis |
-| `[tone:error]` | Error/failure emphasis |
-| `[tone:info]` | Informational emphasis |
-| `[tone:muted]` | Secondary/de-emphasized emphasis |
-| `[tone:accent]` | Primary highlight emphasis |
+| Modifier        | Meaning                          |
+| --------------- | -------------------------------- |
+| `[tone:ok]`     | Positive/success emphasis        |
+| `[tone:warn]`   | Warning/caution emphasis         |
+| `[tone:error]`  | Error/failure emphasis           |
+| `[tone:info]`   | Informational emphasis           |
+| `[tone:muted]`  | Secondary/de-emphasized emphasis |
+| `[tone:accent]` | Primary highlight emphasis       |
 
 Tone presets are rendered as CSS classes (`cello-tone-*`) rather than inline colors so host applications can override them with custom CSS. The built-in renderer defines default foreground/background pairs through CSS variables on `.cello-workbook`.
 
@@ -497,39 +507,39 @@ Ana,25,120
 
 Primary non-strict contract: parsing/evaluation tries to continue and diagnostics accumulate on `workbook.diagnostics`.
 
-| Stage | Behavior |
-|-------|----------|
-| Parse | Non-row native lines -> warning diagnostics and skipped |
-| Parse (json sheet) | Invalid JSON -> warning + single fallback text row |
-| Evaluate | Missing HyperFormula -> warning, formulas left unresolved |
-| Evaluate | Engine/runtime failure -> error diagnostic; throw only in strict evaluate mode |
-| Formula parse error in engine | `computed` falls back to original formula text |
+| Stage              | Behavior                                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Parse              | Non-row native lines -> warning diagnostics and skipped                                                              |
+| Parse (json sheet) | Invalid or non-flat JSON -> error diagnostic + single fallback text row                                              |
+| External source    | Missing capability, unsafe path, unsupported content, or limit violation -> error diagnostic                         |
+| Evaluate           | Missing HyperFormula -> warning, formulas left unresolved                                                            |
+| Evaluate           | Syntax, unknown-reference, and runtime failures -> distinct error diagnostics; safe cell fallback remains renderable |
 
-**Strict mode:** `strict: true` propagates parse/evaluate throws; warnings alone do not throw.
+**Strict mode:** `strict: true` propagates parse/evaluate throws; warnings alone do not throw. Ordinary `validate()` fails on every error category and succeeds with warnings. `structuralOnly` explicitly skips formula evaluation; `warningsAsErrors` is available for repository-quality gates.
 
 ```javascript
-render(celContent, { strict: true })  // throws when parse/evaluate throw
-render(celContent)                    // returns HTML, diagnostics on AST/eval path
+render(celContent, { strict: true }); // throws when parse/evaluate throw
+render(celContent); // returns HTML, diagnostics on AST/eval path
 ```
 
 ---
 
 ## 15. Reserved Tokens
 
-| Token      | Meaning |
-|------------|---------|
-| `@sheet`   | Sheet declaration |
-| `=`        | Formula prefix (start of cell value) |
-| `<`        | Horizontal merge continuation |
-| `^`        | Vertical merge continuation |
-| `@header`  | Column header row marker |
-| `//`       | Comment (outside rows only) |
-| `"..."`    | Force text type |
-| `!`        | Cross-sheet reference separator |
-| `->`       | External sheet source line |
-| `[n]`      | Single row in column references |
-| `[n:m]`    | Row range in column references |
-| `[...]`    | Modifier block |
+| Token     | Meaning                              |
+| --------- | ------------------------------------ |
+| `@sheet`  | Sheet declaration                    |
+| `=`       | Formula prefix (start of cell value) |
+| `<`       | Horizontal merge continuation        |
+| `^`       | Vertical merge continuation          |
+| `@header` | Column header row marker             |
+| `//`      | Comment (outside rows only)          |
+| `"..."`   | Force text type                      |
+| `!`       | Cross-sheet reference separator      |
+| `->`      | External sheet source line           |
+| `[n]`     | Single row in column references      |
+| `[n:m]`   | Row range in column references       |
+| `[...]`   | Modifier block                       |
 
 ---
 
@@ -571,12 +581,11 @@ Marta,25,Barcelona,95
 
 ### 17.1 Library architecture
 
-The reference implementation is a TypeScript/JavaScript npm package called `@nachoggodino/cello`. It exposes six core functions:
+The reference implementation is a TypeScript/JavaScript npm package called `@nachoggodino/cello`. It exposes five core functions:
 
 ```typescript
 parse(text: string, options?): AST
 evaluate(ast: AST, options?): Promise<AST>
-format(text: string): string
 formatSource(text: string, options?: { layout?: "compact" | "pretty", range?: { start: number, end: number } }): string
 validate(text: string, options?): Promise<{ valid: boolean, diagnostics: Diagnostic[] }>
 render(input: string | AST, options?: { strict?, title?, baseDir?, evaluate?, format?: "document" | "fragment" }): Promise<string>
@@ -593,14 +602,15 @@ all source changes to the shared editor session.
 The parser processes the file in a **single pass**, line by line. It maintains these state variables:
 
 ```javascript
-let currentSheet = null
-let currentHeaders = []
-let previousRowByColumn = new Map()
-let jsonBufferBySheet = new Map()
-let consumedDelimitedHeaderBySheet = new Set()
+let currentSheet = null;
+let currentHeaders = [];
+let previousRowByColumn = new Map();
+let jsonBufferBySheet = new Map();
+let consumedDelimitedHeaderBySheet = new Set();
 ```
 
 For each line, the parser checks in order:
+
 1. Is it a comment (`//`)? → skip
 2. Is it a `@sheet` declaration? → open new sheet, reset state
 3. Is it a header row (`@header | ... |`)? → update `currentHeaders`
@@ -610,6 +620,7 @@ For each line, the parser checks in order:
 7. Otherwise → handle by active sheet format rules (native/delimited/markdown/json)
 
 Merge tokens are resolved immediately during row parsing:
+
 - `<` → extend the previous cell's `colspan` in the current row
 - `^` → extend the cell above's `rowspan` in `lastRow` at the same column index
 
@@ -655,7 +666,7 @@ The renderer evaluates by default, unless `evaluate: false` is passed. It walks 
 <script> /* inline tab switching JS */ </script>
 ```
 
-`format: "document"` is the default and returns a self-contained HTML document (`<!doctype html>`) with `html`, `head`, and `body` wrappers. `format: "fragment"` returns only the inline CSS, workbook container, and inline JS so the output can be embedded inside an existing page. No external dependencies are required in either format.
+`format: "document"` is the default and returns a self-contained HTML document (`<!doctype html>`) with `html`, `head`, and `body` wrappers. It includes a restrictive Content Security Policy and a per-render nonce for its optional interaction script. `format: "fragment"` returns inline CSS, the workbook container, and nonce-bearing inline JS for embedding into an appropriately configured parent. All workbook/imported values are context-escaped; raw HTML and unsafe URL execution are unsupported. No external dependencies are required in either format.
 
 Rendered tables include spreadsheet coordinate chrome: a synthetic top row displays column letters (`A`, `B`, `C`...), and a synthetic first column displays semantic row numbers. This chrome is presentation-only; it is not part of the AST or `.cel` source text. Header rows use the same row numbering as formulas, so a header at the top of a sheet is row `1` and the first value row below it is row `2`.
 
@@ -677,28 +688,28 @@ new sheets when a document command has no existing source span to patch.
 
 ### 17.6 Ecosystem components
 
-| Component | Description | Priority |
-|-----------|-------------|----------|
-| `@nachoggodino/cello` (npm) | GPLv3 core library: parse, evaluate, format, validate, render | v1 |
-| `cello` CLI | CLI tool: `cello render file.cel > out.html`; `cello serve file.cel` for live previews | v1 |
-| `cello-playground` | Web playground: split-view editor + live preview | v1 |
-| `@nachoggodino/cello/editor-core` | Source-preserving workbook editing model, commands, selectors, and evaluation helpers | v1 |
-| `@nachoggodino/cello/editor-react` | React source, preview, visual editor, optional workbench, and stylesheet | v1 |
-| `cello-python` | Python port of parser + renderer | v2 |
-| `cello-vscode` | VSCode extension with live preview | v2 |
+| Component                          | Description                                                                            | Priority |
+| ---------------------------------- | -------------------------------------------------------------------------------------- | -------- |
+| `@nachoggodino/cello` (npm)        | GPLv3 core library: parse, evaluate, formatSource, validate, render                    | v1       |
+| `cello` CLI                        | CLI tool: `cello render file.cel > out.html`; `cello serve file.cel` for live previews | v1       |
+| `cello-playground`                 | Web playground: split-view editor + live preview                                       | v1       |
+| `@nachoggodino/cello/editor-core`  | Source-preserving document/session commands and persisted-command schema               | v1       |
+| `@nachoggodino/cello/editor-react` | React source, preview, visual editor, optional workbench, and stylesheet               | v1       |
+| `cello-python`                     | Python port of parser + renderer                                                       | v2       |
+| `cello-vscode`                     | VSCode extension with live preview                                                     | v2       |
 
 ### 17.7 Format converters
 
 Converters transform external formats into `.cel` text. They are separate utilities, not part of the core library.
 
-| Converter | Input | Output | Notes |
-|-----------|-------|--------|-------|
-| `fromCSV(csv, sheetName?)` | CSV string | `@sheet [csv]` block | Trivial |
-| `fromXLSX(buffer)` | Excel binary | Multi-sheet `.cel` | Via SheetJS |
-| `fromMarkdown(md)` | Markdown tables | `@sheet [markdown]` block | |
-| `fromJSON(json, path?)` | JSON array | `@sheet [json]` block | Flat arrays only |
-| `toCSV(cel, sheet)` | `.cel` text | CSV string | Per-sheet export |
-| `toXLSX(cel)` | `.cel` text | Excel binary | Via SheetJS |
+| Converter                  | Input           | Output                    | Notes            |
+| -------------------------- | --------------- | ------------------------- | ---------------- |
+| `fromCSV(csv, sheetName?)` | CSV string      | `@sheet [csv]` block      | Trivial          |
+| `fromXLSX(buffer)`         | Excel binary    | Multi-sheet `.cel`        | Via SheetJS      |
+| `fromMarkdown(md)`         | Markdown tables | `@sheet [markdown]` block |                  |
+| `fromJSON(json, path?)`    | JSON array      | `@sheet [json]` block     | Flat arrays only |
+| `toCSV(cel, sheet)`        | `.cel` text     | CSV string                | Per-sheet export |
+| `toXLSX(cel)`              | `.cel` text     | Excel binary              | Via SheetJS      |
 
 ---
 
@@ -724,6 +735,7 @@ The LLM reads only the first N rows to understand the schema, then generates the
 ### 18.2 Use case examples
 
 **Sales analysis**
+
 ```
 "Here's our monthly sales CSV. Group by region, show total and average ticket."
 → LLM generates KPI sheet with SUMIF/COUNTIF/AVGIF per region
@@ -732,6 +744,7 @@ The LLM reads only the first N rows to understand the schema, then generates the
 ```
 
 **Budget vs actuals**
+
 ```
 "Here are my actual expenses and my budget plan."
 → Sheet 1: actuals [csv], Sheet 2: budget [csv]
@@ -740,6 +753,7 @@ The LLM reads only the first N rows to understand the schema, then generates the
 ```
 
 **Financial due diligence**
+
 ```
 "Here are 3 years of P&L data."
 → One sheet per year [csv]
@@ -748,6 +762,7 @@ The LLM reads only the first N rows to understand the schema, then generates the
 ```
 
 **Data reconciliation**
+
 ```
 "These two CSVs should match. Find discrepancies."
 → Sheet 1 and Sheet 2 with source data
@@ -756,6 +771,7 @@ The LLM reads only the first N rows to understand the schema, then generates the
 ```
 
 **Projection modeling**
+
 ```
 "If I grow 10% monthly from €1000, show me 12 months."
 → LLM generates single sheet with growth formula per row
@@ -763,9 +779,11 @@ The LLM reads only the first N rows to understand the schema, then generates the
 ```
 
 **LLM reading back evaluated results**
+
 ```
 // Two-step agentic flow:
 Step 1: LLM generates .cel with formulas
 Step 2: cello_evaluate() resolves all formulas to values
 Step 3: cello_to_markdown_table() converts result sheet to plain text
 Step 4: LLM reads plain numbers and generates written ana
+```

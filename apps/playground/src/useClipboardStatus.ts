@@ -11,7 +11,9 @@ export function useClipboardStatus() {
       await navigator.clipboard.writeText(value);
       setActionMessage(`${label} copied.`);
       setCopiedTarget(label);
-      window.setTimeout(() => { setCopiedTarget((current) => (current === label ? "" : current)); }, copiedStatusMs);
+      window.setTimeout(() => {
+        setCopiedTarget((current) => (current === label ? "" : current));
+      }, copiedStatusMs);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setActionMessage(`Copy failed: ${message}`);
@@ -36,12 +38,16 @@ export function useClipboardStatus() {
       }
       setActionMessage(`${label} copied.`);
       setCopiedTarget(label);
-      window.setTimeout(() => { setCopiedTarget((current) => (current === label ? "" : current)); }, copiedStatusMs);
+      window.setTimeout(() => {
+        setCopiedTarget((current) => (current === label ? "" : current));
+      }, copiedStatusMs);
     } catch (error) {
       if (copyViaExecCommand(payload)) {
         setActionMessage(`${label} copied.`);
         setCopiedTarget(label);
-        window.setTimeout(() => { setCopiedTarget((current) => (current === label ? "" : current)); }, copiedStatusMs);
+        window.setTimeout(() => {
+          setCopiedTarget((current) => (current === label ? "" : current));
+        }, copiedStatusMs);
         return;
       }
       const message = error instanceof Error ? error.message : String(error);

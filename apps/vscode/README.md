@@ -37,6 +37,10 @@ External files are resolved from the containing workspace folder. Reads outside 
 
 - `cello.preview.debounceMs`: delay before refreshing the live preview after edits. Default: `250`.
 
+## License
+
+GPL-3.0-only. The packaged extension includes the complete license and notice.
+
 ## Requirements
 
 No separate Cello CLI installation is required. The extension bundles the published `@nachoggodino/cello` renderer for local previews.

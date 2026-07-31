@@ -14,10 +14,8 @@ body {
   min-width: var(--app-min-width);
   overflow: hidden;
   background:
-    radial-gradient(circle at 14% 14%, var(--orange-wash), transparent 32%),
-    radial-gradient(circle at 86% 12%, var(--blue-wash), transparent 30%),
-    radial-gradient(circle at 70% 92%, var(--green-wash), transparent 30%),
-    linear-gradient(135deg, var(--page) 0%, var(--page-highlight) 48%, var(--page-2) 100%);
+    radial-gradient(circle at 14% 14%, var(--orange-wash), transparent 32%), radial-gradient(circle at 86% 12%, var(--blue-wash), transparent 30%),
+    radial-gradient(circle at 70% 92%, var(--green-wash), transparent 30%), linear-gradient(135deg, var(--page) 0%, var(--page-highlight) 48%, var(--page-2) 100%);
 }
 
 body::before {

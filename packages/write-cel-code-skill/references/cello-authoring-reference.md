@@ -1,3 +1,5 @@
+<!-- cello-bylaws-sha256: ae8d0dee084990f69113d039cba021c8b0ac58bd47f03fdaec4086d4fa4c7fb6 -->
+
 # Cello Authoring Reference
 
 This is the compact installed reference for day-to-day `.cel` authoring. For canonical syntax details and edge cases, read [BYLAWS.md](BYLAWS.md). For formula selection and syntax, read [hyperformula-functions.md](hyperformula-functions.md).
@@ -16,15 +18,15 @@ Sheet names are case-sensitive. Sheet content continues until the next `@sheet`.
 
 ## Sheet Formats
 
-| Format | Use |
-|---|---|
+| Format              | Use                                               |
+| ------------------- | ------------------------------------------------- |
 | Native, no modifier | Formulas, formatting, headers, merges, dashboards |
-| `[csv]` or `[,]` | Comma-separated source data |
-| `[tsv]` or `[\t]` | Tab-separated source data |
-| `[excel]` or `[;]` | Semicolon-separated source data |
-| `[markdown]` | Pasted Markdown tables |
-| `[json]` | Flat arrays of objects |
-| `[x:noheader]` | Delimited input where the first row is data |
+| `[csv]` or `[,]`    | Comma-separated source data                       |
+| `[tsv]` or `[\t]`   | Tab-separated source data                         |
+| `[excel]` or `[;]`  | Semicolon-separated source data                   |
+| `[markdown]`        | Pasted Markdown tables                            |
+| `[json]`            | Flat arrays of objects                            |
+| `[x:noheader]`      | Delimited input where the first row is data       |
 
 External source:
 
@@ -70,28 +72,28 @@ Defaults that start with `=` are formulas. Defaults that do not start with `=` a
 
 ## Types
 
-| Type | Example |
-|---|---|
-| Number | `42`, `3.14` |
-| Date | `2026-01-15` |
-| Boolean | `TRUE`, `FALSE` |
-| Text | `North`, `pending` |
+| Type        | Example             |
+| ----------- | ------------------- |
+| Number      | `42`, `3.14`        |
+| Date        | `2026-01-15`        |
+| Boolean     | `TRUE`, `FALSE`     |
+| Text        | `North`, `pending`  |
 | Forced text | `"00123"`, `"TRUE"` |
 
 ## Formulas
 
-| Pattern | Meaning |
-|---|---|
-| `=B2*C2` | Coordinate reference |
-| `=Price*Quantity` | Same-row named column reference |
-| `=SUM(Total)` | Sum previous rows in current sheet |
-| `=SUM(Total[*])` | Sum full named column |
-| `=SUM(Total[2:5])` | Sum row slice |
-| `=Total[2]` | Single row in named column |
-| `=Sales!B4` | Cross-sheet coordinate |
-| `=Sales!Total[2]` | Cross-sheet named row |
-| `=SUM(Sales!Total[*])` | Cross-sheet named full column |
-| `=SUM(!!Amount)` | Named column on first sheet |
+| Pattern                | Meaning                            |
+| ---------------------- | ---------------------------------- |
+| `=B2*C2`               | Coordinate reference               |
+| `=Price*Quantity`      | Same-row named column reference    |
+| `=SUM(Total)`          | Sum previous rows in current sheet |
+| `=SUM(Total[*])`       | Sum full named column              |
+| `=SUM(Total[2:5])`     | Sum row slice                      |
+| `=Total[2]`            | Single row in named column         |
+| `=Sales!B4`            | Cross-sheet coordinate             |
+| `=Sales!Total[2]`      | Cross-sheet named row              |
+| `=SUM(Sales!Total[*])` | Cross-sheet named full column      |
+| `=SUM(!!Amount)`       | Named column on first sheet        |
 
 In scalar formulas, a bare column name means the current row. In aggregate formulas, a bare column name means previous rows above the formula row.
 
@@ -99,17 +101,17 @@ Use `COUNT` for numeric cells and `COUNTA` for non-empty text or mixed cells. Se
 
 ## Modifiers
 
-| Modifier | Meaning |
-|---|---|
-| `[€]`, `[$]`, `[£]` | Currency display |
-| `[%]` | Percent display |
-| `[0d]`, `[1d]`, `[2d]` | Decimal places |
-| `[bold]`, `[italic]` | Text emphasis |
-| `[#rrggbb]`, `[colorname]` | Text color |
-| `[bg:#rrggbb]`, `[bg:colorname]` | Background color |
-| `[#bg:#rrggbb:#rrggbb]` | Background and text shorthand |
-| `[tone:ok]`, `[tone:warn]`, `[tone:error]`, `[tone:info]`, `[tone:muted]`, `[tone:accent]` | Semantic tone |
-| `[hidden]` | Hidden metadata for tooling; current renderer does not hide cells yet |
+| Modifier                                                                                   | Meaning                                                               |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `[€]`, `[$]`, `[£]`                                                                        | Currency display                                                      |
+| `[%]`                                                                                      | Percent display                                                       |
+| `[0d]`, `[1d]`, `[2d]`                                                                     | Decimal places                                                        |
+| `[bold]`, `[italic]`                                                                       | Text emphasis                                                         |
+| `[#rrggbb]`, `[colorname]`                                                                 | Text color                                                            |
+| `[bg:#rrggbb]`, `[bg:colorname]`                                                           | Background color                                                      |
+| `[#bg:#rrggbb:#rrggbb]`                                                                    | Background and text shorthand                                         |
+| `[tone:ok]`, `[tone:warn]`, `[tone:error]`, `[tone:info]`, `[tone:muted]`, `[tone:accent]` | Semantic tone                                                         |
+| `[hidden]`                                                                                 | Hidden metadata for tooling; current renderer does not hide cells yet |
 
 Scopes:
 
@@ -137,13 +139,13 @@ Merge tokens:
 
 Inline formatting:
 
-| Syntax | Meaning |
-|---|---|
-| `*text*` | Bold |
-| `_text_` | Italic |
-| `~~text~~` | Strikethrough |
-| `# text` | Heading-style cell |
-| `## text` | Larger heading-style cell |
+| Syntax     | Meaning                   |
+| ---------- | ------------------------- |
+| `*text*`   | Bold                      |
+| `_text_`   | Italic                    |
+| `~~text~~` | Strikethrough             |
+| `# text`   | Heading-style cell        |
+| `## text`  | Larger heading-style cell |
 
 ## Comments And Reserved Tokens
 

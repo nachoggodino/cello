@@ -515,9 +515,7 @@ describe("CelloVisualEditor", () => {
 
   it("rejects paste that splits a merge and accepts an exact merge layout", async () => {
     const onSourceChange = vi.fn();
-    const readText = vi.fn()
-      .mockResolvedValueOnce("X")
-      .mockResolvedValueOnce("X\t<");
+    const readText = vi.fn().mockResolvedValueOnce("X").mockResolvedValueOnce("X\t<");
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
     await renderEditor("@sheet Report\n| A | < | C |", onSourceChange);
 
@@ -572,16 +570,20 @@ describe("CelloVisualEditor", () => {
 
     const editor = editCell("A1");
     editor.setSelectionRange(1, 1);
-    const pointerAccepted = editor.dispatchEvent(new MouseEvent("mousedown", {
-      bubbles: true,
-      cancelable: true,
-      detail: 1
-    }));
-    const arrowAccepted = editor.dispatchEvent(new KeyboardEvent("keydown", {
-      key: "ArrowLeft",
-      bubbles: true,
-      cancelable: true
-    }));
+    const pointerAccepted = editor.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        detail: 1
+      })
+    );
+    const arrowAccepted = editor.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowLeft",
+        bubbles: true,
+        cancelable: true
+      })
+    );
 
     expect(pointerAccepted).toBe(true);
     expect(arrowAccepted).toBe(true);
@@ -683,33 +685,18 @@ describe("CelloVisualEditor", () => {
     expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Report\n| X | Y |\n| Z | 9 |");
   });
 
-  it("explains read-only CSV sheets and clears command warnings after 15 seconds", async () => {
-    vi.useFakeTimers();
-    try {
-      await renderEditor("@sheet RawData [csv]\nname,amount\nAda,5", vi.fn());
+  it("uses a simplified editable grid for embedded CSV sheets", async () => {
+    await renderEditor("@sheet RawData [csv]\nname,amount\nAda,5", vi.fn());
 
-      clickElement(screenCell("A2"));
-      clickButton("Bold");
-
-      expect(document.querySelector(".celloVisualCommandError")?.textContent).toContain("RawData");
-      expect(document.querySelector(".celloVisualCommandError")?.textContent).toContain("CSV");
-      expect(document.querySelector(".celloVisualCommandError")?.textContent).toContain("native Cello syntax");
-
-      act(() => {
-        vi.advanceTimersByTime(15000);
-      });
-
-      expect(document.querySelector(".celloVisualCommandError")).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(screenCell("A2").textContent).toContain("Ada");
+    expect(Array.from(document.querySelectorAll("button")).some((button) => button.textContent?.includes("Bold"))).toBe(false);
   });
 });
 
 async function renderEditor(
   source: string,
   onSourceChange: (source: string) => void,
-  props: Partial<Parameters<typeof CelloVisualEditor>[0]> = {}
+  props: Partial<Extract<Parameters<typeof CelloVisualEditor>[0], { source: string }>> = {}
 ): Promise<void> {
   const container = document.createElement("div");
   document.body.append(container);
@@ -755,8 +742,7 @@ function screenRowHeader(rowNumber: number): HTMLTableCellElement {
 }
 
 function screenColumnHeader(name: string): HTMLTableCellElement {
-  const header = Array.from(document.querySelectorAll<HTMLTableCellElement>("th[role='columnheader']"))
-    .find((candidate) => candidate.textContent === name);
+  const header = Array.from(document.querySelectorAll<HTMLTableCellElement>("th[role='columnheader']")).find((candidate) => candidate.textContent === name);
   expect(header).toBeTruthy();
   return header!;
 }
@@ -859,8 +845,7 @@ function setNativeValue(input: HTMLInputElement | HTMLTextAreaElement, value: st
 
 function chooseMenuOption(menuLabel: string, optionLabel: string): void {
   clickButton(menuLabel);
-  const option = Array.from(document.querySelectorAll<HTMLButtonElement>(".celloVisualValueOptions button"))
-    .find((candidate) => candidate.textContent === optionLabel);
+  const option = Array.from(document.querySelectorAll<HTMLButtonElement>(".celloVisualValueOptions button")).find((candidate) => candidate.textContent === optionLabel);
   clickElement(option ?? null);
 }
 

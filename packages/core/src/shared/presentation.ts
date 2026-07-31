@@ -31,7 +31,7 @@ export function getModifierStyleRules(modifiers: Modifier[]): string[] {
 }
 
 export function getToneClasses(modifiers: Modifier[], prefix = "cello-tone"): string[] {
-  return modifiers.flatMap((modifier) => modifier.key === "tone" && modifier.value && isToneName(modifier.value) ? [`${prefix}-${modifier.value}`] : []);
+  return modifiers.flatMap((modifier) => (modifier.key === "tone" && modifier.value && isToneName(modifier.value) ? [`${prefix}-${modifier.value}`] : []));
 }
 
 export function getRowLayoutClasses(rowLayout: ResolvedRowLayout): string[] {

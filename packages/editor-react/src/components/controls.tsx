@@ -28,25 +28,11 @@ export function IconButton({
   );
 }
 
-export function IconTextButton({
-  active,
-  disabled,
-  label,
-  onClick
-}: {
-  active?: boolean;
-  disabled?: boolean;
-  label: string;
-  onClick: () => void;
-}) {
+export function IconTextButton({ active, disabled, label, onClick }: { active?: boolean; disabled?: boolean; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      className={[
-        "celloVisualButton",
-        "celloVisualTextStyleButton",
-        active ? "active" : ""
-      ].filter(Boolean).join(" ")}
+      className={["celloVisualButton", "celloVisualTextStyleButton", active ? "active" : ""].filter(Boolean).join(" ")}
       aria-label={label}
       title={label}
       disabled={disabled}
@@ -96,7 +82,9 @@ export function ValueMenu({
       }
     };
     document.addEventListener("mousedown", closeMenu);
-    return () => { document.removeEventListener("mousedown", closeMenu); };
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+    };
   }, [open]);
 
   const commitCustom = () => {
@@ -120,7 +108,9 @@ export function ValueMenu({
         aria-haspopup="menu"
         aria-label={ariaLabel}
         disabled={disabled}
-        onClick={() => { setOpen((current) => !current); }}
+        onClick={() => {
+          setOpen((current) => !current);
+        }}
       >
         {displayValue}
       </button>
@@ -132,10 +122,7 @@ export function ValueMenu({
               type="button"
               role="menuitemradio"
               aria-checked={value === option.value}
-              className={[
-                option.className,
-                value === option.value ? "active" : ""
-              ].filter(Boolean).join(" ")}
+              className={[option.className, value === option.value ? "active" : ""].filter(Boolean).join(" ")}
               onClick={() => {
                 onChange(option.value);
                 setOpen(false);
@@ -149,7 +136,9 @@ export function ValueMenu({
               aria-label={customPlaceholder}
               value={customValue}
               placeholder={customPlaceholder}
-              onChange={(event) => { setCustomValue(event.target.value); }}
+              onChange={(event) => {
+                setCustomValue(event.target.value);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   commitCustom();

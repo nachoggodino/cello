@@ -1,5 +1,5 @@
-import { parse } from "../../core/src/index.js";
-import type { SheetNode, WorkbookAst } from "../../core/src/index.js";
+import { parse } from "../../core/src/internal.js";
+import type { SheetNode, WorkbookAst } from "../../core/src/internal.js";
 import type { EditorCell, EditorRow, EditorSheet, EditorWorkbook } from "./model.js";
 import { DEFAULT_SHEET_NAME, rejectExternalSource } from "./options.js";
 import type { CreateEditorWorkbookOptions } from "./options.js";

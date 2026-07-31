@@ -3,13 +3,14 @@
 ## Parse stage
 
 - Non-row lines in native Cello sheets are skipped with `warning` diagnostics.
-- Invalid JSON sheets degrade to a single text data row plus warning.
+- Invalid or non-flat JSON sheets degrade to a single text data row plus an `error` diagnostic.
 - Parser strict mode (`parse(..., { strict: true })`) throws only on parser `error` diagnostics (warnings do not throw).
 
 ## Evaluate stage
 
 - If HyperFormula is missing, evaluation is skipped and a warning diagnostic is added.
-- If HyperFormula throws on workbook evaluation, evaluator adds an `error` diagnostic.
+- Engine initialization/evaluation failures and cell-level syntax, reference, and
+  runtime failures use distinct stable `error` diagnostic codes.
 - `evaluate(..., { strict: true })` rethrows evaluation errors.
 
 ## Render stage

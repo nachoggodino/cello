@@ -1,9 +1,4 @@
-import type {
-  Dispatch,
-  KeyboardEvent as ReactKeyboardEvent,
-  RefObject,
-  SetStateAction
-} from "react";
+import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject, SetStateAction } from "react";
 import {
   getCellAddressKey,
   getCellAt,
@@ -17,24 +12,14 @@ import {
   getVisualCellSpan,
   getVisualCellStyle,
   isAddressInRange
-} from "@nachoggodino/cello/editor-core";
-import type {
-  CellAddress,
-  CellRange,
-  ComputedCellValues,
-  EditorDocumentCommand,
-  EditorSheet,
-  EditorWorkbook
-} from "@nachoggodino/cello/editor-core";
+} from "../../../editor-core/src/internal.js";
+import type { CellAddress, CellRange, ComputedCellValues, EditorDocumentCommand, EditorSheet, EditorWorkbook } from "../../../editor-core/src/internal.js";
 import type { ModifierScope } from "../derivedSelection.js";
 import { withMeasuredFitWidth } from "../fitColumns.js";
 import type { FitColumnWidths } from "../fitColumns.js";
 import { getGridCellId } from "../interactions/grid.js";
 import type { SelectionKind } from "../selection.js";
-import {
-  renderFormulaHighlight,
-  renderInlineDisplay
-} from "../textPresentation.js";
+import { renderFormulaHighlight, renderInlineDisplay } from "../textPresentation.js";
 import type { CelloVisualEditorLabels } from "../types.js";
 
 export interface EditingDraft {
@@ -69,9 +54,9 @@ export function VisualConfigurationScaffold({
             <input
               aria-label={`Header ${getColumnName(colIndex)}`}
               defaultValue=""
-              onBlur={(event) =>
-                { onHeaderCommit(colIndex, event.currentTarget.value); }
-              }
+              onBlur={(event) => {
+                onHeaderCommit(colIndex, event.currentTarget.value);
+              }}
               onKeyDown={blurOnEnter}
             />
           </td>
@@ -86,9 +71,9 @@ export function VisualConfigurationScaffold({
             <input
               aria-label={`Defaults ${getColumnName(colIndex)}`}
               defaultValue=""
-              onBlur={(event) =>
-                { onDefaultCommit(colIndex, event.currentTarget.value); }
-              }
+              onBlur={(event) => {
+                onDefaultCommit(colIndex, event.currentTarget.value);
+              }}
               onKeyDown={blurOnEnter}
             />
           </td>
@@ -141,16 +126,8 @@ export function VisualDataRows({
   selectionKind: SelectionKind;
   gridMode: GridMode;
   handleGridKeyDown: (event: ReactKeyboardEvent) => void;
-  enterEditMode: (
-    address: CellAddress,
-    entry: EditingDraft["entry"],
-    value?: string
-  ) => void;
-  selectCell: (
-    rowIndex: number,
-    colIndex: number,
-    extendRange?: boolean
-  ) => void;
+  enterEditMode: (address: CellAddress, entry: EditingDraft["entry"], value?: string) => void;
+  selectCell: (rowIndex: number, colIndex: number, extendRange?: boolean) => void;
   selectRow: (rowIndex: number, extendRange: boolean) => void;
   selectDefaultCell: (colIndex: number) => void;
   setEditingDraft: Dispatch<SetStateAction<EditingDraft | null>>;
@@ -160,46 +137,25 @@ export function VisualDataRows({
   visibleColumnCount: number;
 }) {
   const rows = [
-    <tr
-      key={rowIndex}
-      role="row"
-      aria-rowindex={rowIndex + 1}
-      className={
-        activeSheet.rows[rowIndex]?.kind === "header"
-          ? "celloVisualHeaderRow"
-          : undefined
-      }
-    >
+    <tr key={rowIndex} role="row" aria-rowindex={rowIndex + 1} className={activeSheet.rows[rowIndex]?.kind === "header" ? "celloVisualHeaderRow" : undefined}>
       <th
         role="rowheader"
         aria-rowindex={rowIndex + 1}
-        aria-selected={
-          modifierScope === "row" &&
-          rowIndex >= selectedRange.startRow &&
-          rowIndex <= selectedRange.endRow
-        }
+        aria-selected={modifierScope === "row" && rowIndex >= selectedRange.startRow && rowIndex <= selectedRange.endRow}
         className={[
           "celloVisualRowHeader",
-          modifierScope === "row" &&
-          rowIndex >= selectedRange.startRow &&
-          rowIndex <= selectedRange.endRow
-            ? "selectedHeader"
-            : "",
-          modifierScope !== "column" && selected.rowIndex === rowIndex
-            ? "activeHeader"
-            : "",
-          modifierScope === "row" &&
-          selectedDefaultCol === null &&
-          selected.rowIndex === rowIndex
-            ? "selectedRow"
-            : ""
-        ].filter(Boolean).join(" ")}
-        onClick={(event) => { selectRow(rowIndex, event.shiftKey); }}
+          modifierScope === "row" && rowIndex >= selectedRange.startRow && rowIndex <= selectedRange.endRow ? "selectedHeader" : "",
+          modifierScope !== "column" && selected.rowIndex === rowIndex ? "activeHeader" : "",
+          modifierScope === "row" && selectedDefaultCol === null && selected.rowIndex === rowIndex ? "selectedRow" : ""
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        onClick={(event) => {
+          selectRow(rowIndex, event.shiftKey);
+        }}
       >
         <span>{rowIndex + 1}</span>
-        {activeSheet.rows[rowIndex]?.kind === "header" ? (
-          <span className="celloVisualHeaderBadge">{labels.headerRow}</span>
-        ) : null}
+        {activeSheet.rows[rowIndex]?.kind === "header" ? <span className="celloVisualHeaderBadge">{labels.headerRow}</span> : null}
       </th>
       {Array.from({ length: visibleColumnCount }, (_, colIndex) => {
         const span = getVisualCellSpan(activeSheet, rowIndex, colIndex);
@@ -207,54 +163,19 @@ export function VisualDataRows({
           return null;
         }
         const cell = getCellAt(activeSheet, rowIndex, colIndex);
-        const isSelected =
-          selected.sheetIndex === activeSheetIndex &&
-          selectedDefaultCol === null &&
-          selected.rowIndex === rowIndex &&
-          selected.colIndex === colIndex;
+        const isSelected = selected.sheetIndex === activeSheetIndex && selectedDefaultCol === null && selected.rowIndex === rowIndex && selected.colIndex === colIndex;
         const address = { sheetIndex: activeSheetIndex, rowIndex, colIndex };
         const isInRange = isAddressInRange(address, selectedRange);
         const cellKey = getCellAddressKey(address);
         const workbookContext = aliases ? { aliases } : {};
-        const toneClass = getCellToneClass(
-          activeSheet,
-          rowIndex,
-          colIndex,
-          workbookContext
-        );
+        const toneClass = getCellToneClass(activeSheet, rowIndex, colIndex, workbookContext);
         const isEditing = draftCell?.key === cellKey;
         const computed = computedValues[cellKey];
-        const displayValue = getCellFormattedDisplayText(
-          activeSheet,
-          rowIndex,
-          colIndex,
-          computed,
-          workbookContext
-        );
-        const inputValue =
-          draftCell?.key === cellKey
-            ? draftCell.value
-            : getCellContentText(cell);
-        const cellStyle = withMeasuredFitWidth(
-          getVisualCellStyle(
-            workbookContext,
-            activeSheet,
-            rowIndex,
-            colIndex
-          ),
-          measuredFitColumnWidths[colIndex]
-        );
-        const contentStyle = getVisualCellContentStyle(
-          workbookContext,
-          activeSheet,
-          rowIndex
-        );
-        const editorStyle = getVisualCellStyle(
-          workbookContext,
-          activeSheet,
-          rowIndex,
-          colIndex
-        );
+        const displayValue = getCellFormattedDisplayText(activeSheet, rowIndex, colIndex, computed, workbookContext);
+        const inputValue = draftCell?.key === cellKey ? draftCell.value : getCellContentText(cell);
+        const cellStyle = withMeasuredFitWidth(getVisualCellStyle(workbookContext, activeSheet, rowIndex, colIndex), measuredFitColumnWidths[colIndex]);
+        const contentStyle = getVisualCellContentStyle(workbookContext, activeSheet, rowIndex);
+        const editorStyle = getVisualCellStyle(workbookContext, activeSheet, rowIndex, colIndex);
         delete editorStyle.width;
         delete editorStyle.minWidth;
         delete editorStyle.maxWidth;
@@ -272,30 +193,18 @@ export function VisualDataRows({
             className={[
               isSelected ? "selected activeCell" : "",
               isInRange && !isSelected ? "rangeSelected" : "",
-              isInRange && rowIndex === selectedRange.startRow
-                ? "rangeTop"
-                : "",
-              isInRange &&
-              rowIndex + span.rowspan - 1 === selectedRange.endRow
-                ? "rangeBottom"
-                : "",
-              isInRange && colIndex === selectedRange.startCol
-                ? "rangeLeft"
-                : "",
-              isInRange &&
-              colIndex + span.colspan - 1 === selectedRange.endCol
-                ? "rangeRight"
-                : "",
-              selectionKind === "cells" && selected.rowIndex === rowIndex
-                ? "activeRowGuide"
-                : "",
-              selectionKind === "cells" && selected.colIndex === colIndex
-                ? "activeColumnGuide"
-                : "",
+              isInRange && rowIndex === selectedRange.startRow ? "rangeTop" : "",
+              isInRange && rowIndex + span.rowspan - 1 === selectedRange.endRow ? "rangeBottom" : "",
+              isInRange && colIndex === selectedRange.startCol ? "rangeLeft" : "",
+              isInRange && colIndex + span.colspan - 1 === selectedRange.endCol ? "rangeRight" : "",
+              selectionKind === "cells" && selected.rowIndex === rowIndex ? "activeRowGuide" : "",
+              selectionKind === "cells" && selected.colIndex === colIndex ? "activeColumnGuide" : "",
               toneClass ? "celloVisualTone" : "",
               toneClass,
               span.colspan > 1 || span.rowspan > 1 ? "merged" : ""
-            ].filter(Boolean).join(" ")}
+            ]
+              .filter(Boolean)
+              .join(" ")}
             style={cellStyle}
             colSpan={span.colspan}
             rowSpan={span.rowspan}
@@ -320,30 +229,23 @@ export function VisualDataRows({
                 selectCell(rowIndex, colIndex, event.shiftKey);
               }
             }}
-            onDoubleClick={() => { enterEditMode(address, "pointer"); }}
+            onDoubleClick={() => {
+              enterEditMode(address, "pointer");
+            }}
           >
             <div
-              className={[
-                "celloVisualCellEditor",
-                shouldHighlightFormula ? "hasFormulaHighlight" : "",
-                isSelected && !isEditing ? "hasDisplayOverlay" : ""
-              ].filter(Boolean).join(" ")}
+              className={["celloVisualCellEditor", shouldHighlightFormula ? "hasFormulaHighlight" : "", isSelected && !isEditing ? "hasDisplayOverlay" : ""]
+                .filter(Boolean)
+                .join(" ")}
               style={contentStyle}
             >
               {!isEditing ? (
-                <div
-                  className="celloVisualCellDisplay"
-                  style={{ ...editorStyle, ...contentStyle }}
-                  aria-hidden="true"
-                >
+                <div className="celloVisualCellDisplay" style={{ ...editorStyle, ...contentStyle }} aria-hidden="true">
                   {renderInlineDisplay(displayValue)}
                 </div>
               ) : null}
               {shouldHighlightFormula ? (
-                <div
-                  className="celloVisualCellFormulaHighlight"
-                  aria-hidden="true"
-                >
+                <div className="celloVisualCellFormulaHighlight" aria-hidden="true">
                   {renderFormulaHighlight(inputValue)}
                 </div>
               ) : null}
@@ -365,21 +267,12 @@ export function VisualDataRows({
                     }
                   }}
                   onBlur={() => {
-                    if (
-                      gridMode === "edit" &&
-                      isEditing &&
-                      completedEditRef.current !== cellKey
-                    ) {
+                    if (gridMode === "edit" && isEditing && completedEditRef.current !== cellKey) {
                       commitEditingDraft();
                     }
                   }}
                   onChange={(event) => {
-                    setEditingDraft((current) =>
-                      current &&
-                      getCellAddressKey(current.address) === cellKey
-                        ? { ...current, value: event.target.value }
-                        : current
-                    );
+                    setEditingDraft((current) => (current && getCellAddressKey(current.address) === cellKey ? { ...current, value: event.target.value } : current));
                   }}
                 />
               ) : null}
@@ -404,7 +297,9 @@ export function VisualDataRows({
               <input
                 aria-label={`Defaults ${getColumnName(colIndex)}`}
                 value={getCellSourceText(cell)}
-                onFocus={() => { selectDefaultCell(colIndex); }}
+                onFocus={() => {
+                  selectDefaultCell(colIndex);
+                }}
                 onChange={(event) => {
                   selectDefaultCell(colIndex);
                   commitCommand({

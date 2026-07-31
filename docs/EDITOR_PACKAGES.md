@@ -11,16 +11,13 @@ It provides:
 - Source-preserving editor document and workbook models
 - A revisioned framework-independent session shared by source, preview, and visual views
 - Independent bounded source and visual histories with foreign-mode invalidation
-- Serializable document commands for workbook, sheet, row, column, cell, and modifier edits
-- Selectors for deriving UI state from the editor model
+- Supported document commands for workbook, sheet, row, column, cell, and modifier edits
+- A versioned envelope for persisted or automated commands
 - Verified source-patch execution for writing command changes back to `.cel`
-- Evaluation helpers for formula-aware editor previews
+- Typed result and history contracts for host integrations
 
 ```ts
-import {
-  createEditorDocument,
-  executeEditorCommand
-} from "@nachoggodino/cello/editor-core";
+import { createEditorDocument, executeEditorCommand } from "@nachoggodino/cello/editor-core";
 
 const document = createEditorDocument(source);
 const result = executeEditorCommand(document, {
@@ -35,9 +32,9 @@ if (result.ok) {
 }
 ```
 
-`EditorDocumentCommand` is a discriminated union and contains only plain data, so
-hosts can create, serialize, validate, log, or replay the same commands used by the
-React editor. `executeEditorCommand` returns the updated source and reparsed document
+`EditorDocumentCommand` is the in-memory discriminated union used by the React editor.
+Before persisting, logging, automating, or replaying it, use the versioned boundary
+documented in [PUBLIC_API.md](./PUBLIC_API.md). `executeEditorCommand` returns the updated source and reparsed document
 only after the requested semantic change has been verified. Invalid commands fail
 without changing source. Batch commands validate atomically against their evolving
 workbook, so one invalid child prevents every child from being applied.
@@ -56,14 +53,17 @@ session.subscribe(() => {
   save(session.getSnapshot().source);
 });
 
-session.execute({
-  type: "update-cell",
-  address: { sheetIndex: 0, rowIndex: 0, colIndex: 0 },
-  source: "Revenue",
-  mode: "content"
-}, {
-  expectedRevision: session.getSnapshot().revision
-});
+session.execute(
+  {
+    type: "update-cell",
+    address: { sheetIndex: 0, rowIndex: 0, colIndex: 0 },
+    source: "Revenue",
+    mode: "content"
+  },
+  {
+    expectedRevision: session.getSnapshot().revision
+  }
+);
 ```
 
 The session revision changes only when source changes. Active-sheet and selected-layout
@@ -77,12 +77,7 @@ Use `editor-react` when embedding any native Cello view in a React application.
 
 ```tsx
 import type { EditorSession } from "@nachoggodino/cello/editor-core";
-import {
-  CelloHtmlPreview,
-  CelloSourceEditor,
-  CelloVisualEditor,
-  CelloWorkbench
-} from "@nachoggodino/cello/editor-react";
+import { CelloHtmlPreview, CelloSourceEditor, CelloVisualEditor, CelloWorkbench } from "@nachoggodino/cello/editor-react";
 import "@nachoggodino/cello/editor-react/styles.css";
 
 export function EditorModes({ session }: { session: EditorSession }) {
@@ -99,11 +94,7 @@ export function EditorModes({ session }: { session: EditorSession }) {
 Hosts that want a ready-made tabbed surface can use the optional workbench instead:
 
 ```tsx
-<CelloWorkbench
-  session={session}
-  defaultActiveView="source"
-  onActiveViewChange={(view) => saveViewPreference(view)}
-/>
+<CelloWorkbench session={session} defaultActiveView="source" onActiveViewChange={(view) => saveViewPreference(view)} />
 ```
 
 `activeView` makes the tabs controlled; otherwise `defaultActiveView` initializes
@@ -178,7 +169,7 @@ serializing and rewriting unrelated source.
 The editor packages build on the core parser, evaluator, renderer, formatter, and shared presentation/layout helpers. Core remains the stable API for non-UI workflows:
 
 ```ts
-import { evaluate, format, formatSource, parse, render, validate } from "@nachoggodino/cello";
+import { evaluate, formatSource, parse, render, validate } from "@nachoggodino/cello";
 ```
 
 Neither core nor editor-core exposes a whole-workbook serializer. Hosts retain source

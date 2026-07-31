@@ -92,10 +92,11 @@ describe("editor core", () => {
     const updated = setSheetRowsMode(
       setSheetColumnsMode(
         setRowHeight(
-          toggleRowWrap(
-            setColumnWidth(toggleColumnFit(header.workbook, 0, header.headerRowIndex, 0), 0, header.headerRowIndex, 1, "24"),
-            { sheetIndex: 0, rowIndex: 1, colIndex: 0 }
-          ),
+          toggleRowWrap(setColumnWidth(toggleColumnFit(header.workbook, 0, header.headerRowIndex, 0), 0, header.headerRowIndex, 1, "24"), {
+            sheetIndex: 0,
+            rowIndex: 1,
+            colIndex: 0
+          }),
           { sheetIndex: 0, rowIndex: 1, colIndex: 0 },
           "5"
         ),
@@ -115,7 +116,8 @@ describe("editor core", () => {
   });
 
   it("loads all workbook sheets into the visual model", () => {
-    const workbook = createEditorWorkbook(`
+    const workbook = createEditorWorkbook(
+      `
 @sheet Native
 | A |
 
@@ -128,7 +130,8 @@ describe("editor core", () => {
 [
   {"team":"A","bugs":2}
 ]
-`.trim());
+`.trim()
+    );
 
     expect(workbook.sheets.map((sheet) => sheet.name)).toEqual(["Native", "Md", "Json"]);
     expect(workbook.sheets[1]?.rows[0]?.kind).toBe("header");
@@ -141,15 +144,16 @@ describe("editor core", () => {
   });
 
   it("uses host-provided parse options for anonymous sheets and external sources", () => {
-    const workbook = createEditorWorkbook("@sheet Imported\n-> data.cel", {
+    const workbook = createEditorWorkbook("@sheet Imported [csv]\n-> data.csv", {
       anonymousSheetName: "Fallback",
       readExternalSource: (path) => {
-        expect(path).toBe("data.cel");
-        return "| Ada | 5 |";
+        expect(path).toBe("data.csv");
+        return "name,amount\nAda,5";
       }
     });
 
-    expect(emitWorkbookForTest(workbook)).toBe("@sheet Imported\n| Ada | 5 |");
+    expect(workbook.sheets[0]?.format).toMatchObject({ kind: "delimited", alias: "csv" });
+    expect(workbook.sheets[0]?.rows[1]?.cells.map((cell) => cell.raw)).toEqual(["Ada", "5"]);
   });
 
   it("forwards parser options when creating editable workbooks", () => {
@@ -181,14 +185,14 @@ describe("editor core", () => {
   });
 
   it("shows full cell source while keeping display text clean", () => {
-    const workbook = createEditorWorkbook("@sheet Report\n| \"123\"[bold][color:#123456] |");
+    const workbook = createEditorWorkbook('@sheet Report\n| "123"[bold][color:#123456] |');
     const selected = getSelectedCell(workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 });
 
-    expect(getCellSourceText(selected)).toBe("\"123\"[bold][color:#123456]");
-    expect(getCellContentText(selected)).toBe("\"123\"");
+    expect(getCellSourceText(selected)).toBe('"123"[bold][color:#123456]');
+    expect(getCellContentText(selected)).toBe('"123"');
     expect(getCellModifierSourceText(selected)).toBe("[bold][color:#123456]");
-    expect(composeCellSource(getCellContentText(selected), getCellModifierSourceText(selected))).toBe("\"123\"[bold][color:#123456]");
-    expect(getCellDisplayText(selected)).toBe("\"123\"");
+    expect(composeCellSource(getCellContentText(selected), getCellModifierSourceText(selected))).toBe('"123"[bold][color:#123456]');
+    expect(getCellDisplayText(selected)).toBe('"123"');
   });
 
   it("moves recognized trailing content modifiers into reusable cell metadata", () => {
@@ -196,9 +200,7 @@ describe("editor core", () => {
     const updatedText = updateCellContentSource(workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 0 }, "Ada Lovelace[bold][color:blue]");
     const updatedFormula = updateCellContentSource(updatedText, { sheetIndex: 0, rowIndex: 0, colIndex: 1 }, "=SUM(A1[1:2])");
 
-    expect(emitWorkbookForTest(updatedFormula)).toBe(
-      "@sheet Report\n| Ada Lovelace[italic][bold][color:blue] | =SUM(A1[1:2])[bold] |"
-    );
+    expect(emitWorkbookForTest(updatedFormula)).toBe("@sheet Report\n| Ada Lovelace[italic][bold][color:blue] | =SUM(A1[1:2])[bold] |");
   });
 
   it("parses source text modifiers and merge tokens", () => {
@@ -348,8 +350,48 @@ describe("editor core", () => {
     expect(getCellDisplayText(getCellAt(sheet, 1, 0))).toBe("Total");
     expect(getCellStyle(sheet, 1, 0)).toEqual({ fontSize: "1.25rem", fontWeight: 700, textDecoration: "line-through" });
     expect(getCellDisplayText({ raw: "_Italic_", modifiers: [] })).toBe("Italic");
-    expect(getCellStyle({ name: "S", rows: [{ kind: "data", modifiers: [], cells: [{ raw: "_Italic_", modifiers: [] }, { raw: "*Bold*", modifiers: [] }] }], defaults: [] }, 0, 0)).toEqual({ fontStyle: "italic" });
-    expect(getCellStyle({ name: "S", rows: [{ kind: "data", modifiers: [], cells: [{ raw: "_Italic_", modifiers: [] }, { raw: "*Bold*", modifiers: [] }] }], defaults: [] }, 0, 1)).toEqual({ fontWeight: 700 });
+    expect(
+      getCellStyle(
+        {
+          name: "S",
+          format: { kind: "cello" },
+          rows: [
+            {
+              kind: "data",
+              modifiers: [],
+              cells: [
+                { raw: "_Italic_", modifiers: [] },
+                { raw: "*Bold*", modifiers: [] }
+              ]
+            }
+          ],
+          defaults: []
+        },
+        0,
+        0
+      )
+    ).toEqual({ fontStyle: "italic" });
+    expect(
+      getCellStyle(
+        {
+          name: "S",
+          format: { kind: "cello" },
+          rows: [
+            {
+              kind: "data",
+              modifiers: [],
+              cells: [
+                { raw: "_Italic_", modifiers: [] },
+                { raw: "*Bold*", modifiers: [] }
+              ]
+            }
+          ],
+          defaults: []
+        },
+        0,
+        1
+      )
+    ).toEqual({ fontWeight: 700 });
     expect(getCellToneClass(sheet, 1, 0, workbook)).toBe("celloVisualTone-accent celloVisualTone-muted");
     expect(getCellToneClass(sheet, 1, 1, workbook)).toBe("celloVisualTone-muted celloVisualTone-ok");
     expect(getCellDisplayText({ raw: "~~Done~~", modifiers: [] })).toBe("Done");
@@ -452,35 +494,25 @@ describe("editor core", () => {
   });
 
   it("applies source-preserving patches without removing comments or spacing", () => {
-    const source = [
-      "// keep this",
-      "@sheet Report",
-      "",
-      "| Ada | 5 |",
-      "// keep this too"
-    ].join("\n");
+    const source = ["// keep this", "@sheet Report", "", "| Ada | 5 |", "// keep this too"].join("\n");
     const document = createEditorDocument(source);
     const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 1 }, "7");
     const result = applyWorkbookPatch(document, nextWorkbook);
 
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe([
-      "// keep this",
-      "@sheet Report",
-      "",
-      "| Ada | 7 |",
-      "// keep this too"
-    ].join("\n"));
+    expect(result.ok ? result.source : "").toBe(["// keep this", "@sheet Report", "", "| Ada | 7 |", "// keep this too"].join("\n"));
   });
 
   it("executes serializable document commands against source", () => {
     const source = "// keep this\n@sheet Report\n| Ada | 5 |";
-    const command = JSON.parse(JSON.stringify({
-      type: "update-cell",
-      address: { sheetIndex: 0, rowIndex: 0, colIndex: 1 },
-      source: "7",
-      mode: "content"
-    }));
+    const command = JSON.parse(
+      JSON.stringify({
+        type: "update-cell",
+        address: { sheetIndex: 0, rowIndex: 0, colIndex: 1 },
+        source: "7",
+        mode: "content"
+      })
+    );
     const result = executeEditorCommand(createEditorDocument(source), command);
 
     expect(result.ok).toBe(true);
@@ -513,7 +545,8 @@ describe("editor core", () => {
     expect(result.ok).toBe(true);
     expect(result.ok ? getCellContentText(getCellAt(result.document.workbook.sheets[0], 1, 1)) : "").toBe("8");
     expect(result.ok ? getCellStyle(result.document.workbook.sheets[0], 1, 0).fontWeight : undefined).toBe(700);
-    expect(result.ok ? result.document.workbook.sheets[0]?.layout.columns : undefined).toBe("fit");
+    const nextSheet = result.ok ? result.document.workbook.sheets.at(0) : undefined;
+    expect(nextSheet?.layout?.columns).toBe("fit");
   });
 
   it("rejects invalid commands without changing source", () => {
@@ -558,10 +591,7 @@ describe("editor core", () => {
   it("validates batch commands against earlier commands in the batch", () => {
     const result = executeEditorCommand(createEditorDocument("@sheet Report\n| A |"), {
       type: "batch",
-      commands: [
-        { type: "add-sheet" },
-        { type: "rename-sheet", sheetIndex: 1, name: "Archive" }
-      ]
+      commands: [{ type: "add-sheet" }, { type: "rename-sheet", sheetIndex: 1, name: "Archive" }]
     });
 
     expect(result.ok).toBe(true);
@@ -581,12 +611,7 @@ describe("editor core", () => {
   });
 
   it("inserts synthesized headers without rewriting rows or moving row comments", () => {
-    const source = [
-      "// top",
-      "|  Ada   |  5  |",
-      "// describes Bob",
-      "| Bob | 9 |"
-    ].join("\n");
+    const source = ["// top", "|  Ada   |  5  |", "// describes Bob", "| Bob | 9 |"].join("\n");
     const result = executeEditorCommand(createEditorDocument(source), {
       type: "set-column-width",
       sheetIndex: 0,
@@ -595,13 +620,7 @@ describe("editor core", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe([
-      "// top",
-      "@header | [width:24] |  |",
-      "|  Ada   |  5  |",
-      "// describes Bob",
-      "| Bob | 9 |"
-    ].join("\n"));
+    expect(result.ok ? result.source : "").toBe(["// top", "@header | [width:24] |  |", "|  Ada   |  5  |", "// describes Bob", "| Bob | 9 |"].join("\n"));
   });
 
   it("inserts rows after their source row while preserving following trivia", () => {
@@ -613,9 +632,7 @@ describe("editor core", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe(
-      "|  Ada   |  5  |\n|  |  |\n// describes Bob\n| Bob | 9 |"
-    );
+    expect(result.ok ? result.source : "").toBe("|  Ada   |  5  |\n|  |  |\n// describes Bob\n| Bob | 9 |");
   });
 
   it("preserves CRLF while inserting structural rows", () => {
@@ -635,9 +652,7 @@ describe("editor core", () => {
     const result = executeEditorCommand(createEditorDocument(source), { type: "add-sheet" });
 
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe(
-      "@sheet Sheet1\r\n// keep\r\n|  Ada  |\r\n\r\n@sheet Sheet2"
-    );
+    expect(result.ok ? result.source : "").toBe("@sheet Sheet1\r\n// keep\r\n|  Ada  |\r\n\r\n@sheet Sheet2");
   });
 
   it("preserves comments when materializing a comments-only implicit sheet", () => {
@@ -676,11 +691,13 @@ describe("editor core", () => {
       range: { sheetIndex: 0, startRow: 0, endRow: 1, startCol: 0, endCol: 1 },
       source: "X"
     });
-    const cleared = filled.ok ? executeEditorCommand(filled.document, {
-      type: "clear-range",
-      range: { sheetIndex: 0, startRow: 0, endRow: 0, startCol: 1, endCol: 1 },
-      includeModifiers: true
-    }) : filled;
+    const cleared = filled.ok
+      ? executeEditorCommand(filled.document, {
+          type: "clear-range",
+          range: { sheetIndex: 0, startRow: 0, endRow: 0, startCol: 1, endCol: 1 },
+          includeModifiers: true
+        })
+      : filled;
 
     expect(filled.ok).toBe(true);
     expect(cleared.ok).toBe(true);
@@ -688,7 +705,7 @@ describe("editor core", () => {
     expect(cleared.ok ? getCellContentText(getCellAt(cleared.document.workbook.sheets[0], 1, 0)) : "").toBe("X");
   });
 
-  it("returns controlled command failures without changing the document", () => {
+  it("source-preserves literal edits in an embedded CSV sheet", () => {
     const source = "@sheet RawData [csv]\nname,amount\nAda,5";
     const result = executeEditorCommand(createEditorDocument(source), {
       type: "update-cell",
@@ -697,33 +714,18 @@ describe("editor core", () => {
       mode: "content"
     });
 
-    expect(result).toMatchObject({
-      ok: false,
-      reason: "unsupported-source-region",
-      document: { source }
-    });
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe("@sheet RawData [csv]\nname,amount\nGrace,5");
   });
 
   it("enforces compact layout only on the changed contiguous block", () => {
-    const source = [
-      "@sheet Report",
-      "@header | A | B |",
-      "| x | 1 |",
-      "",
-      "| Keep | Wide |"
-    ].join("\n");
+    const source = ["@sheet Report", "@header | A | B |", "| x | 1 |", "", "| Keep | Wide |"].join("\n");
     const document = createEditorDocument(source);
     const next = updateCellSource(document.workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 1 }, "2");
     const result = applyWorkbookPatch(document, next, { sourceLayout: "compact" });
 
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe([
-      "@sheet Report",
-      "@header |A|B|",
-      "|x|2|",
-      "",
-      "| Keep | Wide |"
-    ].join("\n"));
+    expect(result.ok ? result.source : "").toBe(["@sheet Report", "@header |A|B|", "|x|2|", "", "| Keep | Wide |"].join("\n"));
   });
 
   it("enforces pretty layout on the changed contiguous block", () => {
@@ -733,24 +735,18 @@ describe("editor core", () => {
     const result = applyWorkbookPatch(document, next, { sourceLayout: "pretty" });
 
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe(
-      "@sheet Report\n@header | A | Long |\n        | x | 3    |"
-    );
+    expect(result.ok ? result.source : "").toBe("@sheet Report\n@header | A | Long |\n        | x | 3    |");
   });
 
   it("formats a full editor document with semantic postcondition checks", () => {
     const source = "// keep\n@sheet Report\n@header | A | Longer |\n| x | 2 |";
     const compact = formatEditorDocument(createEditorDocument(source), "compact");
     expect(compact.ok).toBe(true);
-    expect(compact.ok ? compact.source : "").toBe(
-      "// keep\n@sheet Report\n@header |A|Longer|\n|x|2|"
-    );
+    expect(compact.ok ? compact.source : "").toBe("// keep\n@sheet Report\n@header |A|Longer|\n|x|2|");
 
     const pretty = compact.ok ? formatEditorDocument(compact.document, "pretty") : compact;
     expect(pretty.ok).toBe(true);
-    expect(pretty.ok ? pretty.source : "").toBe(
-      "// keep\n@sheet Report\n@header | A | Longer |\n        | x | 2      |"
-    );
+    expect(pretty.ok ? pretty.source : "").toBe("// keep\n@sheet Report\n@header | A | Longer |\n        | x | 2      |");
   });
 
   it("preserves comments when editing an anonymous sheet", () => {
@@ -788,12 +784,7 @@ describe("editor core", () => {
   });
 
   it("materializes only the targeted omitted default-derived cell", () => {
-    const source = [
-      "@sheet Report",
-      "@header | Name | Status | Total |",
-      "@defaults | | Pending | =1 |",
-      "| Ada | |"
-    ].join("\n");
+    const source = ["@sheet Report", "@header | Name | Status | Total |", "@defaults | | Pending | =1 |", "| Ada | |"].join("\n");
     const document = createEditorDocument(source);
     const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 0, rowIndex: 1, colIndex: 2 }, "9");
     const result = applyWorkbookPatch(document, nextWorkbook);
@@ -807,12 +798,7 @@ describe("editor core", () => {
       valueOrigin: "default-derived"
     });
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe([
-      "@sheet Report",
-      "@header | Name | Status | Total |",
-      "@defaults | | Pending | =1 |",
-      "| Ada | | 9 |"
-    ].join("\n"));
+    expect(result.ok ? result.source : "").toBe(["@sheet Report", "@header | Name | Status | Total |", "@defaults | | Pending | =1 |", "| Ada | | 9 |"].join("\n"));
   });
 
   it("renames only the sheet name and preserves unknown modifiers and line endings", () => {
@@ -853,26 +839,14 @@ describe("editor core", () => {
   });
 
   it("keeps source-map sheets aligned when aliases appear before the first sheet", () => {
-    const source = [
-      "@tone notes [color:#334155][bg:#f8fafc]",
-      "@width description [width:large]",
-      "",
-      "@sheet Report",
-      "| Ada | 5 |"
-    ].join("\n");
+    const source = ["@tone notes [color:#334155][bg:#f8fafc]", "@width description [width:large]", "", "@sheet Report", "| Ada | 5 |"].join("\n");
     const document = createEditorDocument(source);
     const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 0, rowIndex: 0, colIndex: 1 }, "7");
     const result = applyWorkbookPatch(document, nextWorkbook);
 
     expect(document.sourceMap.sheets).toHaveLength(1);
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe([
-      "@tone notes [color:#334155][bg:#f8fafc]",
-      "@width description [width:large]",
-      "",
-      "@sheet Report",
-      "| Ada | 7 |"
-    ].join("\n"));
+    expect(result.ok ? result.source : "").toBe(["@tone notes [color:#334155][bg:#f8fafc]", "@width description [width:large]", "", "@sheet Report", "| Ada | 7 |"].join("\n"));
   });
 
   it("rejects alias-only mutations instead of returning a false successful patch", () => {
@@ -887,57 +861,27 @@ describe("editor core", () => {
   });
 
   it("patches the intended sheet when comments and aliases sit between sheets", () => {
-    const source = [
-      "@tone notes [color:#334155]",
-      "",
-      "@sheet First",
-      "| A | 1 |",
-      "// between sheets",
-      "@width description [width:large]",
-      "",
-      "@sheet Second",
-      "| B | 2 |"
-    ].join("\n");
+    const source = ["@tone notes [color:#334155]", "", "@sheet First", "| A | 1 |", "// between sheets", "@width description [width:large]", "", "@sheet Second", "| B | 2 |"].join(
+      "\n"
+    );
     const document = createEditorDocument(source);
     const nextWorkbook = updateCellSource(document.workbook, { sheetIndex: 1, rowIndex: 0, colIndex: 1 }, "3");
     const result = applyWorkbookPatch(document, nextWorkbook);
 
     expect(document.sourceMap.sheets).toHaveLength(2);
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe([
-      "@tone notes [color:#334155]",
-      "",
-      "@sheet First",
-      "| A | 1 |",
-      "// between sheets",
-      "@width description [width:large]",
-      "",
-      "@sheet Second",
-      "| B | 3 |"
-    ].join("\n"));
+    expect(result.ok ? result.source : "").toBe(
+      ["@tone notes [color:#334155]", "", "@sheet First", "| A | 1 |", "// between sheets", "@width description [width:large]", "", "@sheet Second", "| B | 3 |"].join("\n")
+    );
   });
 
   it("preserves comments and aliases between sheets when removing a sheet", () => {
-    const source = [
-      "@sheet First",
-      "| A | 1 |",
-      "// keep between",
-      "@width description [width:large]",
-      "",
-      "@sheet Second",
-      "| B | 2 |"
-    ].join("\n");
+    const source = ["@sheet First", "| A | 1 |", "// keep between", "@width description [width:large]", "", "@sheet Second", "| B | 2 |"].join("\n");
     const document = createEditorDocument(source);
     const result = applyWorkbookPatch(document, removeSheet(document.workbook, 0));
 
     expect(result.ok).toBe(true);
-    expect(result.ok ? result.source : "").toBe([
-      "// keep between",
-      "@width description [width:large]",
-      "",
-      "@sheet Second",
-      "| B | 2 |"
-    ].join("\n"));
+    expect(result.ok ? result.source : "").toBe(["// keep between", "@width description [width:large]", "", "@sheet Second", "| B | 2 |"].join("\n"));
   });
 
   it("fails controlled instead of normalizing unavailable external source sheets", () => {

@@ -25,10 +25,7 @@ async function makeTempProject(): Promise<string> {
   return dir;
 }
 
-async function runCliCase(
-  argv: string[],
-  source = "@sheet S\n| A | 1 |"
-): Promise<{ code: number; cwd: string; stdout: string; stderr: string }> {
+async function runCliCase(argv: string[], source = "@sheet S\n| A | 1 |"): Promise<{ code: number; cwd: string; stdout: string; stderr: string }> {
   const cwd = await makeTempProject();
   await writeFile(join(cwd, "sample.cel"), source, "utf8");
 
@@ -174,13 +171,13 @@ describe("cli", () => {
       }
     },
     {
-      name: "runs validate and returns 1 when diagnostics exist",
+      name: "runs validate and returns 0 when only warnings exist",
       argv: ["node", "cli", "validate", "sample.cel"],
       source: "@sheet S\nnot a row\n| ok |",
       assert: ({ code, stdout }: { code: number; stdout: string }) => {
-        expect(code).toBe(1);
+        expect(code).toBe(0);
         const result = JSON.parse(stdout) as { valid: boolean; diagnostics: Array<{ level: string; line?: number }> };
-        expect(result.valid).toBe(false);
+        expect(result.valid).toBe(true);
         expect(result.diagnostics).toContainEqual(expect.objectContaining({ level: "warning", line: 2 }));
       }
     },
@@ -215,7 +212,7 @@ describe("cli", () => {
         expect(stdout).not.toContain("<body>");
         expect(stdout).toContain('<div class="cello-workbook">');
         expect(stdout).toContain("<style>");
-        expect(stdout).toContain("<script>");
+        expect(stdout).toContain("<script nonce=");
       }
     },
     {
@@ -360,10 +357,7 @@ describe("cli", () => {
       stayOpenFn
     });
 
-    const code = await runCli(
-      ["node", "cli", "serve", "sample.cel", "--port", "9999", "--host", "127.0.0.1", "--open", "--no-eval"],
-      deps
-    );
+    const code = await runCli(["node", "cli", "serve", "sample.cel", "--port", "9999", "--host", "127.0.0.1", "--open", "--no-eval"], deps);
 
     expect(code).toBe(0);
     expect(startServeFn).toHaveBeenCalledWith(join(cwd, "sample.cel"), {

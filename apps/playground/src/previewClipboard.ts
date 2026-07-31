@@ -73,16 +73,12 @@ export function serializeCopiedRowsAsHtml(rows: CopiedRow[]): string {
 }
 
 export function serializeCopiedRowsAsText(rows: CopiedRow[]): string {
-  return rows
-    .map((row) => row.cells.map((cell) => cell.text).join("\t"))
-    .join("\n");
+  return rows.map((row) => row.cells.map((cell) => cell.text).join("\t")).join("\n");
 }
 
 function getActiveSheetTable(document: Document, activeSheetName?: string): HTMLTableElement | null {
   if (activeSheetName) {
-    const activeSheet = Array.from(document.querySelectorAll(".cello-sheet")).find(
-      (sheet) => sheet.getAttribute("data-sheet") === activeSheetName
-    );
+    const activeSheet = Array.from(document.querySelectorAll(".cello-sheet")).find((sheet) => sheet.getAttribute("data-sheet") === activeSheetName);
     const table = activeSheet?.querySelector("table");
     if (table instanceof HTMLTableElement) {
       return table;
@@ -142,7 +138,9 @@ function inlineClipboardStyles(originalRoot: Element, cloneRoot: Element): void 
 }
 
 function stripPresentationChrome(table: HTMLTableElement): void {
-  table.querySelectorAll(".cello-corner-index, .cello-column-index, .cello-row-index").forEach((node) => { node.remove(); });
+  table.querySelectorAll(".cello-corner-index, .cello-column-index, .cello-row-index").forEach((node) => {
+    node.remove();
+  });
   table.querySelector("colgroup col")?.remove();
   table.querySelectorAll("tr").forEach((row) => {
     if (row.children.length === 0) {
@@ -190,24 +188,19 @@ function extractCopiedRows(table: HTMLTableElement): CopiedRow[] {
 function serializeRowAsHtml(row: CopiedRow): string {
   return `<tr>${row.cells
     .map((cell) => {
-      const attrs = [
-        cell.colspan > 1 ? ` colspan="${cell.colspan}"` : "",
-        cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ""
-      ].join("");
+      const attrs = [cell.colspan > 1 ? ` colspan="${cell.colspan}"` : "", cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ""].join("");
       return `<${cell.tagName}${attrs}>${escapeHtml(cell.text)}</${cell.tagName}>`;
     })
     .join("")}</tr>`;
 }
 
 function normalizeCellText(text: string): string {
-  return text.replace(/\r\n/g, "\n").replace(/\u00a0/g, " ").trim();
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .trim();
 }
 
 function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }

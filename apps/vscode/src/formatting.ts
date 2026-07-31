@@ -1,4 +1,4 @@
-import { format as formatCello } from "@nachoggodino/cello";
+import { formatSource } from "@nachoggodino/cello";
 import * as vscode from "vscode";
 
 const CEL_SELECTOR: vscode.DocumentSelector = { language: "cel", scheme: "*" };
@@ -18,7 +18,7 @@ export function registerFormatting(context: vscode.ExtensionContext): void {
 
 export function buildFormattingEdits(document: Pick<vscode.TextDocument, "getText" | "positionAt">): vscode.TextEdit[] {
   const source = document.getText();
-  const formatted = formatCello(source);
+  const formatted = formatSource(source, { layout: "pretty" });
   if (formatted === source) {
     return [];
   }

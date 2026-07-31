@@ -1,0 +1,22 @@
+Cello
+Copyright (c) 2026 Cello contributors
+SPDX-License-Identifier: GPL-3.0-only
+
+Cello is distributed under the GNU General Public License version 3 only. The
+complete license text is in LICENSE.
+
+The source code, Cello examples, syntax definitions, logos, and icons in this
+repository are original Cello project material unless a file states otherwise.
+
+The distributed software uses HyperFormula under its GPLv3 licensing option and
+configures it with `licenseKey: "gpl-v3"`. HyperFormula is copyright Handsontable
+and its contributors.
+
+Direct or bundled runtime dependencies also include software under permissive
+licenses: CodeMirror, Lezer, @uiw/react-codemirror, React, React DOM, Scheduler,
+@babel/runtime, crelt, style-mod, w3c-keyname, regexp-to-ast, and tiny-emitter
+under the MIT License; and Chevrotain under the Apache License 2.0. Their full
+license texts and copyright notices remain in their respective distributions.
+
+This notice is attribution information only. It does not replace or alter the
+license terms that accompany Cello or any third-party component.

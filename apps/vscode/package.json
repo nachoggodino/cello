@@ -40,7 +40,7 @@
     "workbook"
   ],
   "engines": {
-    "vscode": "^1.96.0"
+    "vscode": "^1.125.0"
   },
   "activationEvents": [
     "onLanguage:cel",
@@ -51,12 +51,15 @@
   "main": "./dist/extension.js",
   "scripts": {
     "typecheck": "tsc -p . --noEmit",
-    "compile": "npm run typecheck && node -e \"const fs=require('node:fs');fs.mkdirSync('dist/syntaxes',{recursive:true});fs.copyFileSync('../../packages/language-support/syntaxes/cel.tmLanguage.json','dist/syntaxes/cel.tmLanguage.json');fs.copyFileSync('../../packages/language-support/syntaxes/cel.language-configuration.json','dist/syntaxes/cel.language-configuration.json')\" && esbuild src/extension.ts --bundle --platform=node --format=esm --target=node20 --external:vscode --outfile=dist/extension.js",
-    "watch": "tsc -w -p .",
+    "compile": "npm run typecheck && node -e \"const fs=require('node:fs');fs.mkdirSync('dist/syntaxes',{recursive:true});fs.copyFileSync('../../packages/language-support/syntaxes/cel.tmLanguage.json','dist/syntaxes/cel.tmLanguage.json');fs.copyFileSync('../../packages/language-support/syntaxes/cel.language-configuration.json','dist/syntaxes/cel.language-configuration.json')\" && esbuild src/extension.ts --bundle --platform=node --format=esm --target=node20 --external:vscode --alias:@nachoggodino/cello=../../packages/core/src/index.ts --outfile=dist/extension.js",
+    "watch": "tsc -w -p . --noEmit",
     "test": "vitest run",
     "vscode:prepublish": "npm run compile",
     "package": "vsce package --no-dependencies",
-    "publish": "vsce publish --no-dependencies"
+    "publish": "vsce publish --no-dependencies",
+    "coverage": "vitest run --coverage",
+    "compile:host-tests": "esbuild tests/host/suite.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/test/suite/index.cjs",
+    "test:host": "npm run compile && npm run compile:host-tests && node tests/host/run.mjs"
   },
   "contributes": {
     "languages": [
@@ -174,12 +177,13 @@
     }
   },
   "devDependencies": {
-    "@nachoggodino/cello": "^0.1.1",
-    "@types/node": "^22.10.7",
-    "@types/vscode": "^1.96.0",
-    "@vscode/vsce": "^3.2.2",
-    "esbuild": "^0.24.2",
-    "typescript": "^5.7.3",
-    "vitest": "^2.1.8"
+    "@nachoggodino/cello": "0.2.0",
+    "@types/node": "^24",
+    "@types/vscode": "^1.125.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.1",
+    "vitest": "^4.1.10"
   }
 }

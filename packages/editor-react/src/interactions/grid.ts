@@ -1,20 +1,10 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import {
-  getVisibleColumnCount,
-  getVisibleRowCount
-} from "@nachoggodino/cello/editor-core";
-import type {
-  CellAddress,
-  EditorWorkbook
-} from "@nachoggodino/cello/editor-core";
+import { getVisibleColumnCount, getVisibleRowCount } from "../../../editor-core/src/internal.js";
+import type { CellAddress, EditorWorkbook } from "../../../editor-core/src/internal.js";
 
 export type MoveDirection = "up" | "down" | "left" | "right";
 
-export function scrollSelectionNearEdge(
-  container: HTMLElement,
-  clientX: number,
-  clientY: number
-): void {
+export function scrollSelectionNearEdge(container: HTMLElement, clientX: number, clientY: number): void {
   const bounds = container.getBoundingClientRect();
   const threshold = 28;
   const step = 18;
@@ -34,34 +24,19 @@ export function getGridCellId(address: CellAddress): string {
   return `cello-grid-cell-${address.sheetIndex}-${address.rowIndex}-${address.colIndex}`;
 }
 
-export function clampAddress(
-  address: CellAddress,
-  workbook: EditorWorkbook
-): CellAddress {
-  const sheetIndex = Math.max(
-    0,
-    Math.min(address.sheetIndex, workbook.sheets.length - 1)
-  );
+export function clampAddress(address: CellAddress, workbook: EditorWorkbook): CellAddress {
+  const sheetIndex = Math.max(0, Math.min(address.sheetIndex, workbook.sheets.length - 1));
   const sheet = workbook.sheets[sheetIndex];
   const rowCount = getVisibleRowCount(sheet);
   const columnCount = getVisibleColumnCount(sheet);
   return {
     sheetIndex,
-    rowIndex: Math.max(
-      0,
-      Math.min(address.rowIndex, Math.max(0, rowCount - 1))
-    ),
-    colIndex: Math.max(
-      0,
-      Math.min(address.colIndex, Math.max(0, columnCount - 1))
-    )
+    rowIndex: Math.max(0, Math.min(address.rowIndex, Math.max(0, rowCount - 1))),
+    colIndex: Math.max(0, Math.min(address.colIndex, Math.max(0, columnCount - 1)))
   };
 }
 
-export function moveAddress(
-  address: CellAddress,
-  direction: MoveDirection
-): CellAddress {
+export function moveAddress(address: CellAddress, direction: MoveDirection): CellAddress {
   if (direction === "up") {
     return { ...address, rowIndex: address.rowIndex - 1 };
   }
@@ -91,10 +66,5 @@ export function keyToDirection(key: string): MoveDirection | undefined {
 }
 
 export function isPrintableKey(event: ReactKeyboardEvent): boolean {
-  return (
-    event.key.length === 1 &&
-    !event.altKey &&
-    !event.ctrlKey &&
-    !event.metaKey
-  );
+  return event.key.length === 1 && !event.altKey && !event.ctrlKey && !event.metaKey;
 }

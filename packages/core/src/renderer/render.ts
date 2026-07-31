@@ -1,4 +1,5 @@
 import { evaluate } from "../evaluator/evaluate.js";
+import { resolveWorkbookIdentity } from "../shared/identity.js";
 import { parse } from "../parser/parse.js";
 import { CELLO_HEADING_STYLES, CELLO_TONE_COLORS, CELLO_TONE_NAMES, formatDisplayValue } from "../shared/display.js";
 import {
@@ -18,6 +19,7 @@ import { columnLetter, escapeHtml, workbookHasFormulas } from "../shared/utils.j
 
 const RENDER_ROW_INDEX_WIDTH_PX = 36;
 
+/** Renders Cello source or a workbook AST as a safe HTML document or fragment. */
 export async function render(input: string | WorkbookAst, options: RenderOptions = {}): Promise<string> {
   const parseOptions = {
     ...(options.strict === undefined ? {} : { strict: options.strict }),
@@ -27,33 +29,40 @@ export async function render(input: string | WorkbookAst, options: RenderOptions
   const parsed = typeof input === "string" ? parse(input, parseOptions) : input;
   const shouldEvaluate = options.evaluate !== false && workbookHasFormulas(parsed);
   const evaluated = shouldEvaluate ? await evaluate(parsed, parseOptions) : parsed;
+  const identity = resolveWorkbookIdentity(evaluated);
+  if (identity.ambiguous) {
+    throw new Error("Cannot render a workbook with ambiguous sheet or alias identities.");
+  }
   const workbookHtml = renderWorkbook(renderTabs(evaluated), renderSheets(evaluated));
+  const nonce = options.nonce ?? createNonce();
 
   return options.format === "fragment"
-    ? renderFragment(workbookHtml, options.interactive !== false)
-    : renderDocument(options.title ?? "Cello Workbook", workbookHtml, options.interactive !== false);
+    ? renderFragment(workbookHtml, options.interactive !== false, nonce)
+    : renderDocument(options.title ?? "Cello Workbook", workbookHtml, options.interactive !== false, nonce);
 }
 
-function renderDocument(title: string, workbookHtml: string, interactive: boolean): string {
+function renderDocument(title: string, workbookHtml: string, interactive: boolean, nonce: string): string {
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: vscode-webview-resource:; style-src 'unsafe-inline'; script-src 'nonce-${escapeHtml(nonce)}'; connect-src 'none'; font-src 'none'; base-uri 'none'; form-action 'none'" />
   <title>${escapeHtml(title)}</title>
   ${renderStyles()}
 </head>
 <body>
   ${workbookHtml}
-  ${interactive ? renderScript() : ""}
+  ${interactive ? renderScript(nonce) : ""}
 </body>
 </html>`;
 }
 
-function renderFragment(workbookHtml: string, interactive: boolean): string {
+function renderFragment(workbookHtml: string, interactive: boolean, nonce: string): string {
   return `${renderStyles()}
   ${workbookHtml}
-  ${interactive ? renderScript() : ""}`;
+  ${interactive ? renderScript(nonce) : ""}`;
 }
 
 function renderStyles(): string {
@@ -94,8 +103,10 @@ function renderStyles(): string {
 }
 
 function renderToneVariables(): string {
-  return CELLO_TONE_NAMES.map((tone) => `--cello-tone-${tone}-color: ${CELLO_TONE_COLORS[tone].color};
-      --cello-tone-${tone}-background: ${CELLO_TONE_COLORS[tone].background};`).join("\n      ");
+  return CELLO_TONE_NAMES.map(
+    (tone) => `--cello-tone-${tone}-color: ${CELLO_TONE_COLORS[tone].color};
+      --cello-tone-${tone}-background: ${CELLO_TONE_COLORS[tone].background};`
+  ).join("\n      ");
 }
 
 function renderToneClasses(): string {
@@ -106,6 +117,12 @@ function renderHeadingClasses(): string {
   return CELLO_HEADING_STYLES.map((heading) => `.${heading.className} { font-size: ${heading.fontSize}; font-weight: 700; }`).join("\n    ");
 }
 
+function createNonce(): string {
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function renderWorkbook(tabs: string, sheetsHtml: string): string {
   return `<div class="cello-workbook">
     <div class="cello-tabs">${tabs}</div>
@@ -113,8 +130,8 @@ function renderWorkbook(tabs: string, sheetsHtml: string): string {
   </div>`;
 }
 
-function renderScript(): string {
-  return `<script>
+function renderScript(nonce: string): string {
+  return `<script nonce="${escapeHtml(nonce)}">
     (() => {
     const currentScript = document.currentScript;
     const root = currentScript?.previousElementSibling;
@@ -214,7 +231,10 @@ interface FitMeasureCell {
 function renderRow(row: RowNode, sheet: SheetNode, workbook: WorkbookAst): string {
   const header = row.kind === "header";
   const rowLayout = resolveRowLayout(workbook, sheet, row.modifiers);
-  const cells = row.cells.filter(isRenderableCell).map((cell) => renderCell(cell, header, collectModifiers(cell, row, sheet, workbook), rowLayout)).join("");
+  const cells = row.cells
+    .filter(isRenderableCell)
+    .map((cell) => renderCell(cell, header, collectModifiers(cell, row, sheet, workbook), rowLayout))
+    .join("");
   return `<tr><th class="cello-row-index" scope="row">${row.index}</th>${cells}</tr>`;
 }
 
@@ -256,14 +276,7 @@ function buildCellAttributes(cell: CellNode, modifiers: Modifier[], rowLayout: R
   const className = buildClassAttribute(modifiers, rowLayout);
   const style = buildStyleAttribute(modifiers, rowLayout);
 
-  return [
-    cell.colspan > 1 ? `colspan="${cell.colspan}"` : "",
-    cell.rowspan > 1 ? `rowspan="${cell.rowspan}"` : "",
-    className,
-    style
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return [cell.colspan > 1 ? `colspan="${cell.colspan}"` : "", cell.rowspan > 1 ? `rowspan="${cell.rowspan}"` : "", className, style].filter(Boolean).join(" ");
 }
 
 function formatInline(raw: string): string {
@@ -274,8 +287,8 @@ function formatInline(raw: string): string {
   }
 
   let out = escapeHtml(raw);
-  out = out.replace(/\*([^*]+)\*/g, "<span class=\"cello-bold\">$1</span>");
-  out = out.replace(/_([^_]+)_/g, "<span class=\"cello-italic\">$1</span>");
+  out = out.replace(/\*([^*]+)\*/g, '<span class="cello-bold">$1</span>');
+  out = out.replace(/_([^_]+)_/g, '<span class="cello-italic">$1</span>');
   out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
   return out;
 }
@@ -296,14 +309,7 @@ function isRenderableCell(cell: CellNode): boolean {
 }
 
 function getSheetColumnCount(sheet: SheetNode): number {
-  const maxRenderedColumn = Math.max(
-    0,
-    ...sheet.rows.flatMap((row) =>
-      row.cells
-        .filter(isRenderableCell)
-        .map((cell) => cell.col + Math.max(cell.colspan, 1) - 1)
-    )
-  );
+  const maxRenderedColumn = Math.max(0, ...sheet.rows.flatMap((row) => row.cells.filter(isRenderableCell).map((cell) => cell.col + Math.max(cell.colspan, 1) - 1)));
   return Math.max(sheet.columns.length, maxRenderedColumn);
 }
 

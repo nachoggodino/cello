@@ -1,8 +1,4 @@
-import {
-  HighlightStyle,
-  StreamLanguage,
-  syntaxHighlighting
-} from "@codemirror/language";
+import { HighlightStyle, StreamLanguage, syntaxHighlighting } from "@codemirror/language";
 import type { StreamParser, StringStream } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 

@@ -4,7 +4,7 @@ import type { ExternalSourceContext } from "./externalSources.js";
 import { createExternalSourceResolver } from "./externalSources.js";
 
 export async function renderDocumentPreview(
-  document: Pick<TextDocument, "getText" | "uri" | "fileName">,
+  document: Pick<TextDocument, "getText" | "fileName"> & { readonly uri: ExternalSourceContext["documentUri"] },
   workspaceFolders: ExternalSourceContext["workspaceFolders"]
 ): Promise<string> {
   const externalSources = createExternalSourceResolver({
@@ -14,7 +14,7 @@ export async function renderDocumentPreview(
 
   const html = await render(document.getText(), {
     baseDir: externalSources.baseDir,
-    readExternalSource: externalSources.readExternalSource,
+    readExternalSource: (path, context) => externalSources.readExternalSource(path, context),
     interactive: true,
     title: `Cello Preview: ${document.fileName}`
   });
@@ -113,9 +113,5 @@ export function renderErrorDocument(error: unknown): string {
 }
 
 function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }

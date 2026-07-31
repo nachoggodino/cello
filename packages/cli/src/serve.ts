@@ -67,7 +67,10 @@ export async function startServe(filePath: string, options: ServeOptions = {}): 
   }
 }
 
-function createCachedRenderer(inputPath: string, evaluateFormulas: boolean): {
+function createCachedRenderer(
+  inputPath: string,
+  evaluateFormulas: boolean
+): {
   markDirty: () => void;
   refresh: () => Promise<string>;
   version: () => Promise<number>;

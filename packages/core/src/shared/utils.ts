@@ -21,12 +21,7 @@ export function deepClone<T>(value: T): T {
 }
 
 export function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
 export function parseTrailingModifiers(value: string): { base: string; modifiers: Modifier[] } {
@@ -204,7 +199,5 @@ export function splitDelimitedLine(line: string, delimiter: string): string[] {
 }
 
 export function workbookHasFormulas(workbook: WorkbookAst): boolean {
-  return workbook.sheets.some((sheet) =>
-    sheet.rows.some((row) => row.cells.some((cell) => cell.kind === "formula"))
-  );
+  return workbook.sheets.some((sheet) => sheet.rows.some((row) => row.cells.some((cell) => cell.kind === "formula")));
 }

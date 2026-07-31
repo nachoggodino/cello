@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Diagnostic } from "../../../packages/core/src/shared/types.js";
 import { buildWorkbookRefIndex, translateFormulaForEngine } from "../../../packages/core/src/evaluator/formula.js";
 import { dataRow, sheet, valueCell, workbook } from "../../helpers/ast.js";
 
@@ -36,7 +37,17 @@ describe("formula translation", () => {
   });
 
   it("translates current-sheet bare named refs to the current row in scalar context", () => {
-    const ast = createWorkbook([{ name: "S", columns: ["Revenue", "Units"], dataRows: [[5, 2], [7, 1], [9, 3]] }]);
+    const ast = createWorkbook([
+      {
+        name: "S",
+        columns: ["Revenue", "Units"],
+        dataRows: [
+          [5, 2],
+          [7, 1],
+          [9, 3]
+        ]
+      }
+    ]);
     const index = buildWorkbookRefIndex(ast);
     const translated = translateFormulaForEngine("=Revenue/Units", "S", index, ast.diagnostics, 4);
     expect(translated).toBe("=A4/B4");
@@ -69,8 +80,8 @@ describe("formula translation", () => {
   });
 
   it("keeps !! token when workbook has no sheets", () => {
-    const index = buildWorkbookRefIndex({ version: "1.0", sheets: [], diagnostics: [] });
-    const diagnostics: Array<{ level: "warning" | "error"; message: string; sheet?: string }> = [];
+    const index = buildWorkbookRefIndex({ version: "1.0", aliases: [], sheets: [], diagnostics: [] });
+    const diagnostics: Diagnostic[] = [];
     const translated = translateFormulaForEngine("=SUM(!!Amount)", "S", index, diagnostics);
     expect(translated).toBe("=SUM(!!Amount)");
   });
@@ -95,10 +106,8 @@ describe("formula translation", () => {
 
     expect(t1).toBe("=SUM(Empty!Amount)");
     expect(t2).toBe("=SUM(Amount)");
-    expect(ast.diagnostics.some((d) => d.message.includes('Empty!Amount') && d.level === "warning")).toBe(true);
-    expect(ast.diagnostics.some((d) => d.message.includes('Named reference "Amount"') && d.level === "warning")).toBe(
-      true
-    );
+    expect(ast.diagnostics.some((d) => d.message.includes("Empty!Amount") && d.severity === "warning")).toBe(true);
+    expect(ast.diagnostics.some((d) => d.message.includes('Named reference "Amount"') && d.severity === "warning")).toBe(true);
   });
 
   it("translates named slices and preserves keywords/functions", () => {

@@ -1,4 +1,4 @@
-import type { CelloSourceLayout, ParseOptions } from "../../core/src/index.js";
+import type { CelloSourceLayout, ParseOptions } from "../../core/src/internal.js";
 
 export interface CreateEditorWorkbookOptions {
   anonymousSheetName?: ParseOptions["anonymousSheetName"];

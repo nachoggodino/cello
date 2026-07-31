@@ -1,5 +1,5 @@
-import { evaluate, parse } from "../../core/src/index.js";
-import type { EvaluateOptions, ParseOptions } from "../../core/src/index.js";
+import { evaluate, parse } from "../../core/src/internal.js";
+import type { EvaluateOptions, ParseOptions } from "../../core/src/internal.js";
 import type { CellAddress, ComputedCellValues } from "./model.js";
 import { rejectExternalSource } from "./options.js";
 

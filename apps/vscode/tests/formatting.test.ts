@@ -1,7 +1,7 @@
-import { format as formatCello } from "@nachoggodino/cello";
+import { formatSource } from "@nachoggodino/cello";
 
 describe("published Cello formatter", () => {
   it("formats Cello tables for extension formatting", () => {
-    expect(formatCello("@sheet S\n| A | Long |\n| 1 | 2 |")).toBe("@sheet S\n| A | Long |\n| 1 | 2    |");
+    expect(formatSource("@sheet S\n| A | Long |\n| 1 | 2 |", { layout: "pretty" })).toBe("@sheet S\n| A | Long |\n| 1 | 2    |");
   });
 });

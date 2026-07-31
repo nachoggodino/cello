@@ -1,10 +1,7 @@
 export type CelloVersion = "1.0";
 
 export type SheetFormat =
-  | { kind: "cello" }
-  | { kind: "delimited"; delimiter: string; noHeader: boolean; alias?: "csv" | "tsv" | "excel" }
-  | { kind: "markdown" }
-  | { kind: "json"; path?: string };
+  { kind: "cello" } | { kind: "delimited"; delimiter: string; noHeader: boolean; alias?: "csv" | "tsv" | "excel" } | { kind: "markdown" } | { kind: "json"; path?: string };
 
 export type RowKind = "header" | "data";
 export type CellKind = "value" | "formula" | "merge-left" | "merge-up" | "empty";
@@ -26,6 +23,33 @@ export interface AliasDeclaration {
   modifiers: Modifier[];
 }
 
+/** Stable machine-readable diagnostic identifiers. */
+export const DIAGNOSTIC_CODES = [
+  "skipped-non-row-line",
+  "invalid-sheet-declaration",
+  "invalid-alias-declaration",
+  "invalid-header-directive",
+  "invalid-defaults-directive",
+  "unsupported-row-prefix",
+  "invalid-formula-modifier-scope",
+  "duplicate-sheet-identity",
+  "duplicate-alias-identity",
+  "formula-syntax-error",
+  "formula-reference-error",
+  "formula-runtime-error",
+  "formula-empty-reference",
+  "formula-engine-unavailable",
+  "formula-engine-initialization-error",
+  "formula-evaluation-error",
+  "render-error",
+  "ambiguous-workbook-identity",
+  "external-source-error",
+  "external-source-unsupported",
+  "foreign-format-error"
+] as const;
+
+export type DiagnosticCode = (typeof DIAGNOSTIC_CODES)[number];
+
 export interface SheetLayout {
   columns?: SheetColumnsDefault;
   rows?: SheetRowsDefault;
@@ -39,6 +63,7 @@ export interface CellNode {
   inferredType: InferredType;
   value: string | number | boolean | null;
   formula?: string;
+  formulaHeaders?: string[];
   modifiers: Modifier[];
   computed?: string | number | boolean | null;
   colspan: number;
@@ -70,12 +95,37 @@ export interface SheetNode {
 }
 
 export type DiagnosticLevel = "warning" | "error";
+export type DiagnosticStage = "parse" | "evaluate" | "validate" | "render";
+export type DiagnosticCategory = "syntax" | "identity" | "reference" | "runtime" | "external" | "format";
+export type DiagnosticContextValue = string | number | boolean | null;
+
+export interface DiagnosticLocation {
+  line: number;
+  column?: number;
+  sheet?: string;
+  span?: CelloSourceSpan;
+}
 
 export interface Diagnostic {
+  /** Stable machine-readable identifier. */
+  code: DiagnosticCode;
+  /** Canonical severity. */
+  severity: DiagnosticLevel;
+  /** @deprecated Use severity. Retained through 1.x for compatibility. */
   level: DiagnosticLevel;
+  stage: DiagnosticStage;
+  category: DiagnosticCategory;
   message: string;
   line?: number;
   sheet?: string;
+  primary?: DiagnosticLocation;
+  external?: {
+    path: string;
+    line?: number;
+    column?: number;
+  };
+  context?: Readonly<Record<string, DiagnosticContextValue>>;
+  related?: DiagnosticLocation[];
 }
 
 export interface WorkbookAst {
@@ -131,12 +181,28 @@ export interface ParsedCelloDocument {
   source: string;
   workbook: WorkbookAst;
   sourceMap: CelloSourceMap;
+  dependencies: ExternalDependency[];
+}
+
+export interface ExternalDependency {
+  sheet: string;
+  path: string;
+  resolvedPath: string;
+  sourceLine: number;
+}
+
+export interface ExternalSourceLimits {
+  maxBytes?: number;
+  maxRows?: number;
+  maxCells?: number;
+  maxColumns?: number;
 }
 
 export interface ParseOptions {
   strict?: boolean;
   anonymousSheetName?: string;
   baseDir?: string;
+  externalLimits?: ExternalSourceLimits;
   readExternalSource?: (path: string, context: { baseDir: string; resolvedPath: string }) => string;
 }
 
@@ -152,4 +218,5 @@ export interface RenderOptions {
   evaluate?: boolean;
   format?: "document" | "fragment";
   interactive?: boolean;
+  nonce?: string;
 }
