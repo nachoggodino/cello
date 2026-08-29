@@ -17,6 +17,11 @@ import type {
   EditorSessionSourceOptions,
   EditorSessionSourceResult
 } from "./session-model.js";
+import {
+  cloneTableViewState,
+  getInitialSheetTableViewState,
+  reconcileSheetTableViewState
+} from "./table-view-state.js";
 
 const DEFAULT_HISTORY_LIMIT = 100;
 
@@ -304,32 +309,21 @@ class EditorSessionStore implements EditorSession {
 }
 
 function createInitialTableViews(document: EditorDocument): Record<string, SheetTableViewState> {
-  return Object.fromEntries(document.workbook.sheets.map((sheet) => {
-    const defaultView = sheet.views.find((view) => view.default);
-    return [sheet.name, defaultView
-      ? { enabled: true, columns: defaultView.columns.map((rule) => ({ ...rule })), selectedSavedView: defaultView.name }
-      : { enabled: false, columns: [] }];
-  }));
+  return Object.fromEntries(document.workbook.sheets.map((sheet) => [
+    sheet.name,
+    getInitialSheetTableViewState(sheet.views)
+  ]));
 }
 
 function reconcileTableViews(document: EditorDocument, current: Record<string, SheetTableViewState>): Record<string, SheetTableViewState> {
-  const initial = createInitialTableViews(document);
   return Object.fromEntries(document.workbook.sheets.map((sheet) => [
     sheet.name,
-    current[sheet.name] ?? initial[sheet.name] ?? { enabled: false, columns: [] }
+    reconcileSheetTableViewState(sheet.views, current[sheet.name])
   ]));
 }
 
 function cloneTableViews(states: Record<string, SheetTableViewState>): Record<string, SheetTableViewState> {
   return Object.fromEntries(Object.entries(states).map(([name, state]) => [name, cloneTableViewState(state)]));
-}
-
-function cloneTableViewState(state: SheetTableViewState): SheetTableViewState {
-  return {
-    enabled: state.enabled,
-    columns: state.columns.map((rule) => ({ ...rule })),
-    ...(state.selectedSavedView === undefined ? {} : { selectedSavedView: state.selectedSavedView })
-  };
 }
 
 function tableViewStatesEqual(left: SheetTableViewState | undefined, right: SheetTableViewState): boolean {

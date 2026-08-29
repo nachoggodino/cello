@@ -116,6 +116,12 @@ export {
 export { evaluateEditorWorkbookSource, getCellAddressKey } from "./evaluation.js";
 export { hasEditorVerticalMerges, projectEditorSheetView } from "./table-view.js";
 export {
+  cloneTableViewState,
+  getInitialSheetTableViewState,
+  reconcileSheetTableViewState
+} from "./table-view-state.js";
+export { findDefaultView, parseViewFilter } from "../../core/src/index.js";
+export {
   clearRange,
   clearRangeAll,
   copyRangeAsTsv,

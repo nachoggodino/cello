@@ -76,7 +76,7 @@ Named views are non-rendered, sheet-scoped declarations. Their pipe cells map po
 @view Large orders [default] | | @where >100 @sort desc | |
 ```
 
-Each cell accepts `@where expression`, `@sort asc`, `@sort desc`, or both. Filters combine with AND and a view has at most one sort column. Supported filters are case-insensitive contains, `*` wildcards, numeric `>`, `>=`, `<`, `<=`, exact `=value`, `is:blank`, and `is:notblank`. Sorting is stable with blanks last. Header rows stay fixed and repeated headers create independent sections. `[default]` selects the initial interactive view. View declarations do not consume row numbers.
+Each cell accepts `@where expression`, `@sort asc`, `@sort desc`, or both. Filters combine with AND and a view has at most one sort column. Supported filters are deterministic case-insensitive contains, `*` wildcards, numeric `>`, `>=`, `<`, `<=`, exact `=value`, `is:blank`, and `is:notblank`. Numeric comparisons apply only to actual numeric cells; blanks, booleans, and text are not coerced. Sorting is stable with blanks last. Header rows stay fixed and repeated headers create independent sections. `[default]` selects the initial interactive view. View declarations do not consume row numbers.
 
 ### Rendering
 

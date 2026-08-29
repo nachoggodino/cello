@@ -644,6 +644,34 @@ describe("editor core", () => {
     );
   });
 
+  it("appends a column without failing on a canonical trailing empty view rule", () => {
+    const source = "@sheet Sales\n@view Madrid | @where mad |\n| Madrid |";
+    const result = executeEditorCommand(createEditorDocument(source), {
+      type: "add-column",
+      sheetIndex: 0,
+      afterColIndex: 0
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe(
+      "@sheet Sales\n@view Madrid | @where mad |\n| Madrid |  |"
+    );
+  });
+
+  it("can structurally edit a document that diagnoses a duplicate saved view", () => {
+    const source = "@sheet Sales\n@view Madrid | @where mad |\n@view madrid | @where bil |\n| Madrid |";
+    const result = executeEditorCommand(createEditorDocument(source), {
+      type: "add-column",
+      sheetIndex: 0,
+      afterColIndex: 0
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe(
+      "@sheet Sales\n@view Madrid | @where mad |\n@view madrid | @where bil |\n| Madrid |  |"
+    );
+  });
+
   it("preserves anonymous source when adding a sheet", () => {
     const source = "// keep\r\n|  Ada  |\r\n";
     const result = executeEditorCommand(createEditorDocument(source), { type: "add-sheet" });

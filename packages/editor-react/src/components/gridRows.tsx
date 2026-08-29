@@ -100,6 +100,7 @@ export function VisualConfigurationScaffold({
 export function VisualDataRows({
   activeSheet,
   activeSheetIndex,
+  ariaRowIndex,
   aliases,
   computedValues,
   commitCommand,
@@ -129,6 +130,7 @@ export function VisualDataRows({
 }: {
   activeSheet: EditorSheet;
   activeSheetIndex: number;
+  ariaRowIndex: number;
   aliases: EditorWorkbook["aliases"];
   computedValues: ComputedCellValues;
   commitCommand: (command: EditorDocumentCommand) => boolean;
@@ -168,7 +170,7 @@ export function VisualDataRows({
     <tr
       key={rowIndex}
       role="row"
-      aria-rowindex={rowIndex + 1}
+      aria-rowindex={ariaRowIndex}
       className={
         activeSheet.rows[rowIndex]?.kind === "header"
           ? "celloVisualHeaderRow"
@@ -177,7 +179,7 @@ export function VisualDataRows({
     >
       <th
         role="rowheader"
-        aria-rowindex={rowIndex + 1}
+        aria-rowindex={ariaRowIndex}
         aria-selected={
           modifierScope === "row" &&
           selectedRowIndexes.has(rowIndex)
@@ -270,7 +272,7 @@ export function VisualDataRows({
             id={getGridCellId(address)}
             aria-label={`${getColumnName(colIndex)}${rowIndex + 1}`}
             aria-colindex={colIndex + 1}
-            aria-rowindex={rowIndex + 1}
+            aria-rowindex={ariaRowIndex}
             aria-selected={isInRange}
             data-cell-address={cellKey}
             className={[

@@ -112,7 +112,7 @@ view-specific options through `sourceEditorProps`, `visualEditorProps`, and
 `htmlPreviewProps`. Active view remains UI state and never enters the document session,
 so switching tabs cannot alter source or undo history.
 
-The shared session also owns transient filter and sort state per sheet. Toggling or selecting a saved `@view` publishes a snapshot without changing the source revision or either undo history. The visual editor keeps original source addresses while navigating the projected visible row order.
+The shared session also owns transient filter and sort state per sheet. Toggling or selecting a saved `@view` publishes a snapshot without changing the source revision or either undo history. A selected saved view is refreshed from source after edits, undo, and redo; if it is removed, state falls back to the sheet's current default or to all rows. Ad-hoc transient rules remain intact across unrelated source edits. The visual editor keeps original source addresses while navigating and operating on the projected visible row order.
 
 `CelloSourceEditor` provides Cello syntax highlighting, line numbers, search, bracket
 matching and closing, indentation, active-line and selection-match highlighting, grouped

@@ -36,7 +36,7 @@ export type {
   ViewSortDirection,
   WorkbookAst
 } from "./shared/types.js";
-export { findDefaultView, hasVerticalMerges, matchesViewFilter, parseViewFilter, projectTableView } from "./shared/table-view.js";
+export { canonicalizeViewColumns, findDefaultView, hasVerticalMerges, matchesViewFilter, parseViewFilter, projectTableView } from "./shared/table-view.js";
 export type { ParsedViewFilter, TableViewCellValue, TableViewProjection, TableViewRow } from "./shared/table-view.js";
 export type { ResolvedHeight, ResolvedRowLayout, ResolvedWidth } from "./shared/layout.js";
 export type { CurrencySymbol, NumericDisplayFormat, ToneName } from "./shared/display.js";

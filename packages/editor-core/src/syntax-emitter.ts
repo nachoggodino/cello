@@ -1,4 +1,4 @@
-import { sheetLayoutToToken } from "../../core/src/index.js";
+import { canonicalizeViewColumns, sheetLayoutToToken } from "../../core/src/index.js";
 import type { SheetView, ViewColumnRule } from "../../core/src/index.js";
 import type { EditorCell, EditorRow, EditorSheet } from "./model.js";
 import { DEFAULT_SHEET_NAME } from "./options.js";
@@ -20,8 +20,8 @@ export function emitEditorSheet(sheet: EditorSheet): string {
 }
 
 export function emitEditorView(view: SheetView): string {
-  const name = `${view.name.replaceAll("|", " ").trim()}${view.default ? " [default]" : ""}`;
-  const columns = trimTrailingEmptyViewRules(view.columns).map(emitViewRule).join(" | ");
+  const name = `${view.name.replaceAll("|", " ").replaceAll("[", "").replaceAll("]", "").trim()}${view.default ? " [default]" : ""}`;
+  const columns = canonicalizeViewColumns(view.columns).map(emitViewRule).join(" | ");
   return `@view ${name} | ${columns}${columns ? " " : ""}|`;
 }
 
@@ -29,12 +29,6 @@ function emitViewRule(rule: ViewColumnRule): string {
   return [rule.filter ? `@where ${rule.filter}` : "", rule.sort ? `@sort ${rule.sort}` : ""]
     .filter(Boolean)
     .join(" ");
-}
-
-function trimTrailingEmptyViewRules(rules: ViewColumnRule[]): ViewColumnRule[] {
-  let end = rules.length;
-  while (end > 0 && !rules[end - 1]?.filter && !rules[end - 1]?.sort) end -= 1;
-  return rules.slice(0, end);
 }
 
 export function emitEditorSheetDeclaration(sheet: EditorSheet): string {

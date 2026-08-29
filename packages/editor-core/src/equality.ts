@@ -1,3 +1,4 @@
+import { canonicalizeViewColumns } from "../../core/src/index.js";
 import type { AliasDeclaration, Modifier, SheetFormat, SheetLayout, SheetView } from "../../core/src/index.js";
 import type { EditorCell, EditorRow, EditorSheet, EditorWorkbook } from "./model.js";
 
@@ -75,9 +76,11 @@ export function sheetEqual(left: EditorSheet | undefined, right: EditorSheet | u
 export function viewsEqual(left: readonly SheetView[], right: readonly SheetView[]): boolean {
   return left.length === right.length && left.every((view, index) => {
     const candidate = right[index];
+    const columns = canonicalizeViewColumns(view.columns);
+    const candidateColumns = canonicalizeViewColumns(candidate?.columns ?? []);
     return Boolean(candidate && view.name === candidate.name && view.default === candidate.default &&
-      view.columns.length === candidate.columns.length && view.columns.every((rule, colIndex) =>
-        rule.filter === candidate.columns[colIndex]?.filter && rule.sort === candidate.columns[colIndex]?.sort));
+      columns.length === candidateColumns.length && columns.every((rule, colIndex) =>
+        rule.filter === candidateColumns[colIndex]?.filter && rule.sort === candidateColumns[colIndex]?.sort));
   });
 }
 

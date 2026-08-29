@@ -417,19 +417,34 @@ function tryHandleViewDirective(
   }
   const view: SheetView = {
     name,
-    default: parsedName.modifiers.some((modifier) => modifier.key === "default"),
+    default: parsedName.modifiers.some((modifier) => modifier.key === "default" && modifier.value === undefined),
     columns
   };
-  if (sheet.views.some((existing) => existing.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+  for (const modifier of parsedName.modifiers) {
+    if (modifier.key !== "default" || modifier.value !== undefined) {
+      runtime.pushDiagnostic({
+        level: "warning",
+        line: lineNumber,
+        sheet: sheet.name,
+        message: `Unknown @view modifier: [${modifier.raw}].`
+      });
+    }
+  }
+  if (sheet.views.some((existing) => existing.name.toLowerCase() === name.toLowerCase())) {
     runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `Duplicate @view name: ${name}.` });
+    runtime.sourceMapBuilder.touchSheet(
+      runtime.workbook.sheets.indexOf(sheet),
+      sheet.format,
+      runtime.currentSourceLine
+    );
   } else {
     if (view.default && sheet.views.some((existing) => existing.default)) {
       runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `Only one @view can be [default]; "${name}" will remain selectable.` });
       view.default = false;
     }
     sheet.views.push(view);
+    runtime.sourceMapBuilder.addView(runtime.workbook.sheets.indexOf(sheet), sheet.format, runtime.currentSourceLine, name, columns.length);
   }
-  runtime.sourceMapBuilder.addView(runtime.workbook.sheets.indexOf(sheet), sheet.format, runtime.currentSourceLine, name, columns.length);
   return true;
 }
 
@@ -442,11 +457,13 @@ function parseViewColumnRule(
 ): ViewColumnRule {
   const markers = Array.from(token.matchAll(/@(where|sort)\b/giu));
   const rule: { filter?: string; sort?: "asc" | "desc" } = {};
+  const seen = new Set<string>();
   for (const [index, match] of markers.entries()) {
-    const kind = match[1]?.toLocaleLowerCase();
+    const kind = match[1]?.toLowerCase();
     const start = match.index + match[0].length;
     const end = markers[index + 1]?.index ?? token.length;
     const value = token.slice(start, end).trim();
+    recordViewRuleUse(runtime, sheet, lineNumber, colIndex, seen, kind);
     if (kind === "where") {
       if (value && parseViewFilter(value)) rule.filter = value;
       else if (value) runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `Invalid @where expression in column ${columnLetter(colIndex + 1)}: ${value}.` });
@@ -461,6 +478,26 @@ function parseViewColumnRule(
     runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `Unknown @view rule in column ${columnLetter(colIndex + 1)}: ${token.trim()}.` });
   }
   return rule;
+}
+
+function recordViewRuleUse(
+  runtime: ParseRuntime,
+  sheet: SheetNode,
+  lineNumber: number,
+  colIndex: number,
+  seen: Set<string>,
+  kind: string | undefined
+): void {
+  if (!kind) return;
+  if (seen.has(kind)) {
+    runtime.pushDiagnostic({
+      level: "warning",
+      line: lineNumber,
+      sheet: sheet.name,
+      message: `Only one @${kind} is allowed in column ${columnLetter(colIndex + 1)}; the last valid value wins.`
+    });
+  }
+  seen.add(kind);
 }
 
 function parseSheetLayout(modifiers: Modifier[]): SheetLayout {

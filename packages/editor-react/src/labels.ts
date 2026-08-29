@@ -54,5 +54,10 @@ export const defaultLabels: CelloVisualEditorLabels = {
   noSort: "No sort",
   sortAscending: "A–Z",
   sortDescending: "Z–A",
+  sortDirection: "Sort direction",
+  activeFilter: "active",
+  filterPlaceholder: "Contains, *wildcard*, >100",
+  invalidNumberFilter: "Enter a number after a comparison operator.",
+  rows: "rows",
   verticalMergeViewWarning: "Filtering is unavailable while this sheet contains vertical merges."
 };

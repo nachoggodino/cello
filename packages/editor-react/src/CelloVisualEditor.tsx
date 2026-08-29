@@ -28,6 +28,7 @@ import {
   isRowWrap,
   hasEditorVerticalMerges,
   projectEditorSheetView,
+  reconcileSheetTableViewState,
   parseClipboardMatrix,
 } from "@nachoggodino/cello/editor-core";
 import type {
@@ -81,13 +82,13 @@ import {
 import type { MoveDirection } from "./interactions/grid.js";
 import { handleGridKeyDown as handleGridKeyboardEvent } from "./interactions/keyboard.js";
 import {
+  addressesContainMergedCells,
   createCellSelection,
   expandRangeForMergedCells,
   formatSelectionLabel,
   getMergeOwnerAddress,
   getSelectionRange,
   isPasteCompatibleWithMergedCells,
-  rangeContainsMergedCells,
   resolveModifierScope,
   shiftSelectionRows
 } from "./selection.js";
@@ -227,7 +228,7 @@ function ControlledCelloVisualEditor({
   const editorDocumentRef = useRef(editorDocument);
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   const [selection, setSelection] = useState<GridSelection>(() => createCellSelection({ sheetIndex: 0, rowIndex: 0, colIndex: 0 }));
-  const computedValues = useComputedValues(source, parseOptions);
+  const computedValues = useComputedValues(editorDocument.source, parseOptions);
   const [editingDraft, setEditingDraft] = useState<EditingDraft | null>(null);
   const [liveMessage, setLiveMessage] = useState("");
   const [commandError, setCommandError] = useState<string | null>(null);
@@ -277,14 +278,34 @@ function ControlledCelloVisualEditor({
 
   const workbook = editorDocument.workbook;
   const activeSheet = workbook.sheets[activeSheetIndex] ?? workbook.sheets[0] ?? fallbackSheet;
-  const selected = selection.active;
-  const selectedDefaultCol = selection.kind === "default" ? selected.colIndex : null;
-  const gridMode: GridMode = editingDraft ? "edit" : "navigate";
-  const workbookContext = useMemo(() => (workbook.aliases ? { aliases: workbook.aliases } : {}), [workbook.aliases]);
-  const selectedCell = selectedDefaultCol === null ? getSelectedCell(workbook, selected) : getDefaultCellAt(activeSheet, selectedDefaultCol);
-  const selectedHeadingPrefix = getCellHeadingPrefix(selectedCell);
   const visibleRowCount = getVisibleRowCount(activeSheet);
   const visibleColumnCount = getVisibleColumnCount(activeSheet);
+  const workbookContext = useMemo(() => (workbook.aliases ? { aliases: workbook.aliases } : {}), [workbook.aliases]);
+  const storedTableViewState = providedTableViewState ?? localTableViews[activeSheet.name];
+  const tableViewState = useMemo(
+    () => reconcileSheetTableViewState(activeSheet.views, storedTableViewState),
+    [activeSheet.views, storedTableViewState]
+  );
+  const tableViewDisabled = hasEditorVerticalMerges(activeSheet);
+  const tableViewEnabled = tableViewState.enabled && !tableViewDisabled;
+  const tableProjection = useMemo(() => tableViewEnabled
+    ? projectEditorSheetView(activeSheet, activeSheetIndex, tableViewState.columns, computedValues, workbookContext)
+    : { visibleRowIndices: Array.from({ length: visibleRowCount }, (_, index) => index), hiddenRowCount: 0 }, [
+    activeSheet,
+    activeSheetIndex,
+    computedValues,
+    tableViewEnabled,
+    tableViewState.columns,
+    visibleRowCount,
+    workbookContext
+  ]);
+  const displayedRowIndices = tableProjection.visibleRowIndices;
+  const resolvedSelection = reconcileSelectionWithDisplayedRows(selection, displayedRowIndices, activeSheet);
+  const selected = resolvedSelection.active;
+  const selectedDefaultCol = resolvedSelection.kind === "default" ? selected.colIndex : null;
+  const gridMode: GridMode = editingDraft ? "edit" : "navigate";
+  const selectedCell = selectedDefaultCol === null ? getSelectedCell(workbook, selected) : getDefaultCellAt(activeSheet, selectedDefaultCol);
+  const selectedHeadingPrefix = getCellHeadingPrefix(selectedCell);
   const renderedColumnCount = activeSheet.format.kind === "cello"
     ? Math.max(1, visibleColumnCount)
     : visibleColumnCount;
@@ -292,17 +313,26 @@ function ControlledCelloVisualEditor({
   const inheritedGroups = selectedDefaultCol === null ? getInheritedModifierGroups(activeSheet, selected.rowIndex, selected.colIndex) : [];
   const selectedColumnFit = isColumnFit(activeSheet, selected.rowIndex, selected.colIndex);
   const selectedColumnWidth = getColumnWidthValue(activeSheet, selected.rowIndex, selected.colIndex);
-  const logicalSelectedRange = getSelectionRange(selection, visibleRowCount, visibleColumnCount);
-  const selectedRange = selection.kind === "cells"
+  const logicalSelectedRange = getSelectionRange(resolvedSelection, visibleRowCount, visibleColumnCount);
+  const selectedRange = resolvedSelection.kind === "cells"
     ? expandRangeForMergedCells(activeSheet, logicalSelectedRange)
     : logicalSelectedRange;
-  const modifierScope = resolveModifierScope(selection, logicalSelectedRange, activeSheet, visibleRowCount, visibleColumnCount);
+  const selectedViewRowIndices = getSelectedViewRowIndices(resolvedSelection, displayedRowIndices);
+  const selectedViewRowSet = new Set(selectedViewRowIndices);
+  const modifierScope = resolveModifierScope(
+    resolvedSelection,
+    logicalSelectedRange,
+    activeSheet,
+    displayedRowIndices.length,
+    visibleColumnCount,
+    selectedViewRowIndices
+  );
   const selectedTextColor = getScopedColorValue(activeSheet, selected, modifierScope, "color", defaultTextColor);
   const selectedFillColor = getScopedColorValue(activeSheet, selected, modifierScope, "bg", defaultFillColor);
   const selectedTone = getScopedToneValue(activeSheet, selected, modifierScope);
-  const selectedLabel = formatSelectionLabel(activeSheet.name, selection, selectedRange);
+  const selectedLabel = formatSelectionLabel(activeSheet.name, resolvedSelection, selectedRange);
   const modifierSources = selectedDefaultCol === null
-    ? getSelectionModifierSources(activeSheet, selectedRange, modifierScope)
+    ? getSelectionModifierSources(activeSheet, selectedRange, modifierScope, selectedViewRowIndices)
     : [getCellModifierSourceText(selectedCell)];
   const selectedModifierText = getCommonValue(modifierSources) ?? "";
   const modifiersMixed = new Set(modifierSources).size > 1;
@@ -317,21 +347,17 @@ function ControlledCelloVisualEditor({
   const selectedRowWrap = isRowWrap(activeSheet, selected.rowIndex);
   const selectedRowHeight = getRowHeightValue(activeSheet, selected.rowIndex);
   const diagnosticMessage = commandError ?? editorDocument.diagnostics[0]?.message ?? null;
-  const fallbackTableViewState = getInitialTableViewState(activeSheet);
-  const tableViewState = providedTableViewState ?? localTableViews[activeSheet.name] ?? fallbackTableViewState;
-  const tableViewDisabled = hasEditorVerticalMerges(activeSheet);
-  const tableViewEnabled = tableViewState.enabled && !tableViewDisabled;
-  const tableProjection = tableViewEnabled
-    ? projectEditorSheetView(activeSheet, activeSheetIndex, tableViewState.columns, computedValues, workbookContext)
-    : { visibleRowIndices: Array.from({ length: visibleRowCount }, (_, index) => index), hiddenRowCount: 0 };
-  const displayedRowIndices = tableProjection.visibleRowIndices;
-  const selectedViewRowIndices = getSelectedViewRowIndices(selection, displayedRowIndices);
-  const selectedViewRowSet = new Set(selectedViewRowIndices);
   const totalDataRows = activeSheet.rows.filter((row) => row.kind === "data").length;
 
   const updateTableViewState = (state: SheetTableViewState) => {
     if (state.enabled && !tableViewDisabled) {
-      const nextProjection = projectEditorSheetView(activeSheet, activeSheetIndex, state.columns, computedValues, workbookContext);
+      const nextProjection = projectEditorSheetView(
+        activeSheet,
+        activeSheetIndex,
+        state.columns,
+        computedValues,
+        workbookContext
+      );
       if (!nextProjection.visibleRowIndices.includes(selected.rowIndex) && nextProjection.visibleRowIndices.length > 0) {
         const rowIndex = nextProjection.visibleRowIndices.find((index) => activeSheet.rows[index]?.kind === "data")
           ?? nextProjection.visibleRowIndices[0]
@@ -389,7 +415,7 @@ function ControlledCelloVisualEditor({
   }, [editingDraft, selected]);
 
   useEffect(() => {
-    if (editingDraft || selection.kind === "default") {
+    if (editingDraft || resolvedSelection.kind === "default") {
       return;
     }
     const activeCell = gridRef.current?.querySelector<HTMLElement>(`[data-cell-address="${getCellAddressKey(selected)}"]`);
@@ -397,7 +423,7 @@ function ControlledCelloVisualEditor({
     if (activeCell && typeof scrollIntoView === "function") {
       Reflect.apply(scrollIntoView, activeCell, [{ block: "nearest", inline: "nearest" }]);
     }
-  }, [editingDraft, selected, selection.kind]);
+  }, [editingDraft, resolvedSelection.kind, selected]);
 
   const applySourceSnapshot = (nextSource: string) => {
     const nextDocument = createEditorDocument(nextSource, workbookOptions);
@@ -688,6 +714,7 @@ function ControlledCelloVisualEditor({
   };
 
   const moveActiveCell = (direction: MoveDirection, extendRange: boolean) => {
+    if (tableViewEnabled && displayedRowIndices.length === 0) return;
     const owner = getMergeOwnerAddress(activeSheet, selected);
     const ownerSpan = getVisualCellSpan(activeSheet, owner.rowIndex, owner.colIndex);
     const verticalPosition = displayedRowIndices.indexOf(owner.rowIndex);
@@ -740,15 +767,18 @@ function ControlledCelloVisualEditor({
     }
   };
 
-  const clearVisibleSelection = (includeModifiers: boolean): boolean => commit({
-    type: "batch",
-    commands: getViewRangeAddresses(selectedRange, selectedViewRowIndices).map((address) => ({
-      type: "update-cell",
-      address,
-      source: "",
-      mode: includeModifiers ? "source" : "raw"
-    }))
-  });
+  const clearVisibleSelection = (includeModifiers: boolean): boolean => {
+    const addresses = getViewRangeAddresses(selectedRange, selectedViewRowIndices);
+    return addresses.length > 0 && commit({
+      type: "batch",
+      commands: addresses.map((address) => ({
+        type: "update-cell",
+        address,
+        source: "",
+        mode: includeModifiers ? "source" : "raw"
+      }))
+    });
+  };
 
   const pasteTextAtSelection = (text: string) => {
     const matrix = parseClipboardMatrix(text);
@@ -758,9 +788,15 @@ function ControlledCelloVisualEditor({
     const singleValue = matrix.length === 1 && matrix[0]?.length === 1 ? matrix[0][0] : undefined;
     const selectedCellCount = selectedViewRowIndices.length * (selectedRange.endCol - selectedRange.startCol + 1);
     const fillsSelectedRange = singleValue !== undefined && selectedCellCount > 1;
+    const compatibleWithMerges = tableViewEnabled
+      ? isVisiblePasteCompatibleWithMergedCells(activeSheet, selected, displayedRowIndices, matrix)
+      : isPasteCompatibleWithMergedCells(activeSheet, selected, matrix);
     if (
-      !isPasteCompatibleWithMergedCells(activeSheet, selected, matrix) ||
-      (fillsSelectedRange && rangeContainsMergedCells(activeSheet, selectedRange))
+      !compatibleWithMerges ||
+      (fillsSelectedRange && addressesContainMergedCells(
+        activeSheet,
+        getViewRangeAddresses(selectedRange, selectedViewRowIndices)
+      ))
     ) {
       setCommandError("Paste would split or replace part of a merged cell. Paste a range with the same merge layout.");
       return;
@@ -968,7 +1004,7 @@ function ControlledCelloVisualEditor({
           tabIndex={0}
           aria-label={labels.workbook}
           aria-multiselectable="true"
-          aria-activedescendant={selectedDefaultCol === null && visibleRowCount > 0 && visibleColumnCount > 0 ? getGridCellId(selected) : undefined}
+          aria-activedescendant={selectedDefaultCol === null && displayedRowIndices.includes(selected.rowIndex) && visibleColumnCount > 0 ? getGridCellId(selected) : undefined}
           aria-rowcount={displayedRowIndices.length}
           aria-colcount={renderedColumnCount}
           onKeyDown={handleGridKeyDown}
@@ -992,10 +1028,10 @@ function ControlledCelloVisualEditor({
             <thead>
               <tr role="row">
                 <th
-                  className={`celloVisualCorner ${selection.kind === "cells" && selectedViewRowIndices.length === displayedRowIndices.length && selectedRange.endCol - selectedRange.startCol + 1 === visibleColumnCount ? "selectedHeader" : ""}`}
+                  className={`celloVisualCorner ${resolvedSelection.kind === "cells" && selectedViewRowIndices.length === displayedRowIndices.length && selectedRange.endCol - selectedRange.startCol + 1 === visibleColumnCount ? "selectedHeader" : ""}`}
                   onClick={() => {
-                    const anchor = { sheetIndex: activeSheetIndex, rowIndex: 0, colIndex: 0 };
-                    const active = { sheetIndex: activeSheetIndex, rowIndex: visibleRowCount - 1, colIndex: visibleColumnCount - 1 };
+                    const anchor = { sheetIndex: activeSheetIndex, rowIndex: displayedRowIndices[0] ?? 0, colIndex: 0 };
+                    const active = { sheetIndex: activeSheetIndex, rowIndex: displayedRowIndices.at(-1) ?? 0, colIndex: visibleColumnCount - 1 };
                     setSelection({ kind: "cells", anchor, active });
                     setEditingDraft(null);
                     focusGrid();
@@ -1039,7 +1075,7 @@ function ControlledCelloVisualEditor({
                   onHeaderCommit={materializeHeaderCell}
                 />
               ) : null}
-              {displayedRowIndices.map((rowIndex) => (
+              {displayedRowIndices.map((rowIndex, displayIndex) => (
                 <VisualDataRows
                   key={rowIndex}
                   activeSheet={activeSheet}
@@ -1050,7 +1086,8 @@ function ControlledCelloVisualEditor({
                   labels={labels}
                   modifierScope={modifierScope}
                   rowIndex={rowIndex}
-                  selectionKind={selection.kind}
+                  ariaRowIndex={displayIndex + 1}
+                  selectionKind={resolvedSelection.kind}
                   selected={selected}
                   selectedRange={selectedRange}
                   selectedRowIndexes={selectedViewRowSet}
@@ -1099,13 +1136,6 @@ function toggleWrappedText(source: string, marker: string): string {
     : `${marker}${source}${marker}`;
 }
 
-function getInitialTableViewState(sheet: EditorSheet): SheetTableViewState {
-  const view = sheet.views.find((candidate) => candidate.default);
-  return view
-    ? { enabled: true, columns: view.columns.map((rule) => ({ ...rule })), selectedSavedView: view.name }
-    : { enabled: false, columns: [] };
-}
-
 function withoutViewRuleKey(rule: ViewColumnRule, key: keyof ViewColumnRule): ViewColumnRule {
   const next = { ...rule };
   Reflect.deleteProperty(next, key);
@@ -1116,8 +1146,23 @@ function getSelectedViewRowIndices(selection: GridSelection, displayedRowIndices
   if (selection.kind === "columns") return [...displayedRowIndices];
   const anchor = displayedRowIndices.indexOf(selection.anchor.rowIndex);
   const active = displayedRowIndices.indexOf(selection.active.rowIndex);
-  if (anchor < 0 || active < 0) return [selection.active.rowIndex];
+  if (anchor < 0 || active < 0) return [];
   return displayedRowIndices.slice(Math.min(anchor, active), Math.max(anchor, active) + 1);
+}
+
+function reconcileSelectionWithDisplayedRows(
+  selection: GridSelection,
+  displayedRowIndices: readonly number[],
+  sheet: EditorSheet
+): GridSelection {
+  if (selection.kind === "default" || displayedRowIndices.length === 0) return selection;
+  if (displayedRowIndices.includes(selection.anchor.rowIndex) && displayedRowIndices.includes(selection.active.rowIndex)) {
+    return selection;
+  }
+  const rowIndex = displayedRowIndices.find((index) => sheet.rows[index]?.kind === "data")
+    ?? displayedRowIndices[0]
+    ?? 0;
+  return createCellSelection({ ...selection.active, rowIndex });
 }
 
 function getViewRangeAddresses(range: ReturnType<typeof getSelectionRange>, rowIndices: readonly number[]): CellAddress[] {
@@ -1174,4 +1219,21 @@ function createVisiblePasteCommand(
     }
   }
   return { type: "batch", commands };
+}
+
+function isVisiblePasteCompatibleWithMergedCells(
+  sheet: EditorSheet,
+  selected: CellAddress,
+  displayedRows: readonly number[],
+  matrix: readonly string[][]
+): boolean {
+  const startPosition = displayedRows.indexOf(selected.rowIndex);
+  return startPosition >= 0 && matrix.every((values, rowOffset) => {
+    const rowIndex = displayedRows[startPosition + rowOffset];
+    return rowIndex === undefined || isPasteCompatibleWithMergedCells(
+      sheet,
+      { ...selected, rowIndex },
+      [values]
+    );
+  });
 }

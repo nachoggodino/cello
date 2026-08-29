@@ -31,12 +31,14 @@ describe("parse (unit-focused edge cases)", () => {
   });
 
   it("diagnoses invalid and ambiguous saved view declarations deterministically", () => {
-    const ast = parse([
+    const source = [
       "@sheet Sales",
       "@view First [default] | @where >large @sort asc | @sort desc |",
       "@view Second [default] | @where | |",
       "@view first | @where ok | |"
-    ].join("\n"));
+    ].join("\n");
+    const document = parseDocument(source);
+    const ast = document.workbook;
 
     expect(ast.sheets[0]?.views).toEqual([
       { name: "First", default: true, columns: [{ sort: "asc" }, {}] },
@@ -49,6 +51,8 @@ describe("parse (unit-focused edge cases)", () => {
       "@where in column A requires an expression.",
       "Duplicate @view name: first."
     ]));
+    expect(document.sourceMap.sheets[0]?.views.map((view) => view.name)).toEqual(["First", "Second"]);
+    expect(document.sourceMap.sheets[0]?.sheetSpan.end).toBe(source.length);
   });
 
   it("builds source locations from the same decisions as tolerant parsing", () => {
@@ -71,6 +75,26 @@ describe("parse (unit-focused edge cases)", () => {
     expect(source.slice(sheet?.declaration?.lineSpan.start, sheet?.declaration?.lineSpan.end)).toBe("@sheet Report");
     expect(source.slice(row?.lineSpan.start, row?.lineSpan.end)).toBe("| Ada | 5 |");
     expect(row?.cells.map((cell) => source.slice(cell.span.start, cell.span.end))).toEqual(["Ada", "5"]);
+  });
+
+  it("maps CRLF saved-view spans and diagnoses repeated rules and modifiers", () => {
+    const source = "@sheet Report\r\n@view Recent [default:value] | @where old @where new @sort asc @sort desc |\r\n| new |\r\n";
+    const document = parseDocument(source);
+    const location = document.sourceMap.sheets[0]?.views[0];
+
+    expect(document.workbook.sheets[0]?.views[0]).toEqual({
+      name: "Recent",
+      default: false,
+      columns: [{ filter: "new", sort: "desc" }]
+    });
+    expect(source.slice(location?.lineSpan.start, location?.lineSpan.end)).toBe(
+      "@view Recent [default:value] | @where old @where new @sort asc @sort desc |"
+    );
+    expect(document.workbook.diagnostics.map((diagnostic) => diagnostic.message)).toEqual(expect.arrayContaining([
+      "Unknown @view modifier: [default:value].",
+      "Only one @where is allowed in column A; the last valid value wins.",
+      "Only one @sort is allowed in column A; the last valid value wins."
+    ]));
   });
 
   it("preserves anonymous-sheet mapping around comments and aliases", () => {

@@ -194,7 +194,7 @@ Native sheets can declare named, non-rendered views whose rules align positional
 2. The first rule cell targets column A, the second column B, and so on.
 3. A rule cell may contain `@where expression`, `@sort asc`, `@sort desc`, or both.
 4. Filters across columns combine with AND. A view can sort by at most one column.
-5. Text filters are case-insensitive. `*` is a wildcard; `>`, `>=`, `<`, and `<=` compare numbers; `=value` is exact; `is:blank` and `is:notblank` test emptiness.
+5. Text filters are deterministically case-insensitive and do not depend on the host locale. `*` is a wildcard; `>`, `>=`, `<`, and `<=` compare actual numeric cells without coercing blanks, booleans, or text; `=value` is exact; `is:blank` and `is:notblank` test emptiness.
 6. Sorting is stable. Blank values remain last in either direction. Header rows remain fixed, and repeated headers define independent sort sections.
 7. Views do not render as rows and do not consume row numbers.
 8. `[default]` selects the initial interactive view. At most one view per sheet is the default.

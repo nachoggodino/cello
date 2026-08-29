@@ -259,4 +259,47 @@ describe("render", () => {
     expect(dom.window.document.querySelector(".cello-view-count")?.textContent).toBe("4 rows");
     dom.window.close();
   });
+
+  it("updates the HTML filter while typing without modifying table cells", async () => {
+    const html = await render("@sheet Sales\n| Madrid | 2 |\n| Bilbao | 3 |");
+    const dom = new JSDOM(html, { runScripts: "dangerously" });
+    const document = dom.window.document;
+    const trigger = document.querySelector<HTMLButtonElement>('.cello-column-filter[data-col="0"]');
+    const input = document.querySelector<HTMLInputElement>(".cello-filter-popover input");
+    const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("tbody tr"));
+
+    expect(document.querySelectorAll(".cello-filter-popover")).toHaveLength(1);
+    trigger?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    expect(input).toBeTruthy();
+    input!.value = "mad";
+    input!.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+
+    expect(rows.map((row) => row.cells[1]?.textContent)).toEqual(["Madrid", "Bilbao"]);
+    expect(rows.map((row) => row.hidden)).toEqual([false, true]);
+    expect(document.querySelector(".cello-view-count")?.textContent).toBe("1 of 2 rows");
+
+    input!.value = ">";
+    input!.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    expect(input!.getAttribute("aria-invalid")).toBe("true");
+    expect(document.querySelector<HTMLElement>(".cello-filter-error")?.hidden).toBe(false);
+    expect(rows.map((row) => row.hidden)).toEqual([false, false]);
+    dom.window.close();
+  });
+
+  it("compares only actual numeric cells in the HTML runtime", async () => {
+    const html = await render([
+      "@sheet Values",
+      "@view Positive [default] | @where >0 |",
+      "| |",
+      '| "1" |',
+      "| TRUE |",
+      "| 2 |"
+    ].join("\n"));
+    const dom = new JSDOM(html, { runScripts: "dangerously" });
+    const rows = Array.from(dom.window.document.querySelectorAll<HTMLTableRowElement>("tbody tr"));
+
+    expect(rows.filter((row) => !row.hidden).map((row) => row.dataset.sourceRow)).toEqual(["4"]);
+    expect(dom.window.document.querySelector(".cello-view-count")?.textContent).toBe("1 of 4 rows");
+    dom.window.close();
+  });
 });

@@ -207,4 +207,55 @@ describe("editor session", () => {
       columns: [{ filter: "bil" }, { sort: "asc" }]
     });
   });
+
+  it("refreshes a selected saved view from source edits and undo", () => {
+    const initial = "@sheet Sales\n@view Madrid [default] | @where mad |\n| Madrid |";
+    const changed = "@sheet Sales\n@view Madrid [default] | @where bil |\n| Bilbao |";
+    const session = createEditorSession({ source: initial });
+
+    session.setSource(changed);
+    expect(session.getSnapshot().tableViews.Sales).toEqual({
+      enabled: true,
+      selectedSavedView: "Madrid",
+      columns: [{ filter: "bil" }]
+    });
+
+    expect(session.undo("source")).toBe(true);
+    expect(session.getSnapshot().tableViews.Sales).toEqual({
+      enabled: true,
+      selectedSavedView: "Madrid",
+      columns: [{ filter: "mad" }]
+    });
+  });
+
+  it("falls back to the current default when a selected saved view is removed", () => {
+    const session = createEditorSession({
+      source: "@sheet Sales\n@view Madrid [default] | @where mad |\n@view Bilbao | @where bil |\n| Madrid |"
+    });
+    session.setSheetTableViewState("Sales", {
+      enabled: true,
+      selectedSavedView: "Bilbao",
+      columns: [{ filter: "bil" }]
+    });
+
+    session.setSource("@sheet Sales\n@view Madrid [default] | @where mad |\n| Madrid |");
+
+    expect(session.getSnapshot().tableViews.Sales).toEqual({
+      enabled: true,
+      selectedSavedView: "Madrid",
+      columns: [{ filter: "mad" }]
+    });
+  });
+
+  it("preserves ad-hoc table rules across unrelated source edits", () => {
+    const session = createEditorSession({ source: "@sheet Sales\n| Madrid |" });
+    session.setSheetTableViewState("Sales", { enabled: true, columns: [{ filter: "mad" }] });
+
+    session.setSource("@sheet Sales\n| Madrid | 1 |");
+
+    expect(session.getSnapshot().tableViews.Sales).toEqual({
+      enabled: true,
+      columns: [{ filter: "mad" }]
+    });
+  });
 });

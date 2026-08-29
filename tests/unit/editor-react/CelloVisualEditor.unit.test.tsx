@@ -729,6 +729,8 @@ describe("CelloVisualEditor", () => {
 
   it("filters and sorts visible editor rows transiently", async () => {
     const onSourceChange = vi.fn();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     await renderEditor("@sheet Sales\n| Madrid | 2 |\n| Bilbao | 3 |\n| Malaga | 1 |", onSourceChange);
 
     clickTab("Filter & sort");
@@ -746,9 +748,134 @@ describe("CelloVisualEditor", () => {
     clickButton("Filter column B");
     clickTab("A–Z");
     const firstColumn = Array.from(document.querySelectorAll<HTMLTableCellElement>('td[role="gridcell"][aria-colindex="1"]'))
-      .map((cell) => cell.textContent);
+      .map((cell) => cell.querySelector(".celloVisualCellDisplay")?.textContent);
     expect(firstColumn).toEqual(["Malaga", "Madrid"]);
+    expect(Array.from(document.querySelectorAll<HTMLTableCellElement>('td[role="gridcell"][aria-colindex="1"]'))
+      .map((cell) => cell.getAttribute("aria-rowindex"))).toEqual(["1", "2"]);
+    clickElement(document.querySelector(".celloVisualCorner"));
+    pressKey(document.querySelector('[role="grid"]')!, "c", { ctrlKey: true });
+    expect(writeText).toHaveBeenCalledWith("Malaga\t1\nMadrid\t2");
     expect(onSourceChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps filter input keyboard events out of the selected cell editor", async () => {
+    const source = "@sheet Sales\n| Madrid | 2 |\n| Bilbao | 3 |";
+    const onSourceChange = vi.fn();
+    await renderEditor(source, onSourceChange);
+
+    clickTab("Filter & sort");
+    clickButton("Filter column A");
+    const filterInput = document.querySelector<HTMLInputElement>(".celloVisualFilterPopover input");
+    expect(filterInput).toBeTruthy();
+    pressKey(filterInput!, "m");
+    changeInput(filterInput!, "mad");
+
+    expect(screenTextArea("Selected cell source").value).toBe("Madrid");
+    expect(document.querySelector("td textarea:not([readonly])")).toBeNull();
+    expect(screenCellText("A1")).toBe("Madrid");
+    expect(document.querySelector('[role="gridcell"][aria-label="A2"]')).toBeNull();
+    expect(onSourceChange).not.toHaveBeenCalled();
+  });
+
+  it("moves selection when editing a row makes it fail the active filter", async () => {
+    const onSourceChange = vi.fn();
+    await renderEditor("@sheet Sales\n| Madrid |\n| Malaga |", onSourceChange);
+
+    clickTab("Filter & sort");
+    clickButton("Filter column A");
+    const filterInput = document.querySelector<HTMLInputElement>(".celloVisualFilterPopover input");
+    expect(filterInput).toBeTruthy();
+    changeInput(filterInput!, "ma");
+    clickOutside();
+    changeInput(screenTextArea("Selected cell source"), "Bilbao");
+
+    expect(document.querySelector('[role="gridcell"][aria-label="A1"]')).toBeNull();
+    expect(screenCellText("A2")).toBe("Malaga");
+    expect(document.querySelector('[role="grid"]')?.getAttribute("aria-activedescendant")).toContain("0-1-0");
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Sales\n| Bilbao |\n| Malaga |");
+  });
+
+  it("removes the active descendant when recalculation filters out the last visible formula row", async () => {
+    const onSourceChange = vi.fn();
+    await renderEditor("@sheet Sales\n| 1 | =A1 |\n| 2 | =A2 |", onSourceChange);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+    clickTab("Filter & sort");
+    clickButton("Filter column B");
+    const filterInput = document.querySelector<HTMLInputElement>(".celloVisualFilterPopover input");
+    expect(filterInput).toBeTruthy();
+    changeInput(filterInput!, ">1");
+    clickOutside();
+    expect(screenCellText("A2")).toBe("2");
+
+    changeInput(screenTextArea("Selected cell source"), "0");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+    expect(document.querySelectorAll('td[role="gridcell"]')).toHaveLength(0);
+    expect(document.querySelector('[role="grid"]')?.hasAttribute("aria-activedescendant")).toBe(false);
+    expect(onSourceChange).toHaveBeenLastCalledWith("@sheet Sales\n| 1 | =A1 |\n| 0 | =A2 |");
+  });
+
+  it("has no active descendant or destructive target when a filter hides every row", async () => {
+    const onSourceChange = vi.fn();
+    await renderEditor("@sheet Sales\n| Madrid |", onSourceChange);
+
+    clickTab("Filter & sort");
+    clickButton("Filter column A");
+    const filterInput = document.querySelector<HTMLInputElement>(".celloVisualFilterPopover input");
+    expect(filterInput).toBeTruthy();
+    changeInput(filterInput!, "nomatch");
+    pressKey(document.querySelector('[role="grid"]')!, "Delete");
+
+    expect(document.querySelector('[role="grid"]')?.hasAttribute("aria-activedescendant")).toBe(false);
+    expect(onSourceChange).not.toHaveBeenCalled();
+  });
+
+  it("pastes into only projected rows when a hidden row contains a horizontal merge", async () => {
+    const onSourceChange = vi.fn();
+    const readText = vi.fn().mockResolvedValue("X");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
+    await renderEditor("@sheet Sales\n| Keep one | A |\n| Hide | < |\n| Keep two | C |", onSourceChange);
+
+    clickTab("Filter & sort");
+    clickButton("Filter column A");
+    const filterInput = document.querySelector<HTMLInputElement>(".celloVisualFilterPopover input");
+    expect(filterInput).toBeTruthy();
+    changeInput(filterInput!, "keep");
+    clickOutside();
+    clickElement(screenCell("A1"));
+    clickElement(screenCell("B3"), { shiftKey: true });
+    pressKey(screenCell("B3"), "v", { ctrlKey: true });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(onSourceChange).toHaveBeenLastCalledWith(
+      "@sheet Sales\n| X | X |\n| Hide | < |\n| X | X |"
+    );
+    expect(document.querySelector(".celloVisualCommandError")).toBeNull();
+  });
+
+  it("measures and clamps the filter popup inside a short narrow viewport", async () => {
+    vi.spyOn(window, "innerWidth", "get").mockReturnValue(200);
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(100);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains("celloVisualFilterPopover")) {
+        return { left: 0, top: 0, right: 260, bottom: 140, width: 260, height: 140, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+      }
+      if (this.classList.contains("celloVisualColumnFilter")) {
+        return { left: 190, top: 80, right: 200, bottom: 95, width: 10, height: 15, x: 190, y: 80, toJSON: () => ({}) } as DOMRect;
+      }
+      return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+    await renderEditor("@sheet Sales\n| Madrid |", vi.fn());
+
+    clickTab("Filter & sort");
+    clickButton("Filter column A");
+    const popover = document.querySelector<HTMLElement>(".celloVisualFilterPopover");
+    expect(popover?.style.left).toBe("8px");
+    expect(popover?.style.top).toBe("8px");
+    pressKey(popover!, "Escape");
+    expect(document.querySelector(".celloVisualFilterPopover")).toBeNull();
+    expect(document.activeElement).toBe(screenButton("Filter column A"));
   });
 });
 

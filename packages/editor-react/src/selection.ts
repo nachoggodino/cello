@@ -45,7 +45,8 @@ export function resolveModifierScope(
   range: CellRange,
   sheet: EditorSheet,
   rowCount: number,
-  columnCount: number
+  columnCount: number,
+  selectedRowIndices?: readonly number[]
 ): ModifierScope {
   if (selection.kind === "rows") {
     return "row";
@@ -59,7 +60,9 @@ export function resolveModifierScope(
 
   const hasRangeExtent = selection.anchor.rowIndex !== selection.active.rowIndex ||
     selection.anchor.colIndex !== selection.active.colIndex;
-  const coversEveryRow = rowCount > 0 && range.startRow === 0 && range.endRow === rowCount - 1;
+  const coversEveryRow = rowCount > 0 && (selectedRowIndices
+    ? selectedRowIndices.length === rowCount
+    : range.startRow === 0 && range.endRow === rowCount - 1);
   const coversEveryColumn = columnCount > 0 && range.startCol === 0 && range.endCol === columnCount - 1;
   if (hasRangeExtent && coversEveryRow && !coversEveryColumn) {
     return "column";
@@ -68,7 +71,9 @@ export function resolveModifierScope(
     return "row";
   }
 
-  const selectedRows = sheet.rows.slice(range.startRow, range.endRow + 1);
+  const selectedRows = selectedRowIndices
+    ? selectedRowIndices.map((rowIndex) => sheet.rows[rowIndex]).filter((row) => row !== undefined)
+    : sheet.rows.slice(range.startRow, range.endRow + 1);
   return selectedRows.length === 1 && selectedRows[0]?.kind === "header" ? "column" : "cell";
 }
 
@@ -106,16 +111,11 @@ export function getRangeAddresses(range: CellRange): CellAddress[] {
   return addresses;
 }
 
-export function rangeContainsMergedCells(sheet: EditorSheet, range: CellRange): boolean {
-  for (let rowIndex = range.startRow; rowIndex <= range.endRow; rowIndex += 1) {
-    for (let colIndex = range.startCol; colIndex <= range.endCol; colIndex += 1) {
-      const cell = sheet.rows[rowIndex]?.cells[colIndex];
-      if (cell?.raw === "<" || cell?.raw === "^") {
-        return true;
-      }
-    }
-  }
-  return false;
+export function addressesContainMergedCells(sheet: EditorSheet, addresses: readonly CellAddress[]): boolean {
+  return addresses.some(({ rowIndex, colIndex }) => {
+    const cell = sheet.rows[rowIndex]?.cells[colIndex];
+    return cell?.raw === "<" || cell?.raw === "^";
+  });
 }
 
 export function getMergeOwnerAddress(sheet: EditorSheet, address: CellAddress): CellAddress {
