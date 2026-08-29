@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { JSDOM } from "jsdom";
 import { render } from "../../../packages/core/src/renderer/render.js";
 
 describe("render", () => {
@@ -171,14 +172,17 @@ describe("render", () => {
 
   it("renders spreadsheet coordinate chrome around sheets", async () => {
     const html = await render("@sheet S\n@header | Name | Amount |\n| Ada | 5 |");
-    expect(html).toContain('<thead><tr><th class="cello-corner-index"></th><th class="cello-column-index">A</th><th class="cello-column-index">B</th></tr></thead>');
-    expect(html).toContain('<tr><th class="cello-row-index" scope="row">1</th><th class="cello-wrap"><span class="cello-cell-content">Name</span></th><th class="cello-wrap"><span class="cello-cell-content">Amount</span></th></tr>');
-    expect(html).toContain('<tr><th class="cello-row-index" scope="row">2</th><td class="cello-wrap"><span class="cello-cell-content">Ada</span></td><td class="cello-wrap"><span class="cello-cell-content">5</span></td></tr>');
+    expect(html).toContain('<thead><tr><th class="cello-corner-index"></th><th class="cello-column-index"><span class="cello-column-index-inner"><span>A</span>');
+    expect(html).toContain('<span class="cello-column-index-inner"><span>B</span>');
+    expect(html).toContain('data-source-row="1" data-header="true"');
+    expect(html).toContain('<th class="cello-wrap"><span class="cello-cell-content">Name</span></th>');
+    expect(html).toContain('data-source-row="2" data-header="false"');
+    expect(html).toContain('<td class="cello-wrap"><span class="cello-cell-content">Ada</span></td>');
   });
 
   it("extends column letters to rendered row width", async () => {
     const html = await render("@sheet S\n| A | B | C |");
-    expect(html).toContain('<th class="cello-column-index">C</th>');
+    expect(html).toContain('<span class="cello-column-index-inner"><span>C</span>');
   });
 
   it("renders merge spans as table attributes", async () => {
@@ -199,5 +203,60 @@ describe("render", () => {
 
     expect(html).toContain('<div class="cello-tabs">');
     expect(html).not.toContain("<script>");
+  });
+
+  it("renders saved views and interactive column controls without rendering declarations as rows", async () => {
+    const html = await render([
+      "@sheet Sales",
+      "@view Madrid [default] | @where mad | @sort desc |",
+      "@header | City | Amount |",
+      "| Madrid | 120 |",
+      "| Bilbao | 80 |"
+    ].join("\n"));
+
+    expect(html).toContain('class="cello-view-button active"');
+    expect(html).toContain('<option value="Madrid" data-rules=');
+    expect(html).toContain('class="cello-column-filter" data-col="0"');
+    expect(html).toContain('data-source-row="1" data-header="true"');
+    expect(html).toContain('data-source-row="3" data-header="false"');
+    expect(html).not.toContain('<td class="cello-wrap"><span class="cello-cell-content">@view');
+  });
+
+  it("disables interactive table views when a vertical merge is present", async () => {
+    const html = await render("@sheet Sales\n@view All [default] | @where nomatch |\n| Madrid | 1 |\n| ^ | 2 |");
+
+    expect(html).toContain('class="cello-view-button" aria-pressed="false" disabled');
+    expect(html).toContain('class="cello-view-select" aria-label="Saved view" disabled');
+    expect(html).toContain("Filters unavailable: vertical merges");
+    const dom = new JSDOM(html, { runScripts: "dangerously" });
+    expect(Array.from(dom.window.document.querySelectorAll<HTMLTableRowElement>("tbody tr")).every((row) => !row.hidden)).toBe(true);
+    expect(dom.window.document.querySelector(".cello-view-count")?.textContent).toBe("2 rows");
+    dom.window.close();
+  });
+
+  it("runs saved filters and sorting in the self-contained HTML", async () => {
+    const html = await render([
+      "@sheet Sales",
+      "@view Madrid [default] | @where mad | @sort desc |",
+      "@header | City | Amount |",
+      "| Madrid | 100 |",
+      "| Madrid | 200 |",
+      "| Madrid | |",
+      "| Bilbao | 300 |"
+    ].join("\n"));
+    const dom = new JSDOM(html, { runScripts: "dangerously" });
+    const rows = Array.from(dom.window.document.querySelectorAll<HTMLTableRowElement>("tbody tr"));
+
+    expect(rows.filter((row) => !row.hidden).map((row) => row.dataset.sourceRow)).toEqual(["1", "3", "2", "4"]);
+    expect(rows.find((row) => row.dataset.sourceRow === "5")?.hidden).toBe(true);
+    expect(dom.window.document.querySelector(".cello-view-count")?.textContent).toBe("3 of 4 rows");
+
+    const selector = dom.window.document.querySelector<HTMLSelectElement>(".cello-view-select");
+    expect(selector).toBeTruthy();
+    selector!.value = "";
+    selector!.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    expect(rows.every((row) => !row.hidden)).toBe(true);
+    expect(dom.window.document.querySelector(".cello-view-count")?.textContent).toBe("4 rows");
+    dom.window.close();
   });
 });

@@ -16,7 +16,6 @@ import {
   getVisualCellContentStyle,
   getVisualCellSpan,
   getVisualCellStyle,
-  isAddressInRange
 } from "@nachoggodino/cello/editor-core";
 import type {
   CellAddress,
@@ -119,6 +118,9 @@ export function VisualDataRows({
   setEditingDraft,
   selected,
   selectedRange,
+  selectedRowIndexes,
+  rangeStartRow,
+  rangeEndRow,
   selectedDefaultCol,
   gridMode,
   handleGridKeyDown,
@@ -156,6 +158,9 @@ export function VisualDataRows({
   setEditingDraft: Dispatch<SetStateAction<EditingDraft | null>>;
   selected: CellAddress;
   selectedRange: CellRange;
+  selectedRowIndexes: ReadonlySet<number>;
+  rangeStartRow: number;
+  rangeEndRow: number;
   selectedDefaultCol: number | null;
   visibleColumnCount: number;
 }) {
@@ -175,14 +180,12 @@ export function VisualDataRows({
         aria-rowindex={rowIndex + 1}
         aria-selected={
           modifierScope === "row" &&
-          rowIndex >= selectedRange.startRow &&
-          rowIndex <= selectedRange.endRow
+          selectedRowIndexes.has(rowIndex)
         }
         className={[
           "celloVisualRowHeader",
           modifierScope === "row" &&
-          rowIndex >= selectedRange.startRow &&
-          rowIndex <= selectedRange.endRow
+          selectedRowIndexes.has(rowIndex)
             ? "selectedHeader"
             : "",
           modifierScope !== "column" && selected.rowIndex === rowIndex
@@ -213,7 +216,8 @@ export function VisualDataRows({
           selected.rowIndex === rowIndex &&
           selected.colIndex === colIndex;
         const address = { sheetIndex: activeSheetIndex, rowIndex, colIndex };
-        const isInRange = isAddressInRange(address, selectedRange);
+        const isInRange = selectedRowIndexes.has(rowIndex) &&
+          colIndex >= selectedRange.startCol && colIndex <= selectedRange.endCol;
         const cellKey = getCellAddressKey(address);
         const workbookContext = aliases ? { aliases } : {};
         const toneClass = getCellToneClass(
@@ -272,11 +276,11 @@ export function VisualDataRows({
             className={[
               isSelected ? "selected activeCell" : "",
               isInRange && !isSelected ? "rangeSelected" : "",
-              isInRange && rowIndex === selectedRange.startRow
+              isInRange && rowIndex === rangeStartRow
                 ? "rangeTop"
                 : "",
               isInRange &&
-              rowIndex + span.rowspan - 1 === selectedRange.endRow
+              rowIndex + span.rowspan - 1 === rangeEndRow
                 ? "rangeBottom"
                 : "",
               isInRange && colIndex === selectedRange.startCol

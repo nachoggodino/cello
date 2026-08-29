@@ -1,7 +1,8 @@
-export type EditorIconName = "column" | "format" | "mergeLeft" | "mergeUp" | "paint" | "row" | "sheet" | "sheetPlus" | "trash";
+export type EditorIconName = "column" | "filter" | "format" | "mergeLeft" | "mergeUp" | "paint" | "row" | "sheet" | "sheetPlus" | "trash";
 
 const paths: Record<EditorIconName, string> = {
   column: "M5 4h14M7 8h4v12H7zM13 8h4v12h-4z",
+  filter: "M4 5h16l-6 7v5l-4 2v-7z",
   format: "M8 7h8M8 12h6M8 17h10M5 7h.01M5 12h.01M5 17h.01",
   mergeLeft: "M4 8h16M4 16h16M10 4v16M14 12H6m0 0 3-3m-3 3 3",
   mergeUp: "M8 4v16M16 4v16M4 10h16M12 14V6m0 0-3 3m3-3 3 3",

@@ -10,6 +10,8 @@ import type {
   SheetLayout,
   RowNode,
   SheetNode,
+  SheetView,
+  ViewColumnRule,
   WorkbookAst
 } from "../shared/types.js";
 import {
@@ -23,6 +25,7 @@ import {
   splitDelimitedLine
 } from "../shared/utils.js";
 import { isSheetColumnsMode, isSheetRowsMode } from "../shared/layout.js";
+import { parseViewFilter } from "../shared/table-view.js";
 import { CelloSourceMapBuilder, splitCelloSourceLines } from "./source-map.js";
 import type { CelloSourceLine } from "./source-map.js";
 
@@ -141,6 +144,10 @@ export function parseDocument(text: string, options: ParseOptions = {}): ParsedC
     }
 
     if (sheet.format.kind === "cello" && tryHandleDefaultsDirective(runtime, sheet, rawLine, trimmed, lineNumber)) {
+      continue;
+    }
+
+    if (sheet.format.kind === "cello" && tryHandleViewDirective(runtime, sheet, rawLine, trimmed, lineNumber)) {
       continue;
     }
 
@@ -373,8 +380,87 @@ function createSheet(name: string, modifiers: Modifier[] = []): SheetNode {
     format: parseSheetFormat(formatModifier?.raw),
     layout: parseSheetLayout(modifiers),
     rows: [],
-    columns: []
+    columns: [],
+    views: []
   };
+}
+
+function tryHandleViewDirective(
+  runtime: ParseRuntime,
+  sheet: SheetNode,
+  rawLine: string,
+  trimmed: string,
+  lineNumber: number
+): boolean {
+  if (!/^@view(?:\s|$)/.test(trimmed)) return false;
+  const markerStart = rawLine.indexOf("@view");
+  const declaration = rawLine.slice(markerStart + "@view".length).trim();
+  const firstPipe = declaration.indexOf("|");
+  const rawName = firstPipe < 0 ? declaration : declaration.slice(0, firstPipe);
+  const parsedName = parseTrailingModifiers(rawName);
+  const name = parsedName.base.trim();
+  if (!name || firstPipe < 0) {
+    runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: "@view requires a name and a pipe-separated rule row." });
+    return true;
+  }
+  const columns = splitNativeCells(declaration.slice(firstPipe)).map((token, colIndex) =>
+    parseViewColumnRule(runtime, sheet, token, lineNumber, colIndex));
+  const sortedColumns = columns.flatMap((rule, colIndex) => rule.sort ? [colIndex] : []);
+  for (const colIndex of sortedColumns.slice(1)) {
+    runtime.pushDiagnostic({
+      level: "warning",
+      line: lineNumber,
+      sheet: sheet.name,
+      message: `Only one @sort is allowed per @view; ignoring the sort in column ${columnLetter(colIndex + 1)}.`
+    });
+    delete columns[colIndex]?.sort;
+  }
+  const view: SheetView = {
+    name,
+    default: parsedName.modifiers.some((modifier) => modifier.key === "default"),
+    columns
+  };
+  if (sheet.views.some((existing) => existing.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+    runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `Duplicate @view name: ${name}.` });
+  } else {
+    if (view.default && sheet.views.some((existing) => existing.default)) {
+      runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `Only one @view can be [default]; "${name}" will remain selectable.` });
+      view.default = false;
+    }
+    sheet.views.push(view);
+  }
+  runtime.sourceMapBuilder.addView(runtime.workbook.sheets.indexOf(sheet), sheet.format, runtime.currentSourceLine, name, columns.length);
+  return true;
+}
+
+function parseViewColumnRule(
+  runtime: ParseRuntime,
+  sheet: SheetNode,
+  token: string,
+  lineNumber: number,
+  colIndex: number
+): ViewColumnRule {
+  const markers = Array.from(token.matchAll(/@(where|sort)\b/giu));
+  const rule: { filter?: string; sort?: "asc" | "desc" } = {};
+  for (const [index, match] of markers.entries()) {
+    const kind = match[1]?.toLocaleLowerCase();
+    const start = match.index + match[0].length;
+    const end = markers[index + 1]?.index ?? token.length;
+    const value = token.slice(start, end).trim();
+    if (kind === "where") {
+      if (value && parseViewFilter(value)) rule.filter = value;
+      else if (value) runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `Invalid @where expression in column ${columnLetter(colIndex + 1)}: ${value}.` });
+      else runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `@where in column ${columnLetter(colIndex + 1)} requires an expression.` });
+    } else if (value === "asc" || value === "desc") {
+      rule.sort = value;
+    } else {
+      runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `@sort in column ${columnLetter(colIndex + 1)} must be asc or desc.` });
+    }
+  }
+  if (token.trim() && markers.length === 0) {
+    runtime.pushDiagnostic({ level: "warning", line: lineNumber, sheet: sheet.name, message: `Unknown @view rule in column ${columnLetter(colIndex + 1)}: ${token.trim()}.` });
+  }
+  return rule;
 }
 
 function parseSheetLayout(modifiers: Modifier[]): SheetLayout {

@@ -55,6 +55,17 @@ Leading and trailing pipes are optional but recommended. Blank lines do not cons
 
 Headers apply from the next data row downward. A later `@header` replaces active column names from that point. Column letters are still available.
 
+## Saved Views
+
+Use column-aligned `@view` declarations for reusable filters and sorting:
+
+```cel
+@view Madrid sales | @where *mad* | @sort asc | |
+@view Large orders [default] | | @where >100 @sort desc | |
+```
+
+Filters across columns combine with AND. Text matching is case-insensitive and supports `*`; numeric comparisons use `>`, `>=`, `<`, or `<=`; exact matches use `=value`; blank checks use `is:blank` or `is:notblank`. A view may sort one column with `@sort asc` or `@sort desc`. Views do not consume data row numbers.
+
 ## Defaults
 
 Use `@defaults` for empty cells that should receive a column formula or literal fallback:
@@ -149,4 +160,4 @@ Inline formatting:
 
 Comments start with `//` and are valid outside rows only.
 
-Reserved tokens: `@sheet`, `[format]`, `->`, `|`, `@header`, `@defaults`, `=`, `!`, `!!`, `[n:m]`, `[*]`, `<`, `^`, `//`, and `"..."`.
+Reserved tokens: `@sheet`, `[format]`, `->`, `|`, `@header`, `@defaults`, `@view`, `@where`, `@sort`, `=`, `!`, `!!`, `[n:m]`, `[*]`, `<`, `^`, `//`, and `"..."`.

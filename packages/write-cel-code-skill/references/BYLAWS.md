@@ -149,7 +149,27 @@ cell > row > column
 
 That means a cell modifier overrides a row modifier, and a row modifier overrides a column modifier.
 
-## 7. 🔤 Data types
+## 7. 🔎 Saved table views
+
+Native sheets can declare named, non-rendered views whose rules align positionally with sheet columns:
+
+```cel
+@view Madrid sales | @where *mad* | @sort asc | |
+@view Large orders [default] | | @where >100 @sort desc | |
+```
+
+1. `@view` is followed by a name and a pipe-separated rule row.
+2. The first rule cell targets column A, the second column B, and so on.
+3. A rule cell may contain `@where expression`, `@sort asc`, `@sort desc`, or both.
+4. Filters across columns combine with AND. A view can sort by at most one column.
+5. Text filters are case-insensitive. `*` is a wildcard; `>`, `>=`, `<`, and `<=` compare numbers; `=value` is exact; `is:blank` and `is:notblank` test emptiness.
+6. Sorting is stable. Blank values remain last in either direction. Header rows remain fixed, and repeated headers define independent sort sections.
+7. Views do not render as rows and do not consume row numbers.
+8. `[default]` selects the initial interactive view. At most one view per sheet is the default.
+9. Activating, changing, or clearing an interactive view does not edit source. Adding or editing an `@view` declaration does.
+10. Filtering and sorting are unavailable on sheets with vertical merges because hiding or moving a row would split the merge.
+
+## 8. 🔤 Data types
 
 Cello infers basic data types automatically.
 
@@ -168,7 +188,7 @@ Use double quotes to force text when a value looks like another type.
 
 The quotes are type markers. They prevent automatic number, boolean, or date inference.
 
-## 8. 🧮 Formulas
+## 9. 🧮 Formulas
 
 Any cell starting with `=` is a formula.
 
@@ -208,7 +228,7 @@ Same-sheet named references are context-aware:
 
 The total row does not include itself when using `SUM(Revenue)`.
 
-## 9. 📐 Named ranges
+## 10. 📐 Named ranges
 
 Named ranges are based on column headers.
 
@@ -234,7 +254,7 @@ Range forms:
 
 Use named ranges when formulas should remain readable after columns move.
 
-## 10. ↔️ Merges
+## 11. ↔️ Merges
 
 Cello supports horizontal and vertical merges.
 
@@ -252,7 +272,7 @@ Rules:
 3. Merge tokens must appear alone in the cell.
 4. Merge tokens do not carry values or modifiers of their own.
 
-## 11. 🎨 Modifiers
+## 12. 🎨 Modifiers
 
 Modifiers are attached directly to headers, row prefixes, or cell values.
 
@@ -292,7 +312,7 @@ Supported modifiers:
 Named CSS colors such as `red`, `blue`, `green`, `orange`, and `gold` are accepted.
 Tone presets map to renderer-defined CSS classes so embedding clients can override their colors with custom CSS.
 
-## 12. 🧩 Column defaults
+## 13. 🧩 Column defaults
 
 A column can define a default value or formula for empty cells in that column with a non-rendered `@defaults` row.
 
@@ -320,7 +340,7 @@ Header, row, and cell-level default modifiers are ignored:
 | [default:=Price*Quantity] |
 ```
 
-## 13. ✍️ Inline formatting
+## 14. ✍️ Inline formatting
 
 Cell text supports a small Markdown-like formatting set.
 
@@ -343,7 +363,7 @@ Examples:
 
 `#` and `##` apply to the whole cell.
 
-## 14. 💬 Comments
+## 15. 💬 Comments
 
 Comments use `//` and are valid outside rows.
 
@@ -361,7 +381,7 @@ Rules:
 2. Comments are not rendered.
 3. Comments inside cell content are not supported.
 
-## 15. 🔒 Reserved tokens
+## 16. 🔒 Reserved tokens
 
 These tokens have special meaning in Cello.
 
@@ -383,7 +403,7 @@ These tokens have special meaning in Cello.
 | `//` | Comment line |
 | `"..."` | Force text type |
 
-## 16. 🛟 Error handling and resilience
+## 17. 🛟 Error handling and resilience
 
 Cello is resilient by default. Local issues should not prevent the rest of the workbook from rendering.
 

@@ -19,9 +19,10 @@ When this skill is installed standalone, use the bundled compact rule reference 
 6. Prefer named column formulas over coordinate formulas when the input has stable headers.
 7. Let Cello calculate values. Do not precompute arithmetic that can be expressed as a formula.
 8. Use `@defaults` for repeated column formulas or literal fallback values that should fill empty cells.
-9. Add formatting with modifiers, keeping source values and formulas readable.
-10. Use comments only outside rows to document data provenance or assumptions.
-11. Validate the final output mentally against the bylaws, then run the project CLI if available.
+9. Use `@view` for reusable column filters or a single stable sort without changing source data.
+10. Add formatting with modifiers, keeping source values and formulas readable.
+11. Use comments only outside rows to document data provenance or assumptions.
+12. Validate the final output mentally against the bylaws, then run the project CLI if available.
 
 ## Quality Rules
 
@@ -39,6 +40,7 @@ Write `.cel` files that are readable in a plain text editor:
 - Use `=Column[2]` or `=Sheet!Column[2]` for a single row in a named column.
 - Use quotes to force text for values such as `"00123"`, `"TRUE"`, or `"2026-01-15"`.
 - Keep merge tokens `<` and `^` alone in their cells.
+- Align each `@view` rule cell with its target column and use at most one `@sort` per view.
 - Keep row modifiers before the first pipe, for example `[bold][tone:accent] | Total | =SUM(Amount) |`.
 - Keep cell modifiers attached to the cell value, for example `Late[tone:error]`.
 - Use `[hidden]` only as metadata for tooling; current rendering does not hide cells yet.

@@ -704,6 +704,52 @@ describe("CelloVisualEditor", () => {
       vi.useRealTimers();
     }
   });
+
+  it("applies a default saved view without changing the source", async () => {
+    const onSourceChange = vi.fn();
+    await renderEditor([
+      "@sheet Sales",
+      "@view Madrid [default] | @where mad | @sort desc |",
+      "@header | City | Amount |",
+      "| Madrid | 120 |",
+      "| Bilbao | 80 |"
+    ].join("\n"), onSourceChange);
+
+    expect(screenCellText("A1")).toBe("City");
+    expect(screenCellText("A2")).toBe("Madrid");
+    expect(document.querySelector('[role="gridcell"][aria-label="A3"]')).toBeNull();
+    expect(document.querySelector<HTMLSelectElement>(".celloVisualSavedView select")?.value).toBe("Madrid");
+    expect(document.querySelector(".celloVisualViewCount")?.textContent).toBe("1 of 2 rows");
+    expect(onSourceChange).not.toHaveBeenCalled();
+
+    clickTab("Clear view");
+    expect(screenCellText("A3")).toBe("Bilbao");
+    expect(onSourceChange).not.toHaveBeenCalled();
+  });
+
+  it("filters and sorts visible editor rows transiently", async () => {
+    const onSourceChange = vi.fn();
+    await renderEditor("@sheet Sales\n| Madrid | 2 |\n| Bilbao | 3 |\n| Malaga | 1 |", onSourceChange);
+
+    clickTab("Filter & sort");
+    clickButton("Filter column A");
+    const filterInput = document.querySelector<HTMLInputElement>(".celloVisualFilterPopover input");
+    expect(filterInput).toBeTruthy();
+    changeInput(filterInput!, "ma*");
+
+    expect(screenCellText("A1")).toBe("Madrid");
+    expect(screenCellText("A3")).toBe("Malaga");
+    expect(document.querySelector('[role="gridcell"][aria-label="A2"]')).toBeNull();
+    expect(document.querySelector(".celloVisualColumnFilter.active")).toBeTruthy();
+
+    clickOutside();
+    clickButton("Filter column B");
+    clickTab("A–Z");
+    const firstColumn = Array.from(document.querySelectorAll<HTMLTableCellElement>('td[role="gridcell"][aria-colindex="1"]'))
+      .map((cell) => cell.textContent);
+    expect(firstColumn).toEqual(["Malaga", "Madrid"]);
+    expect(onSourceChange).not.toHaveBeenCalled();
+  });
 });
 
 async function renderEditor(

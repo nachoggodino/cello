@@ -22,6 +22,7 @@ export type {
   ModifierScope,
   SheetColumnsMode,
   SheetRowsMode,
+  SheetTableViewState,
   TextTone,
   ToggleModifierKey
 } from "./model.js";
@@ -113,6 +114,7 @@ export {
   updateRowModifierSource
 } from "./commands.js";
 export { evaluateEditorWorkbookSource, getCellAddressKey } from "./evaluation.js";
+export { hasEditorVerticalMerges, projectEditorSheetView } from "./table-view.js";
 export {
   clearRange,
   clearRangeAll,
@@ -137,3 +139,4 @@ export {
   SHEET_ROWS_MODES,
   WIDTH_PRESET_NAMES
 } from "../../core/src/index.js";
+export type { SheetView, ViewColumnRule, ViewSortDirection } from "../../core/src/index.js";

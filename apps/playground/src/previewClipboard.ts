@@ -142,6 +142,7 @@ function inlineClipboardStyles(originalRoot: Element, cloneRoot: Element): void 
 }
 
 function stripPresentationChrome(table: HTMLTableElement): void {
+  table.querySelectorAll("tr[hidden]").forEach((row) => { row.remove(); });
   table.querySelectorAll(".cello-corner-index, .cello-column-index, .cello-row-index").forEach((node) => { node.remove(); });
   table.querySelector("colgroup col")?.remove();
   table.querySelectorAll("tr").forEach((row) => {
@@ -165,6 +166,7 @@ function stripPresentationChrome(table: HTMLTableElement): void {
 
 function extractCopiedRows(table: HTMLTableElement): CopiedRow[] {
   return Array.from(table.tBodies.item(0)?.rows ?? [])
+    .filter((row) => !row.hidden)
     .map((row) => {
       const cells = Array.from(row.cells)
         .filter((cell) => !cell.classList.contains("cello-row-index"))

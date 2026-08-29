@@ -1,10 +1,11 @@
 import { sheetLayoutToToken } from "../../core/src/index.js";
+import type { SheetView, ViewColumnRule } from "../../core/src/index.js";
 import type { EditorCell, EditorRow, EditorSheet } from "./model.js";
 import { DEFAULT_SHEET_NAME } from "./options.js";
 import { isMergeToken } from "./source.js";
 
 export function emitEditorSheet(sheet: EditorSheet): string {
-  const lines = [emitEditorSheetDeclaration(sheet)];
+  const lines = [emitEditorSheetDeclaration(sheet), ...sheet.views.map(emitEditorView)];
   const defaults = emitEditorDefaultsRow(sheet);
   for (const row of sheet.rows) {
     lines.push(emitEditorRow(row));
@@ -16,6 +17,24 @@ export function emitEditorSheet(sheet: EditorSheet): string {
     lines.push(defaults);
   }
   return lines.join("\n");
+}
+
+export function emitEditorView(view: SheetView): string {
+  const name = `${view.name.replaceAll("|", " ").trim()}${view.default ? " [default]" : ""}`;
+  const columns = trimTrailingEmptyViewRules(view.columns).map(emitViewRule).join(" | ");
+  return `@view ${name} | ${columns}${columns ? " " : ""}|`;
+}
+
+function emitViewRule(rule: ViewColumnRule): string {
+  return [rule.filter ? `@where ${rule.filter}` : "", rule.sort ? `@sort ${rule.sort}` : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function trimTrailingEmptyViewRules(rules: ViewColumnRule[]): ViewColumnRule[] {
+  let end = rules.length;
+  while (end > 0 && !rules[end - 1]?.filter && !rules[end - 1]?.sort) end -= 1;
+  return rules.slice(0, end);
 }
 
 export function emitEditorSheetDeclaration(sheet: EditorSheet): string {

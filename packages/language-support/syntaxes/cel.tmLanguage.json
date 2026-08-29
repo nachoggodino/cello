@@ -10,6 +10,7 @@
     { "include": "#external-source" },
     { "include": "#header-row" },
     { "include": "#defaults-row" },
+    { "include": "#view-row" },
     { "include": "#native-row" },
     { "include": "#json" },
     { "include": "#delimited-values" }
@@ -70,6 +71,21 @@
       },
       "end": "$",
       "patterns": [{ "include": "#row-content" }]
+    },
+    "view-row": {
+      "name": "meta.view.row.cel",
+      "begin": "^\\s*(@view)\\b(?:\\s+([^|\\r\\n]+?))?(?=\\s*\\|)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.view.cel" },
+        "2": { "name": "entity.name.view.cel" }
+      },
+      "end": "$",
+      "patterns": [
+        { "match": "@(where|sort)\\b", "name": "keyword.operator.view.cel" },
+        { "include": "#cell-separator" },
+        { "include": "#numbers" },
+        { "include": "#identifiers" }
+      ]
     },
     "native-row": {
       "name": "meta.table.row.cel",

@@ -200,6 +200,10 @@ export function addColumn(workbook: EditorWorkbook, sheetIndex: number, afterCol
     return {
       ...sheet,
       defaults: insertAt(ensureCellCount(sheet.defaults, dataColumnCount), getInsertIndex(dataColumnCount, afterColIndex), createBlankCell()),
+      views: sheet.views.map((view) => ({
+        ...view,
+        columns: insertAt(view.columns, getInsertIndex(view.columns.length, afterColIndex), {})
+      })),
       rows: sheet.rows.map((row) => ({
         ...row,
         cells: insertAt(row.cells, getInsertIndex(row.cells.length, afterColIndex), createBlankCell())

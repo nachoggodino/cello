@@ -51,6 +51,15 @@ export interface CelloVisualEditorLabels {
   width: string;
   wrap: string;
   height: string;
+  filterAndSort: string;
+  allRows: string;
+  clearView: string;
+  savedView: string;
+  filterColumn: string;
+  noSort: string;
+  sortAscending: string;
+  sortDescending: string;
+  verticalMergeViewWarning: string;
 }
 
 interface CelloVisualEditorBaseProps {

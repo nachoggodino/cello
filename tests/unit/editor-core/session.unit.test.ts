@@ -184,4 +184,27 @@ describe("editor session", () => {
     });
     expect(listener).toHaveBeenCalledOnce();
   });
+
+  it("stores transient table view state without editing source or history", () => {
+    const source = "@sheet Sales\n@view Madrid [default] | @where mad | @sort desc |\n| Madrid | 2 |\n| Bilbao | 1 |";
+    const session = createEditorSession({ source });
+    const initial = session.getSnapshot();
+
+    expect(initial.tableViews.Sales).toEqual({
+      enabled: true,
+      selectedSavedView: "Madrid",
+      columns: [{ filter: "mad" }, { sort: "desc" }]
+    });
+    expect(session.setSheetTableViewState("Sales", {
+      enabled: true,
+      columns: [{ filter: "bil" }, { sort: "asc" }]
+    })).toBe(true);
+
+    expect(session.getSnapshot()).toMatchObject({ revision: 0, source });
+    expect(session.getSnapshot().histories).toEqual(initial.histories);
+    expect(session.getSnapshot().tableViews.Sales).toEqual({
+      enabled: true,
+      columns: [{ filter: "bil" }, { sort: "asc" }]
+    });
+  });
 });

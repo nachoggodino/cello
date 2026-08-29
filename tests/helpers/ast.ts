@@ -41,7 +41,8 @@ export function sheet(options: {
       modifiers: [],
       hidden: false
     })),
-    rows
+    rows,
+    views: []
   };
 }
 

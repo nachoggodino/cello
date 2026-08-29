@@ -5,6 +5,52 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 describe("parse (unit-focused edge cases)", () => {
+  it("parses saved table views without consuming row numbers", () => {
+    const document = parseDocument([
+      "@sheet Sales",
+      "@view Madrid sales | @where *mad* | @where >100 @sort desc | |",
+      "@view Small orders [default] | | @where <50 | |",
+      "@header | City | Amount | Owner |",
+      "| Madrid | 120 | Ana |"
+    ].join("\n"));
+
+    expect(document.workbook.sheets[0]?.views).toEqual([
+      {
+        name: "Madrid sales",
+        default: false,
+        columns: [{ filter: "*mad*" }, { filter: ">100", sort: "desc" }, {}]
+      },
+      {
+        name: "Small orders",
+        default: true,
+        columns: [{}, { filter: "<50" }, {}]
+      }
+    ]);
+    expect(document.workbook.sheets[0]?.rows.map((row) => row.index)).toEqual([1, 2]);
+    expect(document.sourceMap.sheets[0]?.views).toHaveLength(2);
+  });
+
+  it("diagnoses invalid and ambiguous saved view declarations deterministically", () => {
+    const ast = parse([
+      "@sheet Sales",
+      "@view First [default] | @where >large @sort asc | @sort desc |",
+      "@view Second [default] | @where | |",
+      "@view first | @where ok | |"
+    ].join("\n"));
+
+    expect(ast.sheets[0]?.views).toEqual([
+      { name: "First", default: true, columns: [{ sort: "asc" }, {}] },
+      { name: "Second", default: false, columns: [{}, {}] }
+    ]);
+    expect(ast.diagnostics.map((diagnostic) => diagnostic.message)).toEqual(expect.arrayContaining([
+      "Invalid @where expression in column A: >large.",
+      "Only one @sort is allowed per @view; ignoring the sort in column B.",
+      "Only one @view can be [default]; \"Second\" will remain selectable.",
+      "@where in column A requires an expression.",
+      "Duplicate @view name: first."
+    ]));
+  });
+
   it("builds source locations from the same decisions as tolerant parsing", () => {
     const source = "@sheet One\n| A |\n@sheet\n| B |\n@sheet Two\n| C |";
     const document = parseDocument(source);

@@ -3,7 +3,7 @@ import { createEditorDocument } from "./document.js";
 import { executeEditorCommand } from "./execute-command.js";
 import { formatEditorDocument } from "./layout.js";
 import type { EditorDocumentCommand } from "./document-command-model.js";
-import type { EditorCommandResult, EditorDocument } from "./model.js";
+import type { EditorCommandResult, EditorDocument, SheetTableViewState } from "./model.js";
 import { DEFAULT_SHEET_NAME } from "./options.js";
 import type { CreateEditorWorkbookOptions } from "./options.js";
 import type {
@@ -47,6 +47,7 @@ class EditorSessionStore implements EditorSession {
   };
 
   #snapshot: EditorSessionSnapshot;
+  #tableViews: Record<string, SheetTableViewState>;
   #sourceHistoryGroup: string | undefined;
 
   constructor(options: CreateEditorSessionOptions) {
@@ -59,6 +60,7 @@ class EditorSessionStore implements EditorSession {
       sourceLayout: options.sourceLayout ?? "compact"
     };
     const document = createEditorDocument(options.source, this.#documentOptions);
+    this.#tableViews = createInitialTableViews(document);
     this.#snapshot = this.#makeSnapshot(
       document,
       0,
@@ -203,6 +205,20 @@ class EditorSessionStore implements EditorSession {
     ));
   }
 
+  setSheetTableViewState(sheetName: string, state: SheetTableViewState): boolean {
+    if (!this.#snapshot.document.workbook.sheets.some((sheet) => sheet.name === sheetName)) return false;
+    const next = cloneTableViewState(state);
+    if (tableViewStatesEqual(this.#tableViews[sheetName], next)) return false;
+    this.#tableViews = { ...this.#tableViews, [sheetName]: next };
+    this.#replaceSnapshot(this.#makeSnapshot(
+      this.#snapshot.document,
+      this.#snapshot.revision,
+      this.#snapshot.activeSheetName,
+      this.#snapshot.sourceLayout
+    ));
+    return true;
+  }
+
   isCurrentRevision(revision: number): boolean {
     return revision === this.#snapshot.revision;
   }
@@ -212,7 +228,9 @@ class EditorSessionStore implements EditorSession {
     if (options.mode === "external") {
       this.#clearHistory("source");
       this.#clearHistory("visual");
+      this.#tableViews = createInitialTableViews(options.document);
     } else {
+      this.#tableViews = reconcileTableViews(options.document, this.#tableViews);
       const history = this.#histories[options.mode];
       const merge = options.mode === "source" &&
         options.recording === "merge" &&
@@ -237,6 +255,7 @@ class EditorSessionStore implements EditorSession {
 
   #publishWithoutHistory(source: string): void {
     const document = createEditorDocument(source, this.#documentOptions);
+    this.#tableViews = reconcileTableViews(document, this.#tableViews);
     this.#replaceSnapshot(this.#makeSnapshot(
       document,
       this.#snapshot.revision + 1,
@@ -264,6 +283,7 @@ class EditorSessionStore implements EditorSession {
       document,
       sourceLayout,
       activeSheetName,
+      tableViews: cloneTableViews(this.#tableViews),
       histories: {
         source: historyState(this.#histories.source),
         visual: historyState(this.#histories.visual)
@@ -281,6 +301,41 @@ class EditorSessionStore implements EditorSession {
   private isExpectedRevision(expectedRevision: number | undefined): boolean {
     return expectedRevision === undefined || expectedRevision === this.#snapshot.revision;
   }
+}
+
+function createInitialTableViews(document: EditorDocument): Record<string, SheetTableViewState> {
+  return Object.fromEntries(document.workbook.sheets.map((sheet) => {
+    const defaultView = sheet.views.find((view) => view.default);
+    return [sheet.name, defaultView
+      ? { enabled: true, columns: defaultView.columns.map((rule) => ({ ...rule })), selectedSavedView: defaultView.name }
+      : { enabled: false, columns: [] }];
+  }));
+}
+
+function reconcileTableViews(document: EditorDocument, current: Record<string, SheetTableViewState>): Record<string, SheetTableViewState> {
+  const initial = createInitialTableViews(document);
+  return Object.fromEntries(document.workbook.sheets.map((sheet) => [
+    sheet.name,
+    current[sheet.name] ?? initial[sheet.name] ?? { enabled: false, columns: [] }
+  ]));
+}
+
+function cloneTableViews(states: Record<string, SheetTableViewState>): Record<string, SheetTableViewState> {
+  return Object.fromEntries(Object.entries(states).map(([name, state]) => [name, cloneTableViewState(state)]));
+}
+
+function cloneTableViewState(state: SheetTableViewState): SheetTableViewState {
+  return {
+    enabled: state.enabled,
+    columns: state.columns.map((rule) => ({ ...rule })),
+    ...(state.selectedSavedView === undefined ? {} : { selectedSavedView: state.selectedSavedView })
+  };
+}
+
+function tableViewStatesEqual(left: SheetTableViewState | undefined, right: SheetTableViewState): boolean {
+  return Boolean(left && left.enabled === right.enabled && left.selectedSavedView === right.selectedSavedView &&
+    left.columns.length === right.columns.length && left.columns.every((rule, index) =>
+      rule.filter === right.columns[index]?.filter && rule.sort === right.columns[index]?.sort));
 }
 
 function historyState(history: History): EditorSessionHistoryState {

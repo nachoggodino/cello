@@ -475,8 +475,69 @@
 
 .celloVisualWorkbook {
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+}
+
+.celloVisualViewBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cello-visual-space-7);
+  min-height: 42px;
+  padding: var(--cello-visual-space-5) var(--cello-visual-space-11);
+  border-bottom: 1px solid var(--cello-visual-line);
+  color: var(--cello-visual-muted);
+  background: var(--cello-visual-header);
+  font-size: var(--cello-visual-font-size-small);
+}
+
+.celloVisualViewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cello-visual-space-5);
+}
+
+.celloVisualViewToggle svg,
+.celloVisualColumnFilter svg {
+  width: var(--cello-visual-icon-size);
+  height: var(--cello-visual-icon-size);
+}
+
+.celloVisualSavedView {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cello-visual-space-5);
+  font-weight: var(--cello-visual-font-weight-strong);
+}
+
+.celloVisualSavedView select {
+  height: 30px;
+  padding-inline: var(--cello-visual-space-7);
+  border: 1px solid var(--cello-visual-line);
+  border-radius: var(--cello-visual-radius-control);
+  color: var(--cello-visual-ink);
+  background: var(--cello-visual-input);
+  font: inherit;
+}
+
+.celloVisualViewCount {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.celloVisualViewClear {
+  padding: 0;
+  border: 0;
+  color: var(--cello-visual-accent-dark);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--cello-visual-font-weight-strong);
+}
+
+.celloVisualViewWarning {
+  color: var(--cello-tone-warn-color, #9a3412);
 }
 
 .celloVisualSheetTabs {
@@ -577,6 +638,114 @@
 .celloVisualColumnHeader {
   height: 32px;
   cursor: pointer;
+}
+
+.celloVisualColumnHeaderInner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cello-visual-space-2);
+  width: 100%;
+}
+
+.celloVisualColumnFilter {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--cello-visual-radius-control);
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  place-items: center;
+}
+
+.celloVisualColumnFilter:hover,
+.celloVisualColumnFilter.active {
+  border-color: var(--cello-visual-accent-border);
+  color: var(--cello-visual-accent-dark);
+  background: var(--cello-visual-control-strong);
+}
+
+.celloVisualColumnFilter.active::after {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: 14px 0 0 14px;
+  border: 1px solid var(--cello-visual-warm-white);
+  border-radius: 50%;
+  background: var(--cello-visual-accent);
+  content: "";
+}
+
+.celloVisualFilterPopover {
+  position: fixed;
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  width: min(260px, calc(100vw - 24px));
+  padding: 10px;
+  border: 1px solid var(--line-strong, rgba(31, 30, 27, 0.22));
+  border-radius: var(--radius-control, 4px);
+  color: var(--ink, #1f1e1b);
+  background: rgba(255, 250, 244, 0.98);
+  box-shadow: 0 6px 8px rgba(31, 30, 27, 0.16);
+  font-family: var(--font-ui, ui-sans-serif, system-ui, sans-serif);
+  font-size: var(--font-size-small, 12px);
+}
+
+.celloVisualFilterPopover label {
+  display: grid;
+  gap: 5px;
+  font-weight: var(--font-weight-strong, 700);
+}
+
+.celloVisualFilterPopover input {
+  width: 100%;
+  height: 34px;
+  padding-inline: 8px;
+  border: 1px solid var(--line, rgba(31, 30, 27, 0.12));
+  border-radius: var(--radius-control, 4px);
+  color: var(--ink, #1f1e1b);
+  background: rgba(255, 250, 244, 0.82);
+  font-family: var(--font-code, monospace);
+}
+
+.celloVisualFilterPopover input:focus-visible,
+.celloVisualFilterPopover button:focus-visible,
+.celloVisualSavedView select:focus-visible,
+.celloVisualViewClear:focus-visible,
+.celloVisualColumnFilter:focus-visible {
+  outline: 2px solid var(--orange, #e7662f);
+  outline-offset: 2px;
+}
+
+.celloVisualFilterError {
+  color: var(--cello-tone-warn-color, #9a3412);
+}
+
+.celloVisualFilterSort {
+  display: flex;
+  gap: 5px;
+}
+
+.celloVisualFilterSort button {
+  flex: 1 1 0;
+  min-height: 30px;
+  border: 1px solid var(--line, rgba(31, 30, 27, 0.12));
+  border-radius: var(--radius-control, 4px);
+  color: var(--ink, #1f1e1b);
+  background: rgba(255, 255, 255, 0.54);
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--font-weight-strong, 700);
+}
+
+.celloVisualFilterSort button.active {
+  border-color: var(--orange-border, rgba(231, 102, 47, 0.52));
+  color: var(--orange-dark, #a93f1e);
+  background: rgba(231, 102, 47, 0.12);
 }
 
 .celloVisualRowHeader {
@@ -1063,5 +1232,18 @@
 
   .celloVisualGridWrap {
     min-height: 55dvh;
+  }
+
+  .celloVisualViewCount {
+    margin-left: 0;
+  }
+
+  .celloVisualSavedView {
+    flex: 1 1 auto;
+  }
+
+  .celloVisualSavedView select {
+    min-width: 0;
+    max-width: 100%;
   }
 }

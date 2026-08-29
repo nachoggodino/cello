@@ -30,6 +30,7 @@ function createEditorSheetFromAst(sheet: SheetNode): EditorSheet {
     name: sheet.name,
     format: sheet.format,
     layout: sheet.layout,
+    views: sheet.views,
     ...(sheet.format.kind === "json" && sheet.format.path ? { externalSource: { path: sheet.format.path, status: "unresolved" } } : {}),
     defaults: sheet.columns.map((column) => {
       const source = column.modifiers.find((modifier) => modifier.key === "default")?.value ?? "";
@@ -52,6 +53,7 @@ export function createBlankSheet(name: string): EditorSheet {
     format: { kind: "cello" },
     layout: {},
     defaults: [],
+    views: [],
     rows: []
   };
 }

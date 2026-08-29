@@ -342,7 +342,8 @@ function getResolvedVisualColumnWidth(
       letter: "",
       modifiers: index === colIndex ? getColumnModifiers(sheet, rowIndex, colIndex) : [],
       hidden: false
-    }))
+    })),
+    views: []
   };
   const width = resolveColumnWidth(workbook ?? {}, visualSheet, colIndex);
   return width;
@@ -366,7 +367,8 @@ function getResolvedVisualRowLayout(
     format: sheet?.format ?? { kind: "cello" },
     layout: sheet?.layout ?? {},
     rows: [],
-    columns: []
+    columns: [],
+    views: []
   };
   return resolveRowLayout(
     workbook ?? {},

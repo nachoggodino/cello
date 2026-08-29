@@ -45,5 +45,14 @@ export const defaultLabels: CelloVisualEditorLabels = {
   fit: "Fit",
   width: "Width",
   wrap: "Wrap",
-  height: "Height"
+  height: "Height",
+  filterAndSort: "Filter & sort",
+  allRows: "All rows",
+  clearView: "Clear view",
+  savedView: "Saved view",
+  filterColumn: "Filter column",
+  noSort: "No sort",
+  sortAscending: "A–Z",
+  sortDescending: "Z–A",
+  verticalMergeViewWarning: "Filtering is unavailable while this sheet contains vertical merges."
 };

@@ -1,6 +1,7 @@
 import type { CelloSourceLayout } from "../../core/src/index.js";
 import type { EditorDocumentCommand } from "./document-command-model.js";
 import type { EditorCommandResult, EditorDocument } from "./model.js";
+import type { SheetTableViewState } from "./model.js";
 import type { CreateEditorWorkbookOptions } from "./options.js";
 
 export type EditorSessionMode = "source" | "visual";
@@ -19,6 +20,7 @@ export interface EditorSessionSnapshot {
   readonly document: EditorDocument;
   readonly sourceLayout: CelloSourceLayout;
   readonly activeSheetName: string;
+  readonly tableViews: Readonly<Record<string, SheetTableViewState>>;
   readonly histories: Readonly<Record<EditorSessionMode, EditorSessionHistoryState>>;
 }
 
@@ -59,5 +61,6 @@ export interface EditorSession {
   redo: (mode: EditorSessionMode) => boolean;
   setActiveSheetName: (sheetName: string) => boolean;
   setSourceLayout: (layout: CelloSourceLayout) => void;
+  setSheetTableViewState: (sheetName: string, state: SheetTableViewState) => boolean;
   isCurrentRevision: (revision: number) => boolean;
 }

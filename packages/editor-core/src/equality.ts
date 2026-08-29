@@ -1,4 +1,4 @@
-import type { AliasDeclaration, Modifier, SheetFormat, SheetLayout } from "../../core/src/index.js";
+import type { AliasDeclaration, Modifier, SheetFormat, SheetLayout, SheetView } from "../../core/src/index.js";
 import type { EditorCell, EditorRow, EditorSheet, EditorWorkbook } from "./model.js";
 
 export function sheetsEqual(left: EditorSheet[], right: EditorSheet[]): boolean {
@@ -19,6 +19,7 @@ function persistedSheetEqual(left: EditorSheet, right: EditorSheet | undefined):
     left.name === right.name &&
     sheetFormatsEqual(left.format, right.format) &&
     sheetLayoutsEqual(left.layout, right.layout) &&
+    viewsEqual(left.views, right.views) &&
     persistedRowsEqual(left.rows, right.rows) &&
     persistedCellsEqual(trimTrailingBlankCells(left.defaults), trimTrailingBlankCells(right.defaults))
   );
@@ -65,9 +66,19 @@ export function sheetEqual(left: EditorSheet | undefined, right: EditorSheet | u
     left.name === right.name &&
     sheetFormatsEqual(left.format, right.format) &&
     sheetLayoutsEqual(left.layout, right.layout) &&
+    viewsEqual(left.views, right.views) &&
     rowsEqual(left.rows, right.rows) &&
     cellsEqual(left.defaults, right.defaults)
   );
+}
+
+export function viewsEqual(left: readonly SheetView[], right: readonly SheetView[]): boolean {
+  return left.length === right.length && left.every((view, index) => {
+    const candidate = right[index];
+    return Boolean(candidate && view.name === candidate.name && view.default === candidate.default &&
+      view.columns.length === candidate.columns.length && view.columns.every((rule, colIndex) =>
+        rule.filter === candidate.columns[colIndex]?.filter && rule.sort === candidate.columns[colIndex]?.sort));
+  });
 }
 
 export function rowsEqual(left: EditorRow[], right: EditorRow[]): boolean {

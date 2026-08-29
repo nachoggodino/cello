@@ -55,7 +55,7 @@ The reference implementation is the GPLv3 npm package `@nachoggodino/cello`. For
 
 A `.cel` file contains one or more **sheets**. Each sheet is declared with `@sheet`:
 
-```
+```cel
 @sheet SheetName [format]
 ```
 
@@ -66,6 +66,17 @@ A `.cel` file contains one or more **sheets**. Each sheet is declared with `@she
   - The declared sheet format still controls parsing.
 - Everything between two `@sheet` declarations belongs to the first.
 - A file with no `@sheet` is treated as a single anonymous sheet in native Cello format.
+
+### Saved table views
+
+Named views are non-rendered, sheet-scoped declarations. Their pipe cells map positionally to columns:
+
+```cel
+@view Madrid sales | @where *mad* | @sort asc | |
+@view Large orders [default] | | @where >100 @sort desc | |
+```
+
+Each cell accepts `@where expression`, `@sort asc`, `@sort desc`, or both. Filters combine with AND and a view has at most one sort column. Supported filters are case-insensitive contains, `*` wildcards, numeric `>`, `>=`, `<`, `<=`, exact `=value`, `is:blank`, and `is:notblank`. Sorting is stable with blanks last. Header rows stay fixed and repeated headers create independent sections. `[default]` selects the initial interactive view. View declarations do not consume row numbers.
 
 ### Rendering
 

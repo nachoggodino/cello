@@ -12,6 +12,7 @@ The npm package is `@nachoggodino/cello`. It is licensed as GPLv3 because formul
 - Native Cello rows plus CSV, TSV, semicolon, Markdown table, JSON, and external-source sheets.
 - Formula evaluation through HyperFormula, including cross-sheet references and named columns.
 - HTML rendering with tabs, merged cells, inline formatting, and cell/row/column modifiers.
+- Transient and named column filters plus stable sorting in the visual editor and interactive HTML.
 - JSON AST output for tooling.
 - Validation diagnostics that return proper process exit codes.
 - Library API and `cello` CLI.
@@ -177,6 +178,7 @@ Useful syntax:
 - `@header | Column | Names |` declares named columns.
 - `@header | Column[width:large] |` persists column width; `[fit]` sizes a column from visible content.
 - `@defaults | | | =Formula |` declares non-rendered column default formulas.
+- `@view Madrid sales | @where *mad* | @sort desc |` declares a selectable, column-aligned table view.
 - `| cell | cell |` declares rows.
 - `[bold] | ... |`, `[wrap] | ... |`, and `[height:3] | ... |` apply row-level modifiers.
 - `@tone`, `@width`, and `@height` declare namespaced aliases for reusable tone, width, and height modifiers.

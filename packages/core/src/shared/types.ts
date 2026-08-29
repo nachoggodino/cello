@@ -31,6 +31,19 @@ export interface SheetLayout {
   rows?: SheetRowsDefault;
 }
 
+export type ViewSortDirection = "asc" | "desc";
+
+export interface ViewColumnRule {
+  filter?: string;
+  sort?: ViewSortDirection;
+}
+
+export interface SheetView {
+  name: string;
+  default: boolean;
+  columns: ViewColumnRule[];
+}
+
 export interface CellNode {
   row: number;
   col: number;
@@ -67,6 +80,7 @@ export interface SheetNode {
   layout: SheetLayout;
   rows: RowNode[];
   columns: ColumnNode[];
+  views: SheetView[];
 }
 
 export type DiagnosticLevel = "warning" | "error";
@@ -114,6 +128,13 @@ export interface CelloSheetSourceLocation {
   sheetSpan: CelloSourceSpan;
   rows: CelloRowSourceLocation[];
   defaults?: CelloRowSourceLocation;
+  views: Array<{
+    name: string;
+    line: number;
+    lineSpan: CelloSourceSpan;
+    nameSpan: CelloSourceSpan;
+    cells: CelloCellSourceLocation[];
+  }>;
   externalSources: Array<{
     path: string;
     line: number;

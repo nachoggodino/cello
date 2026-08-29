@@ -73,7 +73,7 @@ export function assertRenderShape(actual: string, workbook: WorkbookAst): void {
   const expectedCoordinateHeaders = workbook.sheets.reduce((count, sheet) => count + 1 + getSheetColumnCount(sheet), 0);
   const expectedRowHeaders = expectedRows.length;
   const expectedHeaderCells = expectedRows.filter((row) => row.kind === "header").flatMap((row) => visibleCells(row.cells)).length;
-  expect(countTag(actual, "button")).toBe(workbook.sheets.length);
+  expect(countClass(actual, "cello-tab")).toBe(workbook.sheets.length);
   expect(countTag(actual, "section")).toBe(workbook.sheets.length);
   expect(countTag(actual, "table")).toBe(workbook.sheets.length);
   expect(countTag(actual, "tr")).toBe(expectedRows.length + workbook.sheets.length);
@@ -106,6 +106,11 @@ function extractWorkbookViewHtml(fullDocumentHtml: string): string {
 
 function countTag(html: string, tagName: string): number {
   const matches = html.match(new RegExp(`<${tagName}\\b`, "g"));
+  return matches?.length ?? 0;
+}
+
+function countClass(html: string, className: string): number {
+  const matches = html.match(new RegExp(`class="[^"]*\\b${className}\\b`, "g"));
   return matches?.length ?? 0;
 }
 

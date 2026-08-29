@@ -137,7 +137,7 @@ describe("editor core", () => {
   });
 
   it("creates a blank sheet for empty source", () => {
-    expect(createEditorWorkbook("").sheets).toEqual([{ name: "Sheet1", format: { kind: "cello" }, layout: {}, rows: [], defaults: [] }]);
+    expect(createEditorWorkbook("").sheets).toEqual([{ name: "Sheet1", format: { kind: "cello" }, layout: {}, rows: [], defaults: [], views: [] }]);
   });
 
   it("uses host-provided parse options for anonymous sheets and external sources", () => {
@@ -290,7 +290,7 @@ describe("editor core", () => {
     const renamed = renameSheet(workbook, 0, "  New[Name] ");
     const unchanged = renameSheet(workbook, 0, "   ");
     const invalidName: EditorWorkbook = {
-      sheets: [{ name: "[]", format: { kind: "cello" }, rows: [], defaults: [] }]
+      sheets: [{ name: "[]", format: { kind: "cello" }, rows: [], defaults: [], views: [] }]
     };
 
     expect(renamed.sheets[0]?.name).toBe("New[Name]");
@@ -628,6 +628,20 @@ describe("editor core", () => {
 
     expect(result.ok).toBe(true);
     expect(result.ok ? result.source : "").toBe("| Ada |\r\n|  |\r\n| Bob |\r\n");
+  });
+
+  it("keeps saved view rules aligned when inserting a column", () => {
+    const source = "@sheet Sales\n@view Madrid | @where mad | @sort asc |\n| Madrid | 120 |";
+    const result = executeEditorCommand(createEditorDocument(source), {
+      type: "add-column",
+      sheetIndex: 0,
+      afterColIndex: 0
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.source : "").toBe(
+      "@sheet Sales\n@view Madrid | @where mad |  | @sort asc |\n| Madrid |  | 120 |"
+    );
   });
 
   it("preserves anonymous source when adding a sheet", () => {

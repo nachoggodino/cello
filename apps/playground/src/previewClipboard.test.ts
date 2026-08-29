@@ -78,4 +78,19 @@ describe("preview clipboard", () => {
     expect(payload?.html).toContain("width:100px");
     expect(payload?.html).toContain("width:120px");
   });
+
+  it("copies only rows visible through the active table view", () => {
+    const payload = buildActiveSheetClipboardPayloadFromHtml(`
+      <section class="cello-sheet active" data-sheet="Report">
+        <table><tbody>
+          <tr><th class="cello-row-index">1</th><td>Madrid</td><td>120</td></tr>
+          <tr hidden><th class="cello-row-index">2</th><td>Bilbao</td><td>80</td></tr>
+        </tbody></table>
+      </section>
+    `);
+
+    expect(payload?.plainText).toBe("Madrid\t120");
+    expect(payload?.html).toContain("Madrid");
+    expect(payload?.html).not.toContain("Bilbao");
+  });
 });

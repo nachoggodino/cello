@@ -14,7 +14,8 @@ interface TokenRule {
 
 const tokenRules: readonly TokenRule[] = [
   { pattern: /\s*\/\/.*$/, token: "comment", startOfLine: true },
-  { pattern: /\s*@(sheet|header|defaults|tone|width|height)\b/, token: "keyword", startOfLine: true },
+  { pattern: /\s*@(sheet|header|defaults|view|tone|width|height)\b/, token: "keyword", startOfLine: true },
+  { pattern: /@(where|sort)\b/, token: "keyword" },
   { pattern: /\s*->/, token: "operator", startOfLine: true },
   { pattern: /"(?:[^"\\]|\\.)*"/, token: "string" },
   { pattern: /\[[^\]]+\]/, token: "attribute" },

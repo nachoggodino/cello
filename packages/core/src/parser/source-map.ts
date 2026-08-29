@@ -61,6 +61,27 @@ export class CelloSourceMapBuilder {
     });
   }
 
+  addView(sheetIndex: number, format: SheetFormat, line: CelloSourceLine | undefined, name: string, cellCount: number): void {
+    if (!line) return;
+    const sheet = this.ensureSheet(sheetIndex, format);
+    this.touchSheet(sheetIndex, format, line);
+    const marker = line.text.match(/^(\s*)@view\s+/);
+    const nameStartInLine = marker?.[0].length ?? line.text.length;
+    const firstPipe = line.text.indexOf("|", nameStartInLine);
+    const rawName = line.text.slice(nameStartInLine, firstPipe < 0 ? line.text.length : firstPipe);
+    const modifierStart = rawName.indexOf("[");
+    const nameSource = modifierStart < 0 ? rawName : rawName.slice(0, modifierStart);
+    const leading = nameSource.match(/^\s*/)?.[0].length ?? 0;
+    const nameStart = line.start + nameStartInLine + leading;
+    sheet.views.push({
+      name,
+      line: line.line,
+      lineSpan: { start: line.start, end: line.end },
+      nameSpan: { start: nameStart, end: nameStart + nameSource.trim().length },
+      cells: getCellLocations(line, { cellCount, defaultColumns: [] }, undefined)
+    });
+  }
+
   addNativeRow(
     sheetIndex: number,
     format: SheetFormat,
@@ -119,6 +140,7 @@ function createDeclaredSheet(line: CelloSourceLine, format: SheetFormat): CelloS
     },
     sheetSpan: { start: line.start, end: line.end },
     rows: [],
+    views: [],
     externalSources: [],
     editable: format.kind === "cello",
     format
@@ -129,6 +151,7 @@ function createImplicitSheet(format: SheetFormat): CelloSheetSourceLocation {
   return {
     sheetSpan: { start: 0, end: 0 },
     rows: [],
+    views: [],
     externalSources: [],
     editable: format.kind === "cello",
     format

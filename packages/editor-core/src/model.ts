@@ -9,7 +9,9 @@ import type {
   Diagnostic,
   Modifier,
   SheetFormat,
-  SheetLayout
+  SheetLayout,
+  SheetView,
+  ViewColumnRule
 } from "../../core/src/index.js";
 
 export interface EditorCell {
@@ -30,6 +32,13 @@ export interface EditorSheet {
   externalSource?: EditorExternalSource;
   rows: EditorRow[];
   defaults: EditorCell[];
+  views: SheetView[];
+}
+
+export interface SheetTableViewState {
+  enabled: boolean;
+  columns: ViewColumnRule[];
+  selectedSavedView?: string;
 }
 
 export interface EditorWorkbook {

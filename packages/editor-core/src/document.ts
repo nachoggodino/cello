@@ -22,7 +22,8 @@ import {
   emitEditorRow,
   emitEditorSheet,
   emitEditorSheetDeclaration,
-  emitEditorSheetName
+  emitEditorSheetName,
+  emitEditorView
 } from "./syntax-emitter.js";
 import { createEditorWorkbookFromAst } from "./workbook.js";
 import {
@@ -35,6 +36,7 @@ import {
   rowsEqual,
   sheetEqual,
   sheetLayoutsEqual,
+  viewsEqual,
   sheetsEqual
 } from "./equality.js";
 import { formatChangedSource } from "./layout-scope.js";
@@ -197,6 +199,10 @@ function buildWorkbookPatches(
     }
     patches.push(...defaultsPatches);
 
+    const viewPatches = patchViews(document.source, sourceSheet, currentSheet, nextSheet);
+    if (!Array.isArray(viewPatches)) return viewPatches;
+    patches.push(...viewPatches);
+
     const rowPatches = patchRows(document.source, sourceSheet, currentSheet, nextSheet);
     if (!Array.isArray(rowPatches)) {
       return rowPatches;
@@ -205,6 +211,32 @@ function buildWorkbookPatches(
   }
 
   return patches;
+}
+
+function patchViews(
+  source: string,
+  sourceSheet: EditorSheetSourceLocation,
+  current: EditorSheet,
+  next: EditorSheet
+): Patch[] | Pick<EditorCommandFailure, "reason" | "message"> {
+  if (viewsEqual(current.views, next.views)) return [];
+  if (current.views.length === next.views.length && sourceSheet.views.length === current.views.length) {
+    const patches: Patch[] = [];
+    for (const [index, view] of next.views.entries()) {
+      const currentView = current.views[index];
+      const sourceView = sourceSheet.views[index];
+      if (!currentView || !sourceView || viewsEqual([currentView], [view])) continue;
+      patches.push({ span: sourceView.lineSpan, text: emitEditorView(view) });
+    }
+    return patches;
+  }
+  if (current.views.length === 0 && next.views.length > 0) {
+    const anchor = sourceSheet.declaration;
+    if (!anchor) return { reason: "stale-source-map", message: "A saved view cannot be inserted without a mapped sheet declaration." };
+    const emitted = next.views.map(emitEditorView).join(getSourceLineEnding(source));
+    return [{ span: { start: anchor.lineSpan.end, end: anchor.lineSpan.end }, text: `${getSourceLineEnding(source)}${emitted}` }];
+  }
+  return { reason: "unsupported-source-region", message: "This saved-view change cannot be source-preserved yet." };
 }
 
 function patchSheetDeclaration(
@@ -428,6 +460,7 @@ function createImplicitSheet(): EditorSheetSourceLocation {
   return {
     sheetSpan: { start: 0, end: 0 },
     rows: [],
+    views: [],
     externalSources: [],
     editable: true,
     format: { kind: "cello" }
